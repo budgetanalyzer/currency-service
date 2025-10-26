@@ -129,16 +129,27 @@ public class ExchangeRateController {
         endDate.orElse(null),
         targetCurrency);
 
-    var response =
-        ExchangeRateResponse.builder()
-            .baseCurrency(Currency.getInstance("USD"))
-            .targetCurrency(Currency.getInstance("THB"))
-            .date(LocalDate.of(2024, 01, 01))
-            .rate(new BigDecimal("32.68"))
-            .build();
+    return buildExchangeRates();
+  }
 
+  private List<ExchangeRateResponse> buildExchangeRates() {
     var rv = new ArrayList<ExchangeRateResponse>();
-    rv.add(response);
+    var startDate = LocalDate.of(2020, 1, 1);
+    var endDate = LocalDate.of(2025, 10, 25);
+    var amount = new BigDecimal("32.68");
+
+    // Iterate through all dates in the range
+    for (var date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+      var response =
+          ExchangeRateResponse.builder()
+              .baseCurrency(Currency.getInstance("USD"))
+              .targetCurrency(Currency.getInstance("THB"))
+              .date(date)
+              .rate(amount)
+              .build();
+
+      rv.add(response);
+    }
 
     return rv;
   }

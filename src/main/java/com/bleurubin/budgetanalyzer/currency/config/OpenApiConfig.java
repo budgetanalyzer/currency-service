@@ -23,13 +23,16 @@ import org.springframework.http.HttpStatus;
 @OpenAPIDefinition(
     info =
         @Info(
-            title = "Currency Service API",
+            title = "Currency Service",
             version = "1.0",
             description = "API documentation for Currency Service resources",
             contact = @Contact(name = "Bleu Rubin", email = "support@bleurubin.com"),
             license = @License(name = "MIT", url = "https://opensource.org/licenses/MIT")),
     servers = {
-      @Server(url = "http://localhost:8084/currency-service", description = "Local environment"),
+      @Server(url = "http://localhost:8080/api", description = "Local environment (via gateway)"),
+      @Server(
+          url = "http://localhost:8082/currency-service",
+          description = "Local environment (direct)"),
       @Server(url = "https://api.bleurubin.com", description = "Production environment")
     },
     externalDocs =
