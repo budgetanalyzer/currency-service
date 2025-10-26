@@ -1,0 +1,87 @@
+server:
+  servlet:
+    context-path: /currency-service
+  port: 8084
+
+logging:
+  level:
+    root: WARN
+    com.bleurubin: TRACE
+
+spring:
+  application:
+    name: currency-service
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      indent-output: true           # Pretty print JSON
+    date-format: com.fasterxml.jackson.databind.util.StdDateFormat
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/budget_analyzer
+    username: budget_analyzer
+    password: budget_analyzer
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate  # use 'validate' or 'none' in production
+    show-sql: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+budget-analyzer:
+
+  # ==================================================================
+  #  I wasn't sure if this was bank-config-map or csv-config-map;
+  #  Capital One has different formats for different accounts,
+  #  Bangkok Bank can support accounts with different currencies.
+  #
+  #  Banks can always change formats for future versions, so this
+  #  configuration represents the configuration for a specific
+  #  csv version from a specific bank.  If a bank changes the version,
+  #  create an entry like capital-one-v2 and make the changes.
+  # ==================================================================
+  csv-config-map:
+    capital-one:
+      bank-name: "Capital One"
+      default-currency-iso-code: "USD"
+      credit-header: "Transaction Amount"
+      debit-header: "Transaction Amount"
+      date-header: "Transaction Date"
+      date-format: "MM/dd/uu"
+      description-header: "Transaction Description"
+      type-header: "Transaction Type"
+    bkk-bank:
+      bank-name: "Bangkok Bank"
+      default-currency-iso-code: "THB"
+      credit-header: "Credit"
+      date-header: "Date"
+      date-format: "d MMM uuuu HH:mm"
+      debit-header:  "Debit"
+      description-header: "Description"
+    bkk-bank-statement:
+      bank-name: "Bangkok Bank"
+      default-currency-iso-code: "THB"
+      credit-header: "Deposit"
+      date-header: "Date"
+      date-format: "dd/MM/yy"
+      debit-header: "Withdrawal"
+      description-header: "Particulars"
+    truist:
+      bank-name: "Truist"
+      default-currency-iso-code: "USD"
+      credit-header: "Amount"
+      date-header: "Transaction Date"
+      date-format: "MM/dd/uuuu"
+      debit-header: "Amount"
+      description-header: "Description"
+      type-header: "Transaction Type"
+
+

@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: currency-service-postgres-container
+    restart: always
+    environment:
+      POSTGRES_USER: budget_analyzer
+      POSTGRES_PASSWORD: budget_analyzer
+      POSTGRES_DB: budget_analyzer
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+
