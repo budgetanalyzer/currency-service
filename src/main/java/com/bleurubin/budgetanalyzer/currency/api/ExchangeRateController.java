@@ -1,7 +1,7 @@
 package com.bleurubin.budgetanalyzer.currency.api;
 
-import com.bleurubin.budgetanalyzer.currency.api.response.ApiErrorResponse;
 import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateResponse;
+import com.bleurubin.service.api.ApiErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;

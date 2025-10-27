@@ -16,6 +16,7 @@ java {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
@@ -29,6 +30,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
     implementation("com.opencsv:opencsv:3.7")
+    implementation("com.bleurubin:service-common:0.0.1-SNAPSHOT")
 
     runtimeOnly("org.postgresql:postgresql")
 
