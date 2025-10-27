@@ -1,7 +1,5 @@
 package com.bleurubin.budgetanalyzer.currency.config;
 
-import java.time.Instant;
-
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +19,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 
 import com.bleurubin.service.api.ApiErrorResponse;
+import com.bleurubin.service.api.ApiErrorType;
 
 @Configuration
 @OpenAPIDefinition(
@@ -84,33 +83,34 @@ public class OpenApiConfig {
   }
 
   private void addBadRequestResponse(Operation operation) {
-    operation.getResponses().addApiResponse("400", buildApiErrorResponse(HttpStatus.BAD_REQUEST));
+    operation
+        .getResponses()
+        .addApiResponse("400", buildExampleApiErrorResponse(HttpStatus.BAD_REQUEST));
   }
 
   private void addNotFoundResponse(Operation operation) {
-    operation.getResponses().addApiResponse("404", buildApiErrorResponse(HttpStatus.NOT_FOUND));
+    operation
+        .getResponses()
+        .addApiResponse("404", buildExampleApiErrorResponse(HttpStatus.NOT_FOUND));
   }
 
   private void addInternalServerErrorResponse(Operation operation) {
     operation
         .getResponses()
-        .addApiResponse("500", buildApiErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR));
+        .addApiResponse("500", buildExampleApiErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR));
   }
 
   private void addServiceUnavailableResponse(Operation operation) {
     operation
         .getResponses()
-        .addApiResponse("503", buildApiErrorResponse(HttpStatus.SERVICE_UNAVAILABLE));
+        .addApiResponse("503", buildExampleApiErrorResponse(HttpStatus.SERVICE_UNAVAILABLE));
   }
 
-  private ApiResponse buildApiErrorResponse(HttpStatus httpStatus) {
-    ApiErrorResponse exampleResponse =
+  private ApiResponse buildExampleApiErrorResponse(HttpStatus httpStatus) {
+    var exampleResponse =
         ApiErrorResponse.builder()
-            .type(httpStatus.name().toLowerCase())
-            .title(httpStatus.getReasonPhrase())
-            .status(httpStatus.value())
-            .instance("/currency-service/rates")
-            .timestamp(Instant.now())
+            .type(getTypeFromHttpStatus(httpStatus))
+            .message(httpStatus.getReasonPhrase())
             .build();
 
     return new ApiResponse()
@@ -122,5 +122,14 @@ public class OpenApiConfig {
                     new MediaType()
                         .schema(new Schema<>().$ref("#/components/schemas/ApiErrorResponse"))
                         .example(exampleResponse)));
+  }
+
+  private ApiErrorType getTypeFromHttpStatus(HttpStatus httpStatus) {
+    return switch (httpStatus) {
+      case HttpStatus.BAD_REQUEST -> ApiErrorType.INVALID_REQUEST;
+      case HttpStatus.NOT_FOUND -> ApiErrorType.NOT_FOUND;
+      case HttpStatus.SERVICE_UNAVAILABLE -> ApiErrorType.SERVICE_UNAVAILABLE;
+      default -> ApiErrorType.INTERNAL_ERROR;
+    };
   }
 }

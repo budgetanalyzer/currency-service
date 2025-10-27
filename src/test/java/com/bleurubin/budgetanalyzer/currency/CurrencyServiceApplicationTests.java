@@ -1,4 +1,4 @@
-package com.bleurubin.budgetanalyzer;
+package com.bleurubin.budgetanalyzer.currency;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

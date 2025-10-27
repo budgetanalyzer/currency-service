@@ -1,6 +1,5 @@
 package com.bleurubin.budgetanalyzer.currency.api;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -31,6 +30,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateResponse;
 import com.bleurubin.service.api.ApiErrorResponse;
+import com.bleurubin.service.exception.InvalidRequestException;
 
 @Tag(name = "Exchange Rates Handler", description = "Endpoints for operations on exchange rates")
 @RestController
@@ -80,8 +80,7 @@ public class ExchangeRateController {
           @RequestParam(value = "targetCurrency", defaultValue = "THB")
           Currency targetCurrency,
       @Parameter(description = "CSV file to upload", required = true) @NotNull @RequestParam("file")
-          MultipartFile file)
-      throws IOException {
+          MultipartFile file) {
     log.info(
         "Received importExchangeRates request baseCurrency: {} targetCurrency: {} fileName: {}",
         baseCurrency,
@@ -90,7 +89,7 @@ public class ExchangeRateController {
 
     if (file.isEmpty()) {
       log.warn("No file provided");
-      throw new IllegalArgumentException("No file provided");
+      throw new InvalidRequestException("No file provided");
     }
 
     return null;
