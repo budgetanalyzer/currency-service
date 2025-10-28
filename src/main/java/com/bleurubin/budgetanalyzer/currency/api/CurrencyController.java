@@ -22,10 +22,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RequestMapping(path = "/currencies")
 public class CurrencyController {
 
+  private static final Logger log = LoggerFactory.getLogger(CurrencyController.class);
   private static final List<Currency> SUPPORTED_CURRENCIES =
       List.of(Currency.getInstance("USD"), Currency.getInstance("THB"));
-
-  private final Logger log = LoggerFactory.getLogger(this.getClass());
 
   @Operation(
       summary = "Get supported currencies",

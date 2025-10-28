@@ -37,9 +37,8 @@ import com.bleurubin.service.exception.InvalidRequestException;
 @RequestMapping(path = "/exchange-rates")
 public class ExchangeRateController {
 
+  private static final Logger log = LoggerFactory.getLogger(ExchangeRateController.class);
   private static final Currency DEFAULT_BASE_CURRENCY = Currency.getInstance("USD");
-
-  private final Logger log = LoggerFactory.getLogger(this.getClass());
 
   @Operation(
       summary = "Import CSV file containing USD exchange rate series from FRED",
