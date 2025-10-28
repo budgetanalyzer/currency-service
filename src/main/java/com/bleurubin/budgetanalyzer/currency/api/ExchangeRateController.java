@@ -23,6 +23,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -48,7 +49,6 @@ public class ExchangeRateController {
       value = {
         @ApiResponse(
             responseCode = "200",
-            description = "Exchange rates imported successfully",
             content =
                 @Content(
                     mediaType = "application/json",
@@ -57,12 +57,23 @@ public class ExchangeRateController {
                             schema = @Schema(implementation = ExchangeRateResponse.class)))),
         @ApiResponse(
             responseCode = "422",
-            description =
-                "Request was correctly formatted but there were business rules violated by the request so it couldn't be processed",
             content =
                 @Content(
                     mediaType = "application/json",
-                    schema = @Schema(implementation = ApiErrorResponse.class)))
+                    schema = @Schema(implementation = ApiErrorResponse.class),
+                    examples = {
+                      @ExampleObject(
+                          name = "CSV Parsing Error",
+                          summary = "Invalid value found in csv file",
+                          value =
+                              """
+        {
+          "type": "APPLICATION_ERROR",
+          "message": "Invalid value in csv file",
+          "code": "CSV_PARSING_ERROR"
+        }
+        """)
+                    }))
       })
   @PostMapping(path = "/import", consumes = "multipart/form-data", produces = "application/json")
   public List<ExchangeRateResponse> importExchangeRates(

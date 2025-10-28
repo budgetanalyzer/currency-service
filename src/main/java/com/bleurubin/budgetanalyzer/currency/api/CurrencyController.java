@@ -33,7 +33,6 @@ public class CurrencyController {
       value = {
         @ApiResponse(
             responseCode = "200",
-            description = "List of currencies",
             content =
                 @Content(
                     mediaType = "application/json",
