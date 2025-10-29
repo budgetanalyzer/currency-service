@@ -1,8 +1,6 @@
 package com.bleurubin.budgetanalyzer.currency.api;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
@@ -30,8 +28,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateResponse;
+import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
+import com.bleurubin.budgetanalyzer.currency.service.CsvService;
+import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateService;
 import com.bleurubin.service.api.ApiErrorResponse;
-import com.bleurubin.service.exception.InvalidRequestException;
 
 @Tag(name = "Exchange Rates Handler", description = "Endpoints for operations on exchange rates")
 @RestController
@@ -39,7 +39,15 @@ import com.bleurubin.service.exception.InvalidRequestException;
 public class ExchangeRateController {
 
   private static final Logger log = LoggerFactory.getLogger(ExchangeRateController.class);
-  private static final Currency DEFAULT_BASE_CURRENCY = Currency.getInstance("USD");
+
+  private final CsvService csvService;
+
+  private final ExchangeRateService exchangeRateService;
+
+  public ExchangeRateController(CsvService csvService, ExchangeRateService exchangeRateService) {
+    this.csvService = csvService;
+    this.exchangeRateService = exchangeRateService;
+  }
 
   @Operation(
       summary = "Import CSV file containing USD exchange rate series from FRED",
@@ -76,12 +84,7 @@ public class ExchangeRateController {
                     }))
       })
   @PostMapping(path = "/import", consumes = "multipart/form-data", produces = "application/json")
-  public List<ExchangeRateResponse> importExchangeRates(
-      @Parameter(
-              description = "Base currency for exchange rate series.  Currently only supports USD.",
-              example = "USD")
-          @RequestParam(value = "baseCurrency", required = false, defaultValue = "USD")
-          Currency baseCurrency,
+  public List<ExchangeRate> importExchangeRates(
       @Parameter(
               description =
                   "Target currency for exchange rate series.  Currently only supports THB.",
@@ -92,17 +95,11 @@ public class ExchangeRateController {
       @Parameter(description = "CSV file to upload", required = true) @NotNull @RequestParam("file")
           MultipartFile file) {
     log.info(
-        "Received importExchangeRates request baseCurrency: {} targetCurrency: {} fileName: {}",
-        baseCurrency,
+        "Received importExchangeRates request targetCurrency: {} fileName: {}",
         targetCurrency,
         file.getOriginalFilename());
 
-    if (file.isEmpty()) {
-      log.warn("No file provided");
-      throw new InvalidRequestException("No file provided");
-    }
-
-    return null;
+    return csvService.importExchangeRates(file, targetCurrency);
   }
 
   @Operation(
@@ -112,7 +109,6 @@ public class ExchangeRateController {
       value = {
         @ApiResponse(
             responseCode = "200",
-            description = "List of exchange rates",
             content =
                 @Content(
                     mediaType = "application/json",
@@ -121,15 +117,15 @@ public class ExchangeRateController {
                             schema = @Schema(implementation = ExchangeRateResponse.class)))),
       })
   @GetMapping(path = "", produces = "application/json")
-  public List<ExchangeRateResponse> getTransactions(
+  public List<ExchangeRateResponse> getExchangeRates(
       @Parameter(
               description = "Start date for exchange rates in ISO format",
               example = "2024-01-01")
-          @RequestParam(required = false)
+          @RequestParam
           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           Optional<LocalDate> startDate,
       @Parameter(description = "End date for exchange rates in ISO format", example = "2024-12-31")
-          @RequestParam(required = false)
+          @RequestParam
           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           Optional<LocalDate> endDate,
       @Parameter(description = "Target currency of exchange rate", example = "THB")
@@ -142,28 +138,10 @@ public class ExchangeRateController {
         endDate.orElse(null),
         targetCurrency);
 
-    return buildExchangeRates();
-  }
+    var exchangeRates =
+        exchangeRateService.getExchangeRates(
+            targetCurrency, startDate.orElse(null), endDate.orElse(null));
 
-  private List<ExchangeRateResponse> buildExchangeRates() {
-    var rv = new ArrayList<ExchangeRateResponse>();
-    var startDate = LocalDate.of(2020, 1, 1);
-    var endDate = LocalDate.of(2025, 10, 25);
-    var amount = new BigDecimal("32.68");
-
-    // Iterate through all dates in the range
-    for (var date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
-      var response =
-          ExchangeRateResponse.builder()
-              .baseCurrency(Currency.getInstance("USD"))
-              .targetCurrency(Currency.getInstance("THB"))
-              .date(date)
-              .rate(amount)
-              .build();
-
-      rv.add(response);
-    }
-
-    return rv;
+    return exchangeRates.stream().map(ExchangeRateResponse::from).toList();
   }
 }

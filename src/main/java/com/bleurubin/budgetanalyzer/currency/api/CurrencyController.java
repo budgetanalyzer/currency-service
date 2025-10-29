@@ -23,6 +23,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class CurrencyController {
 
   private static final Logger log = LoggerFactory.getLogger(CurrencyController.class);
+
   private static final List<Currency> SUPPORTED_CURRENCIES =
       List.of(Currency.getInstance("USD"), Currency.getInstance("THB"));
 
