@@ -40,13 +40,13 @@ public class ExchangeRateController {
 
   private static final Logger log = LoggerFactory.getLogger(ExchangeRateController.class);
 
-  private final ExchangeRateImportService csvService;
+  private final ExchangeRateImportService exchangeRateImportService;
 
   private final ExchangeRateService exchangeRateService;
 
   public ExchangeRateController(
       ExchangeRateImportService csvService, ExchangeRateService exchangeRateService) {
-    this.csvService = csvService;
+    this.exchangeRateImportService = csvService;
     this.exchangeRateService = exchangeRateService;
   }
 
@@ -100,7 +100,7 @@ public class ExchangeRateController {
         targetCurrency,
         file.getOriginalFilename());
 
-    return csvService.importExchangeRates(file, targetCurrency);
+    return exchangeRateImportService.importExchangeRates(file, targetCurrency);
   }
 
   @Operation(
