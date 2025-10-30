@@ -10,7 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
 import com.bleurubin.service.exception.BusinessException;
 
-public interface CsvService {
+public interface ExchangeRateImportService {
 
   List<ExchangeRate> importExchangeRates(
       InputStream inputStream, String fileName, Currency targetCurrency);

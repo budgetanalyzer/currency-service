@@ -12,17 +12,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
-import com.bleurubin.budgetanalyzer.currency.service.CsvService;
 import com.bleurubin.budgetanalyzer.currency.service.CurrencyServiceError;
+import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateImportService;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateService;
 import com.bleurubin.core.csv.CsvData;
 import com.bleurubin.core.csv.CsvParser;
 import com.bleurubin.service.exception.BusinessException;
 
 @Service
-public class CsvServiceImpl implements CsvService {
+public class ExchangeRateImportServiceImpl implements ExchangeRateImportService {
 
-  private static final Logger log = LoggerFactory.getLogger(CsvServiceImpl.class);
+  private static final Logger log = LoggerFactory.getLogger(ExchangeRateImportServiceImpl.class);
 
   private static final Currency DEFAULT_BASE_CURRENCY = Currency.getInstance("USD");
 
@@ -34,7 +34,8 @@ public class CsvServiceImpl implements CsvService {
 
   private final ExchangeRateService exchangeRateService;
 
-  public CsvServiceImpl(CsvParser csvParser, ExchangeRateService exchangeRateService) {
+  public ExchangeRateImportServiceImpl(
+      CsvParser csvParser, ExchangeRateService exchangeRateService) {
     this.csvParser = csvParser;
     this.exchangeRateService = exchangeRateService;
     this.exchangeRateMapper = new CsvExchangeRateMapper();

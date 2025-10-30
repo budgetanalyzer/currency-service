@@ -29,7 +29,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateResponse;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
-import com.bleurubin.budgetanalyzer.currency.service.CsvService;
+import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateImportService;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateService;
 import com.bleurubin.service.api.ApiErrorResponse;
 
@@ -40,11 +40,12 @@ public class ExchangeRateController {
 
   private static final Logger log = LoggerFactory.getLogger(ExchangeRateController.class);
 
-  private final CsvService csvService;
+  private final ExchangeRateImportService csvService;
 
   private final ExchangeRateService exchangeRateService;
 
-  public ExchangeRateController(CsvService csvService, ExchangeRateService exchangeRateService) {
+  public ExchangeRateController(
+      ExchangeRateImportService csvService, ExchangeRateService exchangeRateService) {
     this.csvService = csvService;
     this.exchangeRateService = exchangeRateService;
   }
