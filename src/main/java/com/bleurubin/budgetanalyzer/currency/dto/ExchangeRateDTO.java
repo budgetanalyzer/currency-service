@@ -12,9 +12,9 @@ public record ExchangeRateDTO(
     Currency targetCurrency,
     LocalDate date,
     BigDecimal rate,
-    LocalDate actualRateDate) {
+    LocalDate publishedDate) {
 
-  public static ExchangeRateDTO fromEntity(ExchangeRate e, LocalDate date) {
+  public static ExchangeRateDTO from(ExchangeRate e, LocalDate date) {
     return new ExchangeRateDTO(
         e.getBaseCurrency(), e.getTargetCurrency(), date, e.getRate(), e.getDate());
   }
@@ -24,10 +24,6 @@ public record ExchangeRateDTO(
     Objects.requireNonNull(targetCurrency, "targetCurrency cannot be null");
     Objects.requireNonNull(date, "date cannot be null");
     Objects.requireNonNull(rate, "rate cannot be null");
-    Objects.requireNonNull(actualRateDate, "actualRateDate cannot be null");
-  }
-
-  public boolean isInferredRate() {
-    return !date.equals(actualRateDate);
+    Objects.requireNonNull(publishedDate, "publishedDate cannot be null");
   }
 }

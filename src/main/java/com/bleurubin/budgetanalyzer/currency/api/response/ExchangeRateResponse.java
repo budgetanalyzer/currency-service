@@ -8,7 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateDTO;
 
-@Schema(description = "Exchange rate ")
+@Schema(description = "Exchange rate response")
 public record ExchangeRateResponse(
     @Schema(
             description = "Base currency for conversion (currently only USD supported)",
@@ -23,7 +23,7 @@ public record ExchangeRateResponse(
     @Schema(
             description = "Date for the given rate",
             requiredMode = Schema.RequiredMode.REQUIRED,
-            example = "32.68")
+            example = "2025-11-02")
         LocalDate date,
     @Schema(
             description = "Exchange rate for the given date",
@@ -32,13 +32,13 @@ public record ExchangeRateResponse(
         BigDecimal rate,
     @Schema(
             description =
-                "There was no exchange rate for the given date so it was inferred from the last previous date that had a rate",
+                "Date the exchange rate was published.  FRED doesn't publish rates for weekends and holidays, so we use the nearest previously published rate",
             requiredMode = Schema.RequiredMode.REQUIRED,
-            example = "true")
-        boolean inferred) {
+            example = "2025-10-31")
+        LocalDate publishedDate) {
 
   public static ExchangeRateResponse from(ExchangeRateDTO dto) {
     return new ExchangeRateResponse(
-        dto.baseCurrency(), dto.targetCurrency(), dto.date(), dto.rate(), dto.isInferredRate());
+        dto.baseCurrency(), dto.targetCurrency(), dto.date(), dto.rate(), dto.publishedDate());
   }
 }
