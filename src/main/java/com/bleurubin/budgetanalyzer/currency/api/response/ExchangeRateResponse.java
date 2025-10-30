@@ -2,7 +2,6 @@ package com.bleurubin.budgetanalyzer.currency.api.response;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Currency;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -14,12 +13,12 @@ public record ExchangeRateResponse(
             description = "Base currency for conversion (currently only USD supported)",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "USD")
-        Currency baseCurrency,
+        String baseCurrency,
     @Schema(
             description = "Target currency for conversion (currently only THB supported)",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "THB")
-        Currency targetCurrency,
+        String targetCurrency,
     @Schema(
             description = "Date for the given rate",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -39,6 +38,10 @@ public record ExchangeRateResponse(
 
   public static ExchangeRateResponse from(ExchangeRateDTO dto) {
     return new ExchangeRateResponse(
-        dto.baseCurrency(), dto.targetCurrency(), dto.date(), dto.rate(), dto.publishedDate());
+        dto.baseCurrency().getCurrencyCode(),
+        dto.targetCurrency().getCurrencyCode(),
+        dto.date(),
+        dto.rate(),
+        dto.publishedDate());
   }
 }
