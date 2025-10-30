@@ -25,7 +25,7 @@ spring:
     date-format: com.fasterxml.jackson.databind.util.StdDateFormat
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/budget_analyzer
+    url: jdbc:postgresql://localhost:5432/currency
     username: budget_analyzer
     password: budget_analyzer
     driver-class-name: org.postgresql.Driver
