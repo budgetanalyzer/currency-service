@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Currency;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -31,9 +32,7 @@ public class ExchangeRate extends AuditableEntity {
 
   @NotNull private LocalDate date;
 
-  // date can be nullable in the csv file- store exactly what we found in the csv file and then
-  // generate responses for every single date and use business logic to find the previous non-null
-  // rate
+  @Column(precision = 38, scale = 4)
   private BigDecimal rate;
 
   public Long getId() {

@@ -25,8 +25,8 @@ public class CurrencyServiceStartupConfig {
 
   @EventListener(ApplicationReadyEvent.class)
   public void onStartup() {
-    importIfNeeded();
     logConfiguration();
+    importIfNeeded();
   }
 
   private void importIfNeeded() {
@@ -44,8 +44,10 @@ public class CurrencyServiceStartupConfig {
 
     log.warn("No exchange rate data found - triggering initial import");
     try {
-      exchangeRateImportService.importLatestExchangeRates();
-      log.info("Successfully completed startup exchange rate import");
+      var importResult = exchangeRateImportService.importLatestExchangeRates();
+      log.info(
+          "Successfully completed startup exchange rate import: {}",
+          JsonUtils.toJson(importResult));
     } catch (Exception e) {
       log.error("CRITICAL: failed to import exchange rates on startup, exiting...", e);
       throw new IllegalStateException(

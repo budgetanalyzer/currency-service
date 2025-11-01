@@ -14,6 +14,7 @@ import io.micrometer.core.instrument.Timer;
 
 import com.bleurubin.budgetanalyzer.currency.config.CurrencyServiceProperties;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateImportService;
+import com.bleurubin.core.util.JsonUtils;
 
 @Component
 public class ExchangeRateImportScheduler {
@@ -53,8 +54,11 @@ public class ExchangeRateImportScheduler {
     var sample = Timer.start(meterRegistry);
 
     try {
-      exchangeRateImportService.importLatestExchangeRates();
-      log.info("Successfully completed exchange rate import on attempt {}", attemptNumber);
+      var result = exchangeRateImportService.importLatestExchangeRates();
+      log.info(
+          "Successfully completed exchange rate import on attempt {} result: {}",
+          attemptNumber,
+          JsonUtils.toJson(result));
 
       recordSuccess(sample, attemptNumber);
     } catch (Exception e) {
@@ -90,6 +94,7 @@ public class ExchangeRateImportScheduler {
         .counter("exchange.rate.import.retry.scheduled", "attempt", String.valueOf(attemptNumber))
         .increment();
 
+    // schedule another attempt so we can track status as a separate job
     taskScheduler.schedule(
         () -> {
           log.info("Executing retry attempt {} (scheduled retry)", attemptNumber);

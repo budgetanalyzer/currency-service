@@ -13,12 +13,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bleurubin.budgetanalyzer.currency.client.FredClient;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
+import com.bleurubin.budgetanalyzer.currency.dto.ImportResult;
 import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import com.bleurubin.budgetanalyzer.currency.service.CurrencyServiceError;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateImportService;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateService;
 import com.bleurubin.core.csv.CsvData;
 import com.bleurubin.core.csv.CsvParser;
+import com.bleurubin.core.util.JsonUtils;
 import com.bleurubin.service.exception.BusinessException;
 import com.bleurubin.service.exception.ServiceException;
 import com.bleurubin.service.exception.ServiceUnavailableException;
@@ -67,21 +69,28 @@ public class ExchangeRateImportServiceImpl implements ExchangeRateImportService 
 
   @Override
   @Transactional
-  public List<ExchangeRate> importExchangeRates(
+  public ImportResult importExchangeRates(
       InputStream inputStream, String fileName, Currency targetCurrency) {
     try {
       log.info("Importing csv file: {} targetCurrency: {}", fileName, targetCurrency);
 
       var csvData = csvParser.parseCsvInputStream(inputStream, fileName, FRED_FORMAT);
-      var importedExchangeRates = createExchangeRates(csvData, targetCurrency);
+      var totalRows = csvData.rows().size();
+      var exchangeRates = buildExchangeRates(csvData, targetCurrency);
+      var skippedRows = totalRows - exchangeRates.size();
 
       log.info(
-          "Successfully imported: {} total exchangeRates fileName: {} targetCurrency {}",
-          importedExchangeRates.size(),
-          fileName,
-          targetCurrency);
+          "Parsed {} CSV rows: {} valid rates, {} skipped (missing rates)",
+          totalRows,
+          exchangeRates.size(),
+          skippedRows);
 
-      return importedExchangeRates;
+      if (exchangeRates.isEmpty()) {
+        log.warn("No valid exchange rates found in CSV");
+        return new ImportResult(totalRows, skippedRows, 0, 0, 0);
+      }
+
+      return saveExchangeRates(exchangeRates, totalRows, skippedRows);
     } catch (BusinessException businessException) {
       throw businessException;
     } catch (Exception e) {
@@ -94,7 +103,7 @@ public class ExchangeRateImportServiceImpl implements ExchangeRateImportService 
 
   @Override
   @Transactional
-  public List<ExchangeRate> importLatestExchangeRates() {
+  public ImportResult importLatestExchangeRates() {
     var startDate = determineStartDate();
     log.info("Importing exchange rates starting from: {}", startDate);
 
@@ -106,18 +115,6 @@ public class ExchangeRateImportServiceImpl implements ExchangeRateImportService 
     } catch (Exception e) {
       throw new ServiceUnavailableException("Error importing exchange rates: " + e.getMessage(), e);
     }
-  }
-
-  private List<ExchangeRate> createExchangeRates(CsvData csvData, Currency targetCurrency) {
-    // some rows in the FRED files have dates and no rates, mapper returns optional so we can filter
-    // those out
-    var exchangeRates =
-        csvData.rows().stream()
-            .map(csvRow -> exchangeRateMapper.map(csvRow, BASE_CURRENCY, targetCurrency))
-            .flatMap(Optional::stream)
-            .toList();
-
-    return exchangeRateService.createExchangeRates(exchangeRates);
   }
 
   private LocalDate determineStartDate() {
@@ -137,5 +134,48 @@ public class ExchangeRateImportServiceImpl implements ExchangeRateImportService 
     log.info("Last exchange rate date: {}, starting import from: {}", lastDate, nextDate);
 
     return nextDate;
+  }
+
+  private List<ExchangeRate> buildExchangeRates(CsvData csvData, Currency targetCurrency) {
+    // some rows in the FRED files have dates and no rates, mapper returns optional so we
+    // can filter those out
+    return csvData.rows().stream()
+        .map(csvRow -> exchangeRateMapper.map(csvRow, BASE_CURRENCY, targetCurrency))
+        .flatMap(Optional::stream)
+        .toList();
+  }
+
+  private ImportResult saveExchangeRates(
+      List<ExchangeRate> rates, int totalRows, int filteredRows) {
+    // if empty db call saveAll
+    var newCount = 0;
+    var updatedCount = 0;
+    var skippedCount = 0;
+
+    for (ExchangeRate rate : rates) {
+      var existing =
+          exchangeRateRepository.findByBaseCurrencyAndTargetCurrencyAndDate(
+              rate.getBaseCurrency(), rate.getTargetCurrency(), rate.getDate());
+
+      if (existing.isEmpty()) {
+        exchangeRateRepository.save(rate);
+        newCount++;
+      } else if (existing.get().getRate().compareTo(rate.getRate()) != 0) {
+        log.debug(
+            "Updating rate existing rate: {} new rate: {}",
+            JsonUtils.toJson(existing.get()),
+            JsonUtils.toJson(rate));
+
+        existing.get().setRate(rate.getRate());
+        exchangeRateRepository.save(existing.get());
+        updatedCount++;
+      } else {
+        skippedCount++;
+      }
+    }
+
+    log.info("Save complete: {} new, {} updated, {} skipped", newCount, updatedCount, skippedCount);
+
+    return new ImportResult(totalRows, filteredRows, newCount, updatedCount, skippedCount);
   }
 }
