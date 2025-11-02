@@ -61,7 +61,7 @@ public class ExchangeRateImportService {
 
       if (dateRateMap.isEmpty()) {
         log.warn("No exchange rates provided");
-        return new ImportResult(0, 0, 0, 0, 0);
+        return new ImportResult(0, 0, 0);
       }
 
       var exchangeRates = buildExchangeRates(dateRateMap, targetCurrency);
@@ -115,7 +115,6 @@ public class ExchangeRateImportService {
   }
 
   private ImportResult saveExchangeRates(List<ExchangeRate> rates, Currency targetCurrency) {
-    // if empty db call saveAll
     var newCount = 0;
     var updatedCount = 0;
     var skippedCount = 0;
@@ -126,6 +125,7 @@ public class ExchangeRateImportService {
             .findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc(BASE_CURRENCY, targetCurrency)
             .isEmpty();
 
+    // if empty database just saveAll nothing to compare to
     if (isInitialImport) {
       exchangeRateRepository.saveAll(rates);
       newCount = rates.size();
@@ -157,6 +157,6 @@ public class ExchangeRateImportService {
 
     log.info("Save complete: {} new, {} updated, {} skipped", newCount, updatedCount, skippedCount);
 
-    return new ImportResult(0, 0, newCount, updatedCount, skippedCount);
+    return new ImportResult(newCount, updatedCount, skippedCount);
   }
 }

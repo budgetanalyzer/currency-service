@@ -42,7 +42,7 @@ public class FredClient {
 
     var fredConfig = properties.getExchangeRateImport().getFred();
 
-    // TODO- validate all config in startup listener
+    // properties have @Validated but double checking
     if (fredConfig.getApiKey() == null || fredConfig.getApiKey().isBlank()) {
       throw new IllegalArgumentException("FRED API key must be configured");
     }

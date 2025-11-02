@@ -9,16 +9,6 @@ import com.bleurubin.budgetanalyzer.currency.dto.ImportResult;
 @Schema(description = "Import result response")
 public record ImportResultResponse(
     @Schema(
-            description = "Total rows parsed from the FRED series currency file",
-            requiredMode = Schema.RequiredMode.REQUIRED,
-            example = "10")
-        int totalRowsParsed,
-    @Schema(
-            description = "Number of rows skipped due to not having both a date and a rate field",
-            requiredMode = Schema.RequiredMode.REQUIRED,
-            example = "1")
-        int skippedRows,
-    @Schema(
             description = "Number of new exchange rates created",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "10")
@@ -43,8 +33,6 @@ public record ImportResultResponse(
 
   public static ImportResultResponse from(ImportResult importResult) {
     return new ImportResultResponse(
-        importResult.totalRowsParsed(),
-        importResult.skippedRows(),
         importResult.newRecords(),
         importResult.updatedRecords(),
         importResult.skippedRecords(),
