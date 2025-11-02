@@ -7,4 +7,5 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @EnableConfigurationProperties(CurrencyServiceProperties.class)
 @ComponentScan({"com.bleurubin.core.csv", "com.bleurubin.service.api"})
+@EnableConfigurationProperties(CurrencyServiceProperties.class)
 public class CurrencyServiceConfig {}
