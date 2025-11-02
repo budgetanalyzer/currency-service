@@ -10,7 +10,6 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
 import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateDTO;
@@ -22,19 +21,10 @@ import com.bleurubin.service.exception.ResourceNotFoundException;
 @Service
 public class ExchangeRateServiceImpl implements ExchangeRateService {
 
-  private static final Currency DEFAULT_BASE_CURRENCY = Currency.getInstance("USD");
-
   private final ExchangeRateRepository exchangeRateRepository;
 
   public ExchangeRateServiceImpl(ExchangeRateRepository exchangeRateRepository) {
     this.exchangeRateRepository = exchangeRateRepository;
-  }
-
-  @Override
-  @Transactional
-  public List<ExchangeRate> createExchangeRates(List<ExchangeRate> exchangeRates) {
-    // return raw Entity since this is from an import and we want to see createdAt, updatedAt, etc.
-    return exchangeRateRepository.saveAll(exchangeRates);
   }
 
   public List<ExchangeRateDTO> getExchangeRates(

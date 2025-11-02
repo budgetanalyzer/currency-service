@@ -1,6 +1,5 @@
 package com.bleurubin.budgetanalyzer.currency.api;
 
-import java.util.Currency;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -24,8 +23,7 @@ public class CurrencyController {
 
   private static final Logger log = LoggerFactory.getLogger(CurrencyController.class);
 
-  private static final List<Currency> SUPPORTED_CURRENCIES =
-      List.of(Currency.getInstance("USD"), Currency.getInstance("THB"));
+  private static final List<String> SUPPORTED_CURRENCIES = List.of("USD", "THB");
 
   @Operation(
       summary = "Get supported currencies",
@@ -37,10 +35,10 @@ public class CurrencyController {
             content =
                 @Content(
                     mediaType = "application/json",
-                    array = @ArraySchema(schema = @Schema(implementation = Currency.class)))),
+                    array = @ArraySchema(schema = @Schema(implementation = String.class)))),
       })
   @GetMapping(path = "", produces = "application/json")
-  public List<Currency> getSupportedCurrencies() {
+  public List<String> getSupportedCurrencies() {
     log.info("Received getSupportedCurrencies request");
     return SUPPORTED_CURRENCIES;
   }

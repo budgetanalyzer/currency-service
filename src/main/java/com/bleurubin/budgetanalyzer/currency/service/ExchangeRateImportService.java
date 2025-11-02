@@ -3,33 +3,24 @@ package com.bleurubin.budgetanalyzer.currency.service;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Currency;
-import java.util.List;
 
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
 
-import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
+import com.bleurubin.budgetanalyzer.currency.dto.ImportResult;
 import com.bleurubin.service.exception.BusinessException;
 
 public interface ExchangeRateImportService {
 
-  List<ExchangeRate> importExchangeRates(
+  boolean hasExchangeRateData();
+
+  ImportResult importExchangeRates(
       InputStream inputStream, String fileName, Currency targetCurrency);
 
-  default List<ExchangeRate> importExchangeRates(MultipartFile file, Currency targetCurrency) {
-    try (InputStream inputStream = file.getInputStream()) {
-      return importExchangeRates(inputStream, file.getOriginalFilename(), targetCurrency);
-    } catch (IOException e) {
-      throw new BusinessException(
-          "Failed to import exchange rates: " + e.getMessage(),
-          CurrencyServiceError.CSV_PARSING_ERROR.name(),
-          e);
-    }
-  }
+  ImportResult importLatestExchangeRates();
 
-  default List<ExchangeRate> importExchangeRatesFromResource(
-      String resourcePath, Currency targetCurrency) {
-    try (InputStream inputStream = getClass().getResourceAsStream(resourcePath)) {
-      return importExchangeRates(inputStream, resourcePath, targetCurrency);
+  default ImportResult importExchangeRatesFromResource(Resource resource, Currency targetCurrency) {
+    try (InputStream inputStream = resource.getInputStream()) {
+      return importExchangeRates(inputStream, resource.getFilename(), targetCurrency);
     } catch (IOException e) {
       throw new BusinessException(
           "Failed to import exchange rates: " + e.getMessage(),
