@@ -19,6 +19,4 @@ public interface ExchangeRateRepository
 
   Optional<ExchangeRate> findTopByTargetCurrencyAndDateLessThanOrderByDateDesc(
       Currency targetCurrency, LocalDate date);
-
-  Optional<ExchangeRate> findTopByOrderByDateDesc();
 }

@@ -1,5 +1,6 @@
 package com.bleurubin.budgetanalyzer.currency.service.impl;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -47,14 +48,6 @@ public class ExchangeRateImportServiceImpl implements ExchangeRateImportService 
   private final ExchangeRateRepository exchangeRateRepository;
   private final CsvParser csvParser;
   private final FredClient fredClient;
-  private final CsvExchangeRateMapper exchangeRateMapper = new CsvExchangeRateMapper();
-
-  private final ExchangeRateRepository exchangeRateRepository;
-
-  private final CsvParser csvParser;
-
-  private final FredClient fredClient;
-
   private final CsvExchangeRateMapper exchangeRateMapper = new CsvExchangeRateMapper();
 
   public ExchangeRateImportServiceImpl(
@@ -119,25 +112,6 @@ public class ExchangeRateImportServiceImpl implements ExchangeRateImportService 
     } catch (Exception e) {
       throw new ServiceUnavailableException("Error importing exchange rates: " + e.getMessage(), e);
     }
-  }
-
-  private LocalDate determineStartDate() {
-    // Get the most recent exchange rate date from database
-    var mostRecent = exchangeRateRepository.findTopByOrderByDateDesc();
-
-    if (mostRecent.isEmpty()) {
-      // Edge case 1: No data exists - import everything
-      log.info("No existing exchange rates found - importing full history");
-      return null;
-    }
-
-    // Normal case: Start from day after last stored rate
-    var lastDate = mostRecent.get().getDate();
-    var nextDate = lastDate.plusDays(1);
-
-    log.info("Last exchange rate date: {}, starting import from: {}", lastDate, nextDate);
-
-    return nextDate;
   }
 
   private List<ExchangeRate> buildExchangeRates(CsvData csvData, Currency targetCurrency) {
