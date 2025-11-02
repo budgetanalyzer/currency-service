@@ -223,13 +223,18 @@ public class ExchangeRateImportServiceImpl implements ExchangeRateImportService 
     var maxExpectedSizeBytes = (long) (expectedSizeBytes * SIZE_TOLERANCE_FACTOR);
 
     if (sizeInBytes > maxExpectedSizeBytes) {
-      throw new IllegalStateException(
-          String.format(
-              "FRED file size (%d bytes) is disproportionate to requested date range. "
-                  + "Requested data from %s (%d days) but file size suggests full historical series. "
-                  + "Expected approximately %d bytes, got %d bytes.",
-              sizeInBytes, startDate, daysSinceStart, expectedSizeBytes, sizeInBytes));
+      log.warn(
+          """
+        FRED file size ({} bytes) is disproportionate to requested date range. \
+        Requested data from {} ({} days) but file size suggests full historical series. \
+        Expected approximately {} bytes, got {} bytes.""",
+          sizeInBytes,
+          startDate,
+          daysSinceStart,
+          expectedSizeBytes,
+          sizeInBytes);
     }
+
     return expectedSizeBytes;
   }
 }
