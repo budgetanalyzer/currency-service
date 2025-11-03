@@ -33,9 +33,14 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate  # use 'validate' or 'none' in production
+      ddl-auto: validate  # Flyway manages schema, JPA validates it matches entities
     show-sql: false
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
 
   data:
     redis:

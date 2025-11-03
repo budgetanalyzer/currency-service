@@ -309,9 +309,49 @@ public class CurrencyServiceProperties {
 
 - Pure JPA entity definitions
 - Database-agnostic SQL where possible
-- Flyway migrations for schema versioning (future)
+- Flyway migrations for schema versioning
 - Proper indexing for query performance
 - Foreign key constraints for data integrity
+
+### Schema Migration with Flyway
+
+**Migration Management:**
+- All schema changes are version-controlled via Flyway migrations
+- Migration files located in [src/main/resources/db/migration/](src/main/resources/db/migration/)
+- Naming convention: `V{version}__{description}.sql` (e.g., `V1__initial_schema.sql`)
+- Undo migrations: `U{version}__rollback_{description}.sql` (documentation only, not auto-executed)
+
+**Migration Workflow:**
+1. **Create Migration**: Create new SQL file in `db/migration/` with next version number
+2. **Write SQL**: Use database-agnostic SQL where possible (PostgreSQL/H2 compatible)
+3. **Test Locally**: Run application or tests - Flyway auto-applies pending migrations
+4. **Version Control**: Commit migration file with code changes
+5. **Deploy**: Flyway automatically runs pending migrations on application startup
+
+**Configuration:**
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate  # JPA validates schema matches entities
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+```
+
+**Important Notes:**
+- **Never modify committed migrations** - Create new migrations instead
+- **Test migrations with clean database** - Use `./gradlew cleanTest test`
+- **JPA validates schema** - Entities must match migrated schema (ddl-auto: validate)
+- **Rollback** - Free tier doesn't auto-execute undo migrations; use as manual guide
+
+**Example Migration:**
+```sql
+-- V2__add_exchange_rate_source.sql
+ALTER TABLE exchange_rate ADD COLUMN source VARCHAR(50);
+COMMENT ON COLUMN exchange_rate.source IS 'Data source (e.g., FRED, ECB)';
+```
 
 ### Transaction Management
 
@@ -507,13 +547,33 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 ### Adding a New Entity
 
 1. Create entity class in `domain/` package
-2. Create repository interface in `repository/`
-3. Create service class in `service/`
-4. Create controller in `api/`
-5. Create request/response DTOs in `api/response/`
-6. Create mapper interface (MapStruct - future)
-7. Write unit tests for all layers
-8. Update OpenAPI documentation
+2. Create Flyway migration script for new table/columns
+3. Create repository interface in `repository/`
+4. Create service class in `service/`
+5. Create controller in `api/`
+6. Create request/response DTOs in `api/response/`
+7. Create mapper interface (MapStruct - future)
+8. Write unit tests for all layers
+9. Update OpenAPI documentation
+
+### Adding a Database Migration
+
+1. **Create Migration File**: `src/main/resources/db/migration/V{N}__{description}.sql`
+   - Use next sequential version number (e.g., V2, V3, etc.)
+   - Use descriptive snake_case name (e.g., `V2__add_exchange_rate_source.sql`)
+2. **Write SQL**: Use PostgreSQL/H2 compatible SQL
+   - Add tables, columns, indexes, constraints
+   - Include COMMENT statements for documentation
+3. **Create Undo Migration** (optional): `U{N}__rollback_{description}.sql`
+   - Document rollback steps for manual execution
+4. **Test Migration**:
+   ```bash
+   ./gradlew cleanTest test  # Verify migration works on clean database
+   ./gradlew bootRun         # Verify migration works on existing database
+   ```
+5. **Update Entity** (if applicable): Modify JPA entity to match new schema
+6. **Verify Validation**: JPA should validate schema matches entities (ddl-auto: validate)
+7. **Commit**: Commit migration file with corresponding code changes
 
 ### Adding a New External API Client
 
@@ -604,6 +664,7 @@ When working on this project:
 ### Completed ✅
 - [x] **Implement Redis caching layer** - Fully implemented with distributed caching, JSON serialization, and automatic cache invalidation ([CacheConfig.java](src/main/java/com/bleurubin/budgetanalyzer/currency/config/CacheConfig.java))
 - [x] **Add API versioning strategy** - Implemented URL-based versioning with `/v1/` prefix on all endpoints; NGINX gateway handles `/api` prefix ([CurrencyController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/CurrencyController.java), [ExchangeRateController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/ExchangeRateController.java))
+- [x] **Add Flyway for database migrations** - Version-controlled schema evolution with baseline migration; automatic migration on application startup ([V1__initial_schema.sql](src/main/resources/db/migration/V1__initial_schema.sql))
 
 ### In Progress / Partial 🟡
 - [~] **Add Prometheus metrics** - Micrometer instrumentation present with custom metrics in scheduler, but Prometheus endpoint not explicitly configured
@@ -617,7 +678,6 @@ When working on this project:
 
 #### High Priority - Resilience & Reliability
 - [ ] **Implement distributed locking (Redis/Hazelcast)** - Ensure only one scheduler instance runs import jobs in multi-pod deployments
-- [ ] **Add Flyway for database migrations** - Version-controlled schema evolution with rollback capabilities
 
 **Note on Circuit Breakers:** Circuit breakers were considered for the FRED API integration but deemed inappropriate. The scheduled import job makes only 1-3 API calls per day (1 request with max 3 retry attempts), which doesn't match the high-frequency usage pattern that circuit breakers are designed for (hundreds to thousands of requests per minute). The existing retry logic with exponential backoff, combined with alerting via Micrometer metrics, is the appropriate solution for this low-frequency scheduled job. Circuit breakers would add unnecessary complexity without providing meaningful benefit.
 
