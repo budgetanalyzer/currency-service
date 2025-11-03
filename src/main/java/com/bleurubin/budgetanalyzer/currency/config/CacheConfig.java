@@ -13,7 +13,6 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
-import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 
 /**
  * Redis cache configuration for the Currency Service.
@@ -43,7 +42,7 @@ public class CacheConfig {
     var mapper = objectMapper.copy();
 
     // Configure type validator to allow our packages and standard Java types
-    PolymorphicTypeValidator typeValidator =
+    var typeValidator =
         BasicPolymorphicTypeValidator.builder()
             .allowIfBaseType(Object.class)
             .allowIfSubType("com.bleurubin")
