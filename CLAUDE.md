@@ -527,7 +527,7 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 3. **Use async processing** for long-running operations
 4. **Monitor query performance**
 5. **Use connection pooling** (HikariCP default)
-6. **Implement circuit breakers** for external calls
+6. **Consider circuit breakers** for high-frequency external calls (not applicable for low-frequency scheduled jobs)
 
 ## Common Tasks
 
@@ -548,9 +548,8 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 2. Create response DTOs in client package
 3. Configure WebClient in `config/`
 4. Implement error handling and retries
-5. Add circuit breaker (future)
-6. Write integration tests
-7. Document configuration properties
+5. Write integration tests
+6. Document configuration properties
 
 ### Adding a Scheduled Job
 
@@ -644,9 +643,10 @@ When working on this project:
 - [ ] **Add WireMock for external API testing** - Mock FRED API responses for reliable external integration tests
 
 #### High Priority - Resilience & Reliability
-- [ ] **Add circuit breakers (Resilience4j)** - Protect against cascading failures in FRED API integration
 - [ ] **Implement distributed locking (Redis/Hazelcast)** - Ensure only one scheduler instance runs import jobs in multi-pod deployments
 - [ ] **Add Flyway for database migrations** - Version-controlled schema evolution with rollback capabilities
+
+**Note on Circuit Breakers:** Circuit breakers were considered for the FRED API integration but deemed inappropriate. The scheduled import job makes only 1-3 API calls per day (1 request with max 3 retry attempts), which doesn't match the high-frequency usage pattern that circuit breakers are designed for (hundreds to thousands of requests per minute). The existing retry logic with exponential backoff, combined with alerting via Micrometer metrics, is the appropriate solution for this low-frequency scheduled job. Circuit breakers would add unnecessary complexity without providing meaningful benefit.
 
 #### Medium Priority - Observability
 - [ ] **Implement distributed tracing** - Add Zipkin/Jaeger for request flow visibility across microservices
