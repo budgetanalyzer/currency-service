@@ -37,6 +37,29 @@ spring:
     show-sql: false
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+          max-wait: -1ms
+
+  cache:
+    type: redis
+    redis:
+      # TTL is managed in CacheConfig.java (set to infinite)
+      # Exchange rates only change during imports, cache explicitly evicted via @CacheEvict
+      time-to-live: 0  # 0 = no expiration
+      cache-null-values: false
+      use-key-prefix: true
+      key-prefix: "currency-service:"
+
 currency-service:
   exchange-rate-import:
     # Cron expression for when the job runs (default: 11 PM UTC / 6 PM EST)

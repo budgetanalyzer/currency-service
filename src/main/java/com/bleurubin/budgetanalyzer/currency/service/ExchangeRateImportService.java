@@ -8,9 +8,11 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bleurubin.budgetanalyzer.currency.config.CacheConfig;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
 import com.bleurubin.budgetanalyzer.currency.dto.ImportResult;
 import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
@@ -42,7 +44,16 @@ public class ExchangeRateImportService {
         .isPresent();
   }
 
+  /**
+   * Imports the latest exchange rates from the external provider.
+   *
+   * <p>After successful import, evicts all cached exchange rate queries to ensure immediate
+   * consistency across all application instances.
+   *
+   * @return import result with counts of new, updated, and skipped rates
+   */
   @Transactional
+  @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
   public ImportResult importLatestExchangeRates() {
     // we will take this as a method parameter when we support more currencies
     var targetCurrency = THB;
