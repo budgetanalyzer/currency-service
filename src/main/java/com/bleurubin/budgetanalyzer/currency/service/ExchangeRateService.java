@@ -7,10 +7,12 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import com.bleurubin.budgetanalyzer.currency.config.CacheConfig;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
 import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateDTO;
 import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
@@ -26,6 +28,20 @@ public class ExchangeRateService {
     this.exchangeRateRepository = exchangeRateRepository;
   }
 
+  /**
+   * Retrieves exchange rates for a target currency within a date range.
+   *
+   * <p>Results are cached in Redis with a composite key of targetCurrency:startDate:endDate. Cache
+   * is automatically evicted when new rates are imported.
+   *
+   * @param targetCurrency the currency to convert USD to
+   * @param startDate optional start date (inclusive)
+   * @param endDate optional end date (inclusive)
+   * @return list of exchange rates with gaps filled using forward-fill logic
+   */
+  @Cacheable(
+      cacheNames = CacheConfig.EXCHANGE_RATES_CACHE,
+      key = "#targetCurrency.currencyCode + ':' + #startDate + ':' + #endDate")
   public List<ExchangeRateDTO> getExchangeRates(
       Currency targetCurrency, LocalDate startDate, LocalDate endDate) {
     var spec = buildSpecification(targetCurrency, startDate, endDate);
