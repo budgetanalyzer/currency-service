@@ -378,8 +378,11 @@ public class CurrencyServiceProperties {
 
 ### API Versioning
 
-- Current version: v1 (implicit)
-- Future versions: URL-based (`/api/v2/...`)
+- Current version: v1 (explicit URL-based: `/v1/...`)
+- Gateway prefix: `/api` handled by NGINX API Gateway
+- External URLs: `/api/v1/currencies`, `/api/v1/exchange-rates`
+- Internal service URLs: `/v1/currencies`, `/v1/exchange-rates`
+- Future versions: URL-based (`/v2/...`, routed as `/api/v2/...` externally)
 - Backward compatibility maintained for 2 major versions
 
 ## Deployment
@@ -628,6 +631,7 @@ When working on this project:
 
 ### Completed ✅
 - [x] **Implement Redis caching layer** - Fully implemented with distributed caching, JSON serialization, and automatic cache invalidation ([CacheConfig.java](src/main/java/com/bleurubin/budgetanalyzer/currency/config/CacheConfig.java))
+- [x] **Add API versioning strategy** - Implemented URL-based versioning with `/v1/` prefix on all endpoints; NGINX gateway handles `/api` prefix ([CurrencyController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/CurrencyController.java), [ExchangeRateController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/ExchangeRateController.java))
 
 ### In Progress / Partial 🟡
 - [~] **Add Prometheus metrics** - Micrometer instrumentation present with custom metrics in scheduler, but Prometheus endpoint not explicitly configured
@@ -657,7 +661,6 @@ When working on this project:
 - [ ] **Implement API rate limiting** - Protect against abuse with request throttling (may be handled at gateway level)
 - [ ] **Add GraphQL endpoint (optional)** - Provide GraphQL API alongside REST for flexible querying
 - [ ] **Implement event publishing (Kafka/RabbitMQ)** - Publish domain events for exchange rate updates to enable event-driven architecture
-- [ ] **Add API versioning strategy** - Implement URL-based versioning (e.g., `/v1/`, `/v2/`) for backward compatibility
 
 ## Related Documentation
 

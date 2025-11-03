@@ -31,7 +31,7 @@ import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateService;
 
 @Tag(name = "Exchange Rates Handler", description = "Endpoints for operations on exchange rates")
 @RestController
-@RequestMapping(path = "/exchange-rates")
+@RequestMapping(path = "/v1/exchange-rates")
 public class ExchangeRateController {
 
   private static final Logger log = LoggerFactory.getLogger(ExchangeRateController.class);

@@ -18,7 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @Tag(name = "Currency Handler", description = "Endpoints for operations on currencies")
 @RestController
-@RequestMapping(path = "/currencies")
+@RequestMapping(path = "/v1/currencies")
 public class CurrencyController {
 
   private static final Logger log = LoggerFactory.getLogger(CurrencyController.class);
