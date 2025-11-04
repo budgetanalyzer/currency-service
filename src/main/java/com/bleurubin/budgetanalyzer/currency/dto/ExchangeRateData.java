@@ -7,23 +7,23 @@ import java.util.Objects;
 
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
 
-public record ExchangeRateDTO(
+public record ExchangeRateData(
     Currency baseCurrency,
     Currency targetCurrency,
     LocalDate date,
     BigDecimal rate,
     LocalDate publishedDate) {
 
-  public static ExchangeRateDTO from(ExchangeRate e, LocalDate date) {
-    return new ExchangeRateDTO(
-        e.getBaseCurrency(), e.getTargetCurrency(), date, e.getRate(), e.getDate());
-  }
-
-  public ExchangeRateDTO {
+  public ExchangeRateData {
     Objects.requireNonNull(baseCurrency, "baseCurrency cannot be null");
     Objects.requireNonNull(targetCurrency, "targetCurrency cannot be null");
     Objects.requireNonNull(date, "date cannot be null");
     Objects.requireNonNull(rate, "rate cannot be null");
     Objects.requireNonNull(publishedDate, "publishedDate cannot be null");
+  }
+
+  public static ExchangeRateData from(ExchangeRate e, LocalDate date) {
+    return new ExchangeRateData(
+        e.getBaseCurrency(), e.getTargetCurrency(), date, e.getRate(), e.getDate());
   }
 }

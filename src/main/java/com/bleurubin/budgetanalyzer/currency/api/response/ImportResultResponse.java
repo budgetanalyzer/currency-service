@@ -15,13 +15,15 @@ public record ImportResultResponse(
         int newRecords,
     @Schema(
             description =
-                "Number of exchange rates that were updated due to having a different rate than what we have stored- should never happen, rates shouldn't change",
+                "Number of exchange rates that were updated due to having a different rate"
+                    + " than what we have stored- should never happen, rates shouldn't change",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "32.68")
         int updatedRecords,
     @Schema(
             description =
-                "Number of rows in the csv that already had matching exchange rates created in the database",
+                "Number of rows in the csv that already had matching exchange rates created in the"
+                    + " database",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "2025-10-31")
         int skippedRecords,

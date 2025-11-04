@@ -26,10 +26,10 @@ public class CurrencyServiceProperties {
 
   public static class ExchangeRateImport {
 
-    /** Cron expression for scheduled import job */
+    /** Cron expression for scheduled import job. */
     private String cron = "0 0 23 * * ?";
 
-    /** Whether to run import on application startup if no data exists */
+    /** Whether to run import on application startup if no data exists. */
     private boolean importOnStartup = true;
 
     @Valid private Fred fred = new Fred();
@@ -68,10 +68,10 @@ public class CurrencyServiceProperties {
     }
 
     public static class Fred {
-      /** FRED API base URL */
+      /** FRED API base URL. */
       private String baseUrl = "https://api.stlouisfed.org/fred";
 
-      /** FRED API key - should be set via environment variable */
+      /** FRED API key - should be set via environment variable. */
       @NotBlank(message = "FRED API key must be configured")
       @Sensitive(showLast = 4)
       private String apiKey;
@@ -95,14 +95,14 @@ public class CurrencyServiceProperties {
 
     public static class Retry {
       /**
-       * Maximum number of retry attempts (including initial attempt) Example: max-attempts=3 means
-       * 1 initial + 2 retries
+       * Maximum number of retry attempts (including initial attempt). Example: max-attempts=3 means
+       * 1 initial + 2 retries.
        */
       @Min(1)
       @Max(10)
       private int maxAttempts = 3;
 
-      /** Delay between retries in minutes */
+      /** Delay between retries in minutes. */
       @Min(1)
       @Max(60)
       private long delayMinutes = 5;
