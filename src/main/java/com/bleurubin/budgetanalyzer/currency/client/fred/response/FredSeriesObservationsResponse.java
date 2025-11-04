@@ -30,13 +30,14 @@ public record FredSeriesObservationsResponse(
       LocalDate date,
       String value) {
 
-    /** Checks if this observation has valid data */
+    /** Checks if this observation has valid data. */
     public boolean hasValue() {
       return value != null && !".".equals(value);
     }
 
     /**
-     * Parses the value as a BigDecimal, returning null if the value is "." (missing data indicator)
+     * Parses the value as a BigDecimal, returning null if the value is "." (missing data
+     * indicator).
      */
     public BigDecimal getValueAsBigDecimal() {
       if (!hasValue()) {

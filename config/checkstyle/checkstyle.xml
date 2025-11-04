@@ -343,12 +343,15 @@
         <module name="OverloadMethodsDeclarationOrder"/>
         <module name="ConstructorsDeclarationGrouping"/>
         <module name="VariableDeclarationUsageDistance"/>
-        <module name="CustomImportOrder">
-            <property name="sortImportsInGroupAlphabetically" value="true"/>
-            <property name="separateLineBetweenGroups" value="true"/>
-            <property name="customImportOrderRules" value="STATIC###THIRD_PARTY_PACKAGE"/>
-            <property name="tokens" value="IMPORT, STATIC_IMPORT, PACKAGE_DEF"/>
-        </module>
+        <!-- CustomImportOrder disabled - import ordering is enforced by Spotless -->
+        <!--
+       <module name="CustomImportOrder">
+           <property name="sortImportsInGroupAlphabetically" value="true"/>
+           <property name="separateLineBetweenGroups" value="true"/>
+           <property name="customImportOrderRules" value="STATIC###THIRD_PARTY_PACKAGE"/>
+           <property name="tokens" value="IMPORT, STATIC_IMPORT, PACKAGE_DEF"/>
+       </module>
+       -->
         <module name="MethodParamPad">
             <property name="tokens"
                       value="CTOR_DEF, LITERAL_NEW, METHOD_CALL, METHOD_DEF, CTOR_CALL,
@@ -415,12 +418,26 @@
             <property name="allowedAnnotations" value="Override, Test"/>
             <property name="tokens" value="METHOD_DEF, CTOR_DEF, ANNOTATION_FIELD_DEF, COMPACT_CTOR_DEF"/>
         </module>
+        <!--
+          Javadoc Policy for Applications (vs Libraries):
+          For microservice applications, only the service layer needs Javadoc documentation.
+          - Service interfaces/implementations define the business logic contracts
+          - API layer is documented via Springdoc/OpenAPI annotations
+          - Config/Domain/Repository layers are self-documenting through naming and annotations
+
+          For shared libraries (e.g., service-common), strict Javadoc on all public APIs is required.
+        -->
         <module name="MissingJavadocMethod">
             <property name="scope" value="protected"/>
             <property name="allowMissingPropertyJavadoc" value="true"/>
             <property name="allowedAnnotations" value="Override, Test"/>
             <property name="tokens" value="METHOD_DEF, CTOR_DEF, ANNOTATION_FIELD_DEF,
                                    COMPACT_CTOR_DEF"/>
+        </module>
+        <!-- Only enforce Javadoc on service package (suppress all other packages) -->
+        <module name="SuppressionXpathSingleFilter">
+            <property name="checks" value="MissingJavadocMethod"/>
+            <property name="files" value="^(?!.*[\\/]service[\\/]).*$"/>
         </module>
         <module name="SuppressionXpathSingleFilter">
             <property name="checks" value="MissingJavadocMethod"/>
@@ -436,6 +453,11 @@
                       value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF,
                       RECORD_DEF, ANNOTATION_DEF"/>
             <property name="excludeScope" value="nothing"/>
+        </module>
+        <!-- Only enforce Javadoc on service package (suppress all other packages) -->
+        <module name="SuppressionXpathSingleFilter">
+            <property name="checks" value="MissingJavadocType"/>
+            <property name="files" value="^(?!.*[\\/]service[\\/]).*$"/>
         </module>
         <module name="MethodName">
             <property name="format"

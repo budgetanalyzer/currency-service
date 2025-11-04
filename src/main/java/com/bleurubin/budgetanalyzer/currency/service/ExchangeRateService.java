@@ -14,16 +14,27 @@ import org.springframework.stereotype.Service;
 
 import com.bleurubin.budgetanalyzer.currency.config.CacheConfig;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
-import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateDTO;
+import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateData;
 import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import com.bleurubin.budgetanalyzer.currency.repository.spec.ExchangeRateSpecifications;
 import com.bleurubin.service.exception.ResourceNotFoundException;
 
+/**
+ * Service for querying and managing exchange rates.
+ *
+ * <p>Provides business logic for retrieving exchange rates with gap-filling logic and Redis-based
+ * distributed caching.
+ */
 @Service
 public class ExchangeRateService {
 
   private final ExchangeRateRepository exchangeRateRepository;
 
+  /**
+   * Constructs a new ExchangeRateService.
+   *
+   * @param exchangeRateRepository The exchange rate data access repository
+   */
   public ExchangeRateService(ExchangeRateRepository exchangeRateRepository) {
     this.exchangeRateRepository = exchangeRateRepository;
   }
@@ -42,7 +53,7 @@ public class ExchangeRateService {
   @Cacheable(
       cacheNames = CacheConfig.EXCHANGE_RATES_CACHE,
       key = "#targetCurrency.currencyCode + ':' + #startDate + ':' + #endDate")
-  public List<ExchangeRateDTO> getExchangeRates(
+  public List<ExchangeRateData> getExchangeRates(
       Currency targetCurrency, LocalDate startDate, LocalDate endDate) {
     var spec = buildSpecification(targetCurrency, startDate, endDate);
 
@@ -76,12 +87,12 @@ public class ExchangeRateService {
     return rv;
   }
 
-  private List<ExchangeRateDTO> buildDenseExchangeRates(
+  private List<ExchangeRateData> buildDenseExchangeRates(
       List<ExchangeRate> definedRates, LocalDate effectiveStartDate, LocalDate effectiveEndDate) {
     var ratesByDate =
         definedRates.stream().collect(Collectors.toMap(ExchangeRate::getDate, Function.identity()));
 
-    var rv = new ArrayList<ExchangeRateDTO>();
+    var rv = new ArrayList<ExchangeRateData>();
     var currentRate = definedRates.get(0);
 
     // Check if we need a rate before the first defined rate
@@ -101,7 +112,7 @@ public class ExchangeRateService {
         currentRate = ratesByDate.get(date);
       }
 
-      rv.add(ExchangeRateDTO.from(currentRate, date));
+      rv.add(ExchangeRateData.from(currentRate, date));
     }
 
     return rv;

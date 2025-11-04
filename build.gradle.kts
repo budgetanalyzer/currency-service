@@ -66,3 +66,11 @@ tasks.named("check") {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+tasks.withType<Javadoc> {
+    options {
+        (this as StandardJavadocDocletOptions).apply {
+            addStringOption("Xdoclint:none", "-quiet")
+        }
+    }
+}

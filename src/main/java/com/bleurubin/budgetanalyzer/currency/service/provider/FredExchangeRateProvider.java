@@ -13,6 +13,12 @@ import org.springframework.stereotype.Service;
 import com.bleurubin.budgetanalyzer.currency.client.fred.FredClient;
 import com.bleurubin.budgetanalyzer.currency.client.fred.response.FredSeriesObservationsResponse;
 
+/**
+ * FRED (Federal Reserve Economic Data) implementation of ExchangeRateProvider.
+ *
+ * <p>Fetches exchange rate data from the St. Louis Federal Reserve FRED API. Currently supports USD
+ * to THB exchange rates.
+ */
 @Service
 public class FredExchangeRateProvider implements ExchangeRateProvider {
 
@@ -28,6 +34,11 @@ public class FredExchangeRateProvider implements ExchangeRateProvider {
 
   private final FredClient fredClient;
 
+  /**
+   * Constructs a new FredExchangeRateProvider.
+   *
+   * @param fredClient The FRED API client
+   */
   public FredExchangeRateProvider(FredClient fredClient) {
     this.fredClient = fredClient;
   }

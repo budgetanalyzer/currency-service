@@ -5,7 +5,7 @@ import java.time.LocalDate;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateDTO;
+import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateData;
 
 @Schema(description = "Exchange rate response")
 public record ExchangeRateResponse(
@@ -31,12 +31,13 @@ public record ExchangeRateResponse(
         BigDecimal rate,
     @Schema(
             description =
-                "Date the exchange rate was published.  FRED doesn't publish rates for weekends and holidays, so we use the nearest previously published rate",
+                "Date the exchange rate was published. FRED doesn't publish rates for weekends"
+                    + " and holidays, so we use the nearest previously published rate",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "2025-10-31")
         LocalDate publishedDate) {
 
-  public static ExchangeRateResponse from(ExchangeRateDTO dto) {
+  public static ExchangeRateResponse from(ExchangeRateData dto) {
     return new ExchangeRateResponse(
         dto.baseCurrency().getCurrencyCode(),
         dto.targetCurrency().getCurrencyCode(),

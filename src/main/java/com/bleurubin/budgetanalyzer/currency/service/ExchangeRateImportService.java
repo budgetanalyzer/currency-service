@@ -19,6 +19,12 @@ import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import com.bleurubin.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
 import com.bleurubin.service.exception.ServiceException;
 
+/**
+ * Service for importing exchange rates from external data providers.
+ *
+ * <p>Handles fetching exchange rates from providers, deduplication, and persisting to the database
+ * with cache invalidation.
+ */
 @Service
 public class ExchangeRateImportService {
 
@@ -32,12 +38,23 @@ public class ExchangeRateImportService {
   private final ExchangeRateProvider exchangeRateProvider;
   private final ExchangeRateRepository exchangeRateRepository;
 
+  /**
+   * Constructs a new ExchangeRateImportService.
+   *
+   * @param exchangeRateProvider The provider to fetch exchange rates from
+   * @param exchangeRateRepository The exchange rate data access repository
+   */
   public ExchangeRateImportService(
       ExchangeRateProvider exchangeRateProvider, ExchangeRateRepository exchangeRateRepository) {
     this.exchangeRateProvider = exchangeRateProvider;
     this.exchangeRateRepository = exchangeRateRepository;
   }
 
+  /**
+   * Checks if any exchange rate data exists in the database.
+   *
+   * @return true if exchange rate data exists, false otherwise
+   */
   public boolean hasExchangeRateData() {
     return exchangeRateRepository
         .findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc(BASE_CURRENCY, THB)
