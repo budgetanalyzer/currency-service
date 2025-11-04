@@ -620,6 +620,100 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 - Run all checks before pushing
 - Request code review for all changes
 
+## Testing Strategy
+
+### Unit Tests
+
+**Current Coverage:**
+- Limited test coverage (opportunity for improvement)
+
+**Test Framework:**
+- JUnit 5 (Jupiter)
+- Spring Boot Test (for integration testing if needed)
+
+**Running Tests:**
+```bash
+./gradlew test
+```
+
+### Testing Guidelines
+
+**Test Coverage Goals:**
+- Minimum 80% code coverage
+- 100% coverage for critical utilities
+- All edge cases explicitly tested
+
+
+### Testing Philosophy: Test Correct Behavior, Not Defects
+
+**CRITICAL PRINCIPLE**: Tests must always be written for how components **should** behave according to their specification and real-world requirements, NOT around defective implementations.
+
+**When Tests Fail Due to Implementation Issues:**
+
+1. **STOP immediately** - Do not attempt to work around the implementation deficiency
+2. **Analyze the failure** - Determine if the test is correct or if the implementation is deficient
+3. **Explain the situation** to the user:
+    - What behavior the test expects (correct behavior)
+    - What the current implementation does (deficient behavior)
+    - Why the implementation is inadequate
+4. **Ask the user** how to proceed:
+    - Option A: Fix the implementation to match correct behavior
+    - Option B: Remove/modify tests if requirements have changed
+
+**Example Scenario:**
+
+```
+User: Add tests for CSV parsing with mismatched column counts
+
+Assistant discovers:
+- Tests written for correct behavior (handle rows with fewer/more columns than headers)
+- Implementation fails because it assumes all rows have same column count as headers
+- This is a common real-world edge case that MUST be handled
+
+Assistant response:
+"I've written tests for handling mismatched column counts (a common real-world scenario),
+but they're failing because the current OpenCsvParser implementation doesn't handle this
+edge case. The implementation assumes all rows have exactly the same number of columns
+as headers, which causes ArrayIndexOutOfBoundsException.
+
+Would you like me to:
+1. Fix the implementation to handle mismatched columns properly, or
+2. Remove these tests (not recommended - this is a real-world edge case)"
+```
+
+**Why This Matters:**
+
+- **Test integrity**: Tests document correct behavior and serve as specifications
+- **Code quality**: Working around bugs creates technical debt
+- **Maintainability**: Future developers need accurate tests, not workarounds
+- **Real-world robustness**: Edge cases are often discovered in production if not tested
+
+**Anti-Pattern to Avoid:**
+
+```java
+// ❌ WRONG - Writing tests around broken implementation
+@Test
+void shouldThrowExceptionWhenRowHasFewerColumns() {
+    // Documenting current buggy behavior instead of fixing it
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> {
+        parser.parse("Name,Age\nJohn");
+    });
+}
+```
+
+**Correct Pattern:**
+
+```java
+// ✅ CORRECT - Writing test for correct behavior
+@Test
+void shouldHandleRowsWithFewerColumnsThanHeaders() {
+    var result = parser.parse("Name,Age\nJohn");
+    // Correct behavior: missing columns should be empty strings
+    assertEquals("", result.get(0).get("Age"));
+}
+// If this fails, FIX THE IMPLEMENTATION, don't change the test
+```
+
 ## Best Practices
 
 ### General
