@@ -24,8 +24,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateImportResultResponse;
 import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateResponse;
-import com.bleurubin.budgetanalyzer.currency.api.response.ImportResultResponse;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateImportService;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateService;
 
@@ -101,14 +101,14 @@ public class ExchangeRateController {
             content =
                 @Content(
                     mediaType = "application/json",
-                    schema = @Schema(implementation = ImportResultResponse.class))),
+                    schema = @Schema(implementation = ExchangeRateImportResultResponse.class))),
       })
   @GetMapping(path = "/import", produces = "application/json")
-  public ImportResultResponse importLatestExchangeRates() {
+  public ExchangeRateImportResultResponse importLatestExchangeRates() {
     log.info("Received importLatestExchangeRates request");
 
     // we will take currency as parameter when we support multiple currencies
-    var importResult = exchangeRateImportService.importLatestExchangeRates();
-    return ImportResultResponse.from(importResult);
+    var exchangeRateImportResult = exchangeRateImportService.importLatestExchangeRates();
+    return ExchangeRateImportResultResponse.from(exchangeRateImportResult);
   }
 }

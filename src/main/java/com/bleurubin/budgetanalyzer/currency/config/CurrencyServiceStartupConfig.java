@@ -49,10 +49,10 @@ public class CurrencyServiceStartupConfig {
 
     log.warn("No exchange rate data found - triggering initial import");
     try {
-      var importResult = exchangeRateImportService.importLatestExchangeRates();
+      var exchangeRateImportResult = exchangeRateImportService.importLatestExchangeRates();
       log.info(
           "Successfully completed startup exchange rate import: {}",
-          SafeLogger.toJson(importResult));
+          SafeLogger.toJson(exchangeRateImportResult));
     } catch (Exception e) {
       log.error("CRITICAL: failed to import exchange rates on startup, exiting...", e);
       throw new IllegalStateException(
