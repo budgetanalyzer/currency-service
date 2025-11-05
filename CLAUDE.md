@@ -832,6 +832,11 @@ void shouldHandleRowsWithFewerColumnsThanHeaders() {
 - Run `./gradlew clean build`
 - Check for Spotless formatting violations
 - Review Checkstyle errors
+- **If encountering "cannot resolve" errors for service-common classes** (e.g., `SoftDeletableEntity`, `SafeLogger`, `ApiErrorResponse`):
+  - Navigate to service-common directory: `cd /workspace/service-common`
+  - Publish latest artifact: `./gradlew clean build publishToMavenLocal`
+  - Return to budget-analyzer-api directory: `cd /workspace/budget-analyzer-api`
+  - Retry the build: `./gradlew clean build`
 
 **Checkstyle errors:**
   Review `config/checkstyle/checkstyle.xml` rules and fix violations including warnings if possible.
