@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bleurubin.budgetanalyzer.currency.config.CacheConfig;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
-import com.bleurubin.budgetanalyzer.currency.dto.ImportResult;
+import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateImportResult;
 import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import com.bleurubin.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
 import com.bleurubin.service.exception.ServiceException;
@@ -71,7 +71,7 @@ public class ExchangeRateImportService {
    */
   @Transactional
   @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
-  public ImportResult importLatestExchangeRates() {
+  public ExchangeRateImportResult importLatestExchangeRates() {
     // we will take this as a method parameter when we support more currencies
     var targetCurrency = THB;
     var startDate = determineStartDate(targetCurrency);
@@ -79,7 +79,8 @@ public class ExchangeRateImportService {
     return importExchangeRates(targetCurrency, startDate);
   }
 
-  private ImportResult importExchangeRates(Currency targetCurrency, LocalDate startDate) {
+  private ExchangeRateImportResult importExchangeRates(
+      Currency targetCurrency, LocalDate startDate) {
     try {
       log.info(
           "Importing exchange rates targetCurrency: {} startDate: {}", targetCurrency, startDate);
@@ -89,7 +90,7 @@ public class ExchangeRateImportService {
 
       if (dateRateMap.isEmpty()) {
         log.warn("No exchange rates provided");
-        return new ImportResult(0, 0, 0);
+        return new ExchangeRateImportResult(0, 0, 0, null, null);
       }
 
       var exchangeRates = buildExchangeRates(dateRateMap, targetCurrency);
@@ -139,7 +140,8 @@ public class ExchangeRateImportService {
     return rv;
   }
 
-  private ImportResult saveExchangeRates(List<ExchangeRate> rates, Currency targetCurrency) {
+  private ExchangeRateImportResult saveExchangeRates(
+      List<ExchangeRate> rates, Currency targetCurrency) {
     var newCount = 0;
     var updatedCount = 0;
     var skippedCount = 0;
@@ -180,8 +182,21 @@ public class ExchangeRateImportService {
       }
     }
 
-    log.info("Save complete: {} new, {} updated, {} skipped", newCount, updatedCount, skippedCount);
+    // Track earliest and latest dates
+    var earliestDate =
+        rates.stream().map(ExchangeRate::getDate).min(LocalDate::compareTo).orElse(null);
+    var latestDate =
+        rates.stream().map(ExchangeRate::getDate).max(LocalDate::compareTo).orElse(null);
 
-    return new ImportResult(newCount, updatedCount, skippedCount);
+    log.info(
+        "Save complete: {} new, {} updated, {} skipped, earliest date: {}, latest date: {}",
+        newCount,
+        updatedCount,
+        skippedCount,
+        earliestDate,
+        latestDate);
+
+    return new ExchangeRateImportResult(
+        newCount, updatedCount, skippedCount, earliestDate, latestDate);
   }
 }
