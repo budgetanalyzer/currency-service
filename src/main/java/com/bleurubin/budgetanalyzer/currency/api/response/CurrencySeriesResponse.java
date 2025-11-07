@@ -1,5 +1,7 @@
 package com.bleurubin.budgetanalyzer.currency.api.response;
 
+import java.time.Instant;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
@@ -26,7 +28,17 @@ public record CurrencySeriesResponse(
             description = "Whether this currency is enabled for exchange rate access",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "true")
-        boolean enabled) {
+        boolean enabled,
+    @Schema(
+            description = "Timestamp when this currency series was created",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "2025-01-15T10:30:00Z")
+        Instant createdAt,
+    @Schema(
+            description = "Timestamp when this currency series was last updated",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "2025-01-15T14:45:00Z")
+        Instant updatedAt) {
 
   /**
    * Create a response DTO from a domain entity.
@@ -36,6 +48,11 @@ public record CurrencySeriesResponse(
    */
   public static CurrencySeriesResponse from(CurrencySeries entity) {
     return new CurrencySeriesResponse(
-        entity.getId(), entity.getCurrencyCode(), entity.getProviderSeriesId(), entity.isEnabled());
+        entity.getId(),
+        entity.getCurrencyCode(),
+        entity.getProviderSeriesId(),
+        entity.isEnabled(),
+        entity.getCreatedAt(),
+        entity.getUpdatedAt());
   }
 }
