@@ -62,7 +62,6 @@ public class ExchangeRateImportService {
    * @return true if exchange rate data exists, false otherwise
    */
   public boolean hasExchangeRateData() {
-    // TODO: verify that the rates are for an enabled currency
     return exchangeRateRepository.count() > 0;
   }
 
@@ -128,9 +127,28 @@ public class ExchangeRateImportService {
         totalNew, totalUpdated, totalSkipped, earliestDate, latestDate);
   }
 
+  /**
+   * Imports exchange rates for a specific currency series.
+   *
+   * <p>This method:
+   *
+   * <ol>
+   *   <li>Fetches exchange rates from the provider using the currency series configuration
+   *   <li>Builds ExchangeRate entities with BOTH currencySeries (foreign key) AND targetCurrency
+   *       (denormalized)
+   *   <li>Saves rates to database with deduplication logic
+   * </ol>
+   *
+   * <p><b>Denormalization:</b> Each ExchangeRate is linked to its CurrencySeries (foreign key) but
+   * also stores targetCurrency directly for query performance. Both fields are set to ensure
+   * consistency.
+   *
+   * @param currencySeries The currency series configuration to import rates for
+   * @param startDate The date to start importing from (null for full history)
+   * @return Import result with counts of new, updated, and skipped rates
+   */
   private ExchangeRateImportResult importExchangeRates(
       CurrencySeries currencySeries, LocalDate startDate) {
-    // TODO: Exchange Rates need a relationship to CurrencySeries
     var targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
 
     try {
@@ -147,7 +165,7 @@ public class ExchangeRateImportService {
         return new ExchangeRateImportResult(0, 0, 0, null, null);
       }
 
-      var exchangeRates = buildExchangeRates(dateRateMap, targetCurrency);
+      var exchangeRates = buildExchangeRates(dateRateMap, currencySeries, targetCurrency);
       return saveExchangeRates(exchangeRates, targetCurrency);
     } catch (ServiceException serviceException) {
       throw serviceException;
@@ -182,21 +200,78 @@ public class ExchangeRateImportService {
     return nextDate;
   }
 
+  /**
+   * Builds a list of ExchangeRate entities from provider data.
+   *
+   * <p><b>Important - Denormalization:</b> This method sets BOTH:
+   *
+   * <ul>
+   *   <li><b>currencySeries</b> - Foreign key relationship for referential integrity and
+   *       traceability
+   *   <li><b>targetCurrency</b> - Denormalized currency code for query performance
+   * </ul>
+   *
+   * <p>Both fields must be set to maintain consistency between the relationship and the
+   * denormalized field.
+   *
+   * @param dateRateMap Map of dates to exchange rates from the provider
+   * @param currencySeries The currency series configuration (foreign key reference)
+   * @param targetCurrency The target currency (denormalized for performance)
+   * @return List of ExchangeRate entities ready to save
+   */
   private List<ExchangeRate> buildExchangeRates(
-      Map<LocalDate, BigDecimal> dateRateMap, Currency targetCurrency) {
+      Map<LocalDate, BigDecimal> dateRateMap,
+      CurrencySeries currencySeries,
+      Currency targetCurrency) {
     return dateRateMap.entrySet().stream()
-        .map(rate -> buildExchangeRate(rate.getKey(), rate.getValue(), targetCurrency))
+        .map(
+            rate ->
+                buildExchangeRate(rate.getKey(), rate.getValue(), currencySeries, targetCurrency))
         .toList();
   }
 
-  private ExchangeRate buildExchangeRate(LocalDate date, BigDecimal rate, Currency targetCurrency) {
-    var rv = new ExchangeRate();
-    rv.setBaseCurrency(BASE_CURRENCY);
-    rv.setTargetCurrency(targetCurrency);
-    rv.setDate(date);
-    rv.setRate(rate);
+  /**
+   * Builds a single ExchangeRate entity.
+   *
+   * <p><b>Denormalization Pattern:</b> This method demonstrates the denormalization pattern used
+   * throughout the exchange rate system:
+   *
+   * <pre>
+   * exchangeRate.setCurrencySeries(currencySeries);    // Foreign key for integrity
+   * exchangeRate.setTargetCurrency(targetCurrency);    // Denormalized for performance
+   * </pre>
+   *
+   * <p><b>Why both fields?</b>
+   *
+   * <ul>
+   *   <li><b>currencySeries:</b> Provides referential integrity, traceability to provider
+   *       configuration
+   *   <li><b>targetCurrency:</b> Enables fast queries without JOINs, prevents N+1 lazy loading
+   * </ul>
+   *
+   * @param date The date for this exchange rate
+   * @param rate The exchange rate value
+   * @param currencySeries The currency series (foreign key)
+   * @param targetCurrency The target currency (denormalized)
+   * @return Populated ExchangeRate entity
+   */
+  private ExchangeRate buildExchangeRate(
+      LocalDate date, BigDecimal rate, CurrencySeries currencySeries, Currency targetCurrency) {
+    var exchangeRate = new ExchangeRate();
 
-    return rv;
+    // Set foreign key relationship for referential integrity
+    exchangeRate.setCurrencySeries(currencySeries);
+
+    exchangeRate.setBaseCurrency(BASE_CURRENCY);
+
+    // Set denormalized currency code for query performance
+    // Note: This duplicates currencySeries.currencyCode, but prevents lazy loading in API queries
+    exchangeRate.setTargetCurrency(targetCurrency);
+
+    exchangeRate.setDate(date);
+    exchangeRate.setRate(rate);
+
+    return exchangeRate;
   }
 
   private ExchangeRateImportResult saveExchangeRates(
