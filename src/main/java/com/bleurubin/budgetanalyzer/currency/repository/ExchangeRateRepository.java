@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
 
 public interface ExchangeRateRepository
@@ -20,4 +21,12 @@ public interface ExchangeRateRepository
 
   Optional<ExchangeRate> findTopByTargetCurrencyAndDateLessThanOrderByDateDesc(
       Currency targetCurrency, LocalDate date);
+
+  /**
+   * Count the number of exchange rates for a given currency series.
+   *
+   * @param currencySeries The currency series to count exchange rates for
+   * @return The count of exchange rates
+   */
+  long countByCurrencySeries(CurrencySeries currencySeries);
 }

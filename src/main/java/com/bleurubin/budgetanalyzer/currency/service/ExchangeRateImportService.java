@@ -57,12 +57,24 @@ public class ExchangeRateImportService {
   }
 
   /**
-   * Checks if any exchange rate data exists in the database.
+   * Checks if all enabled currency series have exchange rate data in the database.
    *
-   * @return true if exchange rate data exists, false otherwise
+   * @return true if all enabled currency series have at least one exchange rate, false otherwise
    */
-  public boolean hasExchangeRateData() {
-    return exchangeRateRepository.count() > 0;
+  public boolean hasEnabledExchangeRateData() {
+    var enabledSeries = currencySeriesRepository.findByEnabledTrue();
+
+    if (enabledSeries.isEmpty()) {
+      return false;
+    }
+
+    for (var series : enabledSeries) {
+      if (exchangeRateRepository.countByCurrencySeries(series) == 0) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   /**
