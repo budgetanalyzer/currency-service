@@ -17,4 +17,14 @@ public interface ExchangeRateProvider {
    * @return Map of dates to exchange rates
    */
   Map<LocalDate, BigDecimal> getExchangeRates(CurrencySeries currencySeries, LocalDate startDate);
+
+  /**
+   * Validates that a provider series ID exists in the external data source.
+   *
+   * @param providerSeriesId The provider series ID to validate
+   * @return true if the series exists, false if it does not exist
+   * @throws com.bleurubin.service.exception.ClientException if there is a network error or API
+   *     failure (not a "series not found" error)
+   */
+  boolean validateSeriesExists(String providerSeriesId);
 }

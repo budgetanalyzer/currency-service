@@ -9,22 +9,30 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
 import com.bleurubin.budgetanalyzer.currency.repository.CurrencySeriesRepository;
+import com.bleurubin.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
 import com.bleurubin.service.exception.BusinessException;
+import com.bleurubin.service.exception.ClientException;
 import com.bleurubin.service.exception.ResourceNotFoundException;
+import com.bleurubin.service.exception.ServiceUnavailableException;
 
 /** Service for managing currency operations. */
 @Service
 public class CurrencyService {
 
   private final CurrencySeriesRepository currencySeriesRepository;
+  private final ExchangeRateProvider exchangeRateProvider;
 
   /**
    * Constructor for CurrencyService.
    *
    * @param currencySeriesRepository The currency series repository
+   * @param exchangeRateProvider The exchange rate provider
    */
-  public CurrencyService(CurrencySeriesRepository currencySeriesRepository) {
+  public CurrencyService(
+      CurrencySeriesRepository currencySeriesRepository,
+      ExchangeRateProvider exchangeRateProvider) {
     this.currencySeriesRepository = currencySeriesRepository;
+    this.exchangeRateProvider = exchangeRateProvider;
   }
 
   /**
@@ -32,11 +40,13 @@ public class CurrencyService {
    *
    * @param currencySeries The currency series to create
    * @return The created currency series
-   * @throws BusinessException if currency code is invalid or already exists
+   * @throws BusinessException if currency code is invalid or already exists, or if provider series
+   *     ID is invalid
    */
   @Transactional
   public CurrencySeries create(CurrencySeries currencySeries) {
     validateCurrencyCode(currencySeries.getCurrencyCode());
+    validateProviderSeriesId(currencySeries.getProviderSeriesId());
 
     try {
       return currencySeriesRepository.save(currencySeries);
@@ -86,10 +96,12 @@ public class CurrencyService {
    * @param enabled The new enabled status
    * @return The updated currency series
    * @throws ResourceNotFoundException if currency series not found
+   * @throws BusinessException if provider series ID is invalid
    */
   @Transactional
   public CurrencySeries update(Long id, String providerSeriesId, boolean enabled) {
     var currencySeries = getById(id);
+    validateProviderSeriesId(providerSeriesId);
     currencySeries.setProviderSeriesId(providerSeriesId);
     currencySeries.setEnabled(enabled);
 
@@ -112,6 +124,33 @@ public class CurrencyService {
       throw new BusinessException(
           "Invalid ISO 4217 currency code: " + currencyCode,
           CurrencyServiceError.INVALID_ISO_4217_CODE.name());
+    }
+  }
+
+  /**
+   * Validate that the provider series ID exists in the external provider.
+   *
+   * <p>Note: Format validation is already handled by Bean Validation in the request DTO. This
+   * method validates that the series ID exists in the external provider.
+   *
+   * @param providerSeriesId The provider series ID to validate
+   * @throws BusinessException if provider series ID does not exist or validation fails
+   */
+  private void validateProviderSeriesId(String providerSeriesId) {
+    boolean exists;
+    try {
+      exists = exchangeRateProvider.validateSeriesExists(providerSeriesId);
+    } catch (ClientException e) {
+      throw new ServiceUnavailableException(
+          "Unable to validate provider series ID due to external provider API error: "
+              + e.getMessage(),
+          e);
+    }
+
+    if (!exists) {
+      throw new BusinessException(
+          "Provider series ID '" + providerSeriesId + "' does not exist in the external provider",
+          CurrencyServiceError.INVALID_PROVIDER_SERIES_ID.name());
     }
   }
 }

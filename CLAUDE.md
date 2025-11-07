@@ -139,11 +139,79 @@ public class ExchangeRateController {
 
 **Note**: While we acknowledge Hibernate is unlikely to be replaced, adhering to JPA standards is a best practice that prevents vendor lock-in and maintains architectural integrity.
 
-### 4. Clear Package Separation
+### 4. Provider Abstraction Pattern
+
+**RULE**: External data source integrations MUST use the provider abstraction pattern. Provider-specific implementations (e.g., FRED) should NEVER be referenced outside their implementation classes.
+
+**Architecture:**
+```
+service/ → service/provider/ExchangeRateProvider (interface)
+service/provider/FredExchangeRateProvider (impl) → client/fred/FredClient
+```
+
+**Provider Interface:** [ExchangeRateProvider.java](src/main/java/com/bleurubin/budgetanalyzer/currency/service/provider/ExchangeRateProvider.java)
+```java
+public interface ExchangeRateProvider {
+  Map<LocalDate, BigDecimal> getExchangeRates(CurrencySeries currencySeries, LocalDate startDate);
+  boolean validateSeriesExists(String providerSeriesId);
+}
+```
+
+**Dependency Rules:**
+- ✅ `CurrencyService` → `ExchangeRateProvider` (interface)
+- ✅ `ExchangeRateImportService` → `ExchangeRateProvider` (interface)
+- ✅ `FredExchangeRateProvider` → `FredClient`
+- ❌ `CurrencyService` → `FredClient` (direct dependency - FORBIDDEN)
+- ❌ `CurrencyService` → `FredExchangeRateProvider` (concrete implementation - FORBIDDEN)
+
+**Why?**
+- **Extensibility**: Adding new providers (ECB, Bloomberg, etc.) requires no changes to service layer
+- **Testability**: Services can be tested with mock providers without FRED API dependency
+- **Encapsulation**: Provider-specific logic (API keys, error codes, rate limits) contained in implementation
+- **Substitutability**: Can switch providers at runtime via configuration/feature flags
+
+**Example - CORRECT:**
+```java
+@Service
+public class CurrencyService {
+  private final ExchangeRateProvider exchangeRateProvider;  // Interface dependency
+
+  public CurrencySeries create(CurrencySeries currencySeries) {
+    validateProviderSeriesId(currencySeries.getProviderSeriesId());
+    // ...
+  }
+
+  private void validateProviderSeriesId(String providerSeriesId) {
+    boolean exists = exchangeRateProvider.validateSeriesExists(providerSeriesId);  // Provider-agnostic
+    // ...
+  }
+}
+```
+
+**Example - WRONG:**
+```java
+@Service
+public class CurrencyService {
+  private final FredClient fredClient;  // ❌ Direct dependency on FRED
+
+  private void validateProviderSeriesId(String providerSeriesId) {
+    boolean exists = fredClient.seriesExists(providerSeriesId);  // ❌ FRED-specific
+    // ...
+  }
+}
+```
+
+**Key Points:**
+- The word "FRED" should NEVER appear in service layer code
+- Service layer uses generic terminology: "provider", "provider series ID", "external provider"
+- Only `FredExchangeRateProvider` and `FredClient` contain FRED-specific logic
+- Error messages use "external provider" not "FRED"
+
+### 5. Clear Package Separation
 
 Package boundaries should be self-evident from inspection. See the **Package Structure** section above for the complete package organization and dependency rules.
 
-### 5. Exception Handling Strategy
+### 6. Exception Handling Strategy
 
 **CRITICAL**: Understand the difference between validation failures and business rule violations.
 
@@ -204,7 +272,7 @@ These are **valid requests** that violate **business logic**.
 **Rule of Thumb:**
 If the validation can be done with `@NotBlank`, `@NotNull`, `@Pattern`, `@Size`, etc., it belongs in the request DTO, NOT in the service layer.
 
-### 6. Validation Strategy
+### 7. Validation Strategy
 
 **CRITICAL PRINCIPLE: Clear Separation of Concerns**
 
@@ -324,7 +392,7 @@ try {
 
 The service layer should **trust** that the controller layer has validated request format. If null/blank values reach the service from the API, that's a **programming error** (forgot `@Valid` annotation), not a user error.
 
-### 7. Code Quality Standards
+### 8. Code Quality Standards
 
 **Spotless Configuration:**
 - Google Java Format (1.17.0)

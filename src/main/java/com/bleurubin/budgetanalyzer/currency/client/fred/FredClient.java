@@ -151,4 +151,64 @@ public class FredClient {
 
     return new ClientException("FRED API error message: " + errorMessage + " code: " + errorCode);
   }
+
+  /**
+   * Checks if a series exists in FRED.
+   *
+   * @param seriesId The FRED series ID to check
+   * @return true if the series exists, false if it does not exist
+   * @throws ClientException if there is a network error, rate limiting, or API failure (not a
+   *     "series not found" error)
+   */
+  public boolean seriesExists(String seriesId) {
+    var url = buildSeriesUrl(seriesId);
+    log.debug("Checking if FRED series exists: {}", seriesId);
+
+    try {
+      return webClient
+          .get()
+          .uri(url)
+          .accept(MediaType.APPLICATION_JSON)
+          .exchangeToMono(
+              response -> {
+                int statusCode = response.statusCode().value();
+
+                // Series exists
+                if (statusCode == 200) {
+                  log.debug("FRED series exists: {}", seriesId);
+                  return Mono.just(true);
+                }
+
+                // Series doesn't exist
+                if (statusCode == 400 || statusCode == 404) {
+                  log.debug("FRED series does not exist: {} (HTTP {})", seriesId, statusCode);
+                  return Mono.just(false);
+                }
+
+                // Any other error - parse and throw
+                return response
+                    .bodyToMono(String.class)
+                    .defaultIfEmpty("No response body")
+                    .flatMap(body -> Mono.error(parseErrorAndCreateException(response, body)));
+              })
+          .block(Duration.ofSeconds(5));
+
+    } catch (ClientException ce) {
+      throw ce;
+    } catch (Exception e) {
+      log.warn(
+          "Unexpected error checking if FRED series exists {}: {}", seriesId, e.getMessage(), e);
+      throw new ClientException("Failed to check if FRED series exists: " + seriesId, e);
+    }
+  }
+
+  private String buildSeriesUrl(String seriesId) {
+    return new StringBuilder("/series")
+        .append("?series_id=")
+        .append(URLEncoder.encode(seriesId, StandardCharsets.UTF_8))
+        .append("&api_key=")
+        .append(URLEncoder.encode(fredApiKey, StandardCharsets.UTF_8))
+        .append("&file_type=json")
+        .toString();
+  }
 }
