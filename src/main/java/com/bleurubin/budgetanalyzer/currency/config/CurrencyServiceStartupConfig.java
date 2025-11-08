@@ -40,18 +40,8 @@ public class CurrencyServiceStartupConfig {
       return;
     }
 
-    log.info("Checking if all enabled currency series have exchange rate data...");
-
-    if (exchangeRateImportService.hasEnabledExchangeRateData()) {
-      log.info("All enabled currency series have exchange rate data, skipping startup import");
-      return;
-    }
-
-    log.warn(
-        "One or more enabled currency series missing exchange rate data - triggering initial"
-            + " import");
     try {
-      var exchangeRateImportResult = exchangeRateImportService.importLatestExchangeRates();
+      var exchangeRateImportResult = exchangeRateImportService.importMissingExchangeRates();
       log.info(
           "Successfully completed startup exchange rate import: {}",
           SafeLogger.toJson(exchangeRateImportResult));
