@@ -64,6 +64,37 @@ spring:
       use-key-prefix: true
       key-prefix: "currency-service:"
 
+  cloud:
+    function:
+      definition: importExchangeRates  # Register consumer function
+    stream:
+      bindings:
+        # Publisher binding
+        currencyCreated-out-0:
+          destination: currency.created
+
+        # Consumer binding
+        importExchangeRates-in-0:
+          destination: currency.created
+          group: exchange-rate-import-service
+
+      rabbit:
+        bindings:
+          importExchangeRates-in-0:
+            consumer:
+              auto-bind-dlq: true              # Dead letter queue
+              republish-to-dlq: true            # Preserve original message
+              max-attempts: 3                   # Retry 3 times
+              initial-interval: 1000            # 1 second initial retry delay
+              max-interval: 10000               # 10 seconds max retry delay
+              multiplier: 2.0                   # Exponential backoff
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
 currency-service:
   exchange-rate-import:
     # Cron expression for when the job runs (default: 11 PM UTC / 6 PM EST)

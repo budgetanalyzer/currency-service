@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
+import com.bleurubin.budgetanalyzer.currency.messaging.message.CurrencyCreatedMessage;
+import com.bleurubin.budgetanalyzer.currency.messaging.publisher.CurrencyMessagePublisher;
 import com.bleurubin.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import com.bleurubin.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
 import com.bleurubin.service.exception.BusinessException;
@@ -21,18 +23,22 @@ public class CurrencyService {
 
   private final CurrencySeriesRepository currencySeriesRepository;
   private final ExchangeRateProvider exchangeRateProvider;
+  private final CurrencyMessagePublisher messagePublisher;
 
   /**
    * Constructor for CurrencyService.
    *
    * @param currencySeriesRepository The currency series repository
    * @param exchangeRateProvider The exchange rate provider
+   * @param messagePublisher The message publisher for currency events
    */
   public CurrencyService(
       CurrencySeriesRepository currencySeriesRepository,
-      ExchangeRateProvider exchangeRateProvider) {
+      ExchangeRateProvider exchangeRateProvider,
+      CurrencyMessagePublisher messagePublisher) {
     this.currencySeriesRepository = currencySeriesRepository;
     this.exchangeRateProvider = exchangeRateProvider;
+    this.messagePublisher = messagePublisher;
   }
 
   /**
@@ -49,7 +55,13 @@ public class CurrencyService {
     validateProviderSeriesId(currencySeries.getProviderSeriesId());
 
     try {
-      return currencySeriesRepository.save(currencySeries);
+      var saved = currencySeriesRepository.save(currencySeries);
+
+      // Publish message after successful save to trigger async exchange rate import
+      messagePublisher.publishCurrencyCreated(
+          new CurrencyCreatedMessage(saved.getId(), saved.getCurrencyCode()));
+
+      return saved;
     } catch (DataIntegrityViolationException e) {
       throw new BusinessException(
           "Currency code '" + currencySeries.getCurrencyCode() + "' already exists",
