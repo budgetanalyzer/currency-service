@@ -279,7 +279,9 @@ public class ExchangeRateImportService {
 
     if (mostRecent.isEmpty()) {
       // Edge case 1: No data exists - import everything
-      log.info("No existing exchange rates found - importing full history");
+      log.info(
+          "No existing exchange rates found for currency code: {} - importing full history",
+          targetCurrency.getCurrencyCode());
       return null;
     }
 
