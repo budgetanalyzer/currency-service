@@ -8,6 +8,13 @@ logging:
     root: WARN
     com.bleurubin: TRACE
     org.springframework.web.reactive.function.client: DEBUG
+    # Spring Cloud Stream / Integration / AMQP - INFO by default
+    org.springframework.cloud.stream: INFO
+    org.springframework.integration: INFO
+    org.springframework.amqp: INFO
+    # Specific DEBUG loggers for key components
+    org.springframework.amqp.rabbit.core.RabbitTemplate: DEBUG
+    org.springframework.modulith.events.core.DefaultEventPublicationRegistry: DEBUG
 
 spring:
   application:
@@ -63,6 +70,64 @@ spring:
       cache-null-values: false
       use-key-prefix: true
       key-prefix: "currency-service:"
+
+  cloud:
+    function:
+      definition: importExchangeRates  # Register consumer function
+    stream:
+      bindings:
+        # Publisher binding
+        currencyCreated-out-0:
+          destination: currency.created
+
+        # Consumer binding
+        importExchangeRates-in-0:
+          destination: currency.created
+          group: exchange-rate-import-service
+
+      rabbit:
+        bindings:
+          importExchangeRates-in-0:
+            consumer:
+              auto-bind-dlq: true              # Dead letter queue
+              republish-to-dlq: true            # Preserve original message
+              max-attempts: 3                   # Retry 3 times
+              initial-interval: 1000            # 1 second initial retry delay
+              max-interval: 10000               # 10 seconds max retry delay
+              multiplier: 2.0                   # Exponential backoff
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  # Spring Modulith event processing configuration
+  modulith:
+    events:
+      # Republish outstanding events on application restart
+      republish-outstanding-events-on-restart: true
+      # Retain completed events for audit trail (30 days)
+      delete-completion-after: 30d
+
+  # Task execution configuration for async processing
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 10
+        queue-capacity: 100
+      thread-name-prefix: async-task-
+      shutdown:
+        await-termination: true
+        await-termination-period: 60s
+    scheduling:
+      pool:
+        size: 2
+      thread-name-prefix: scheduler-
+      shutdown:
+        await-termination: true
+        await-termination-period: 60s
 
 currency-service:
   exchange-rate-import:

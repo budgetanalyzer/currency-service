@@ -55,4 +55,10 @@ public class FredExchangeRateProvider implements ExchangeRateProvider {
                 FredSeriesObservationsResponse.Observation::date,
                 FredSeriesObservationsResponse.Observation::getValueAsBigDecimal));
   }
+
+  @Override
+  public boolean validateSeriesExists(String providerSeriesId) {
+    log.debug("Validating provider series ID exists: {}", providerSeriesId);
+    return fredClient.seriesExists(providerSeriesId);
+  }
 }

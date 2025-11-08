@@ -5,7 +5,7 @@ import java.time.LocalDate;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateImportResult;
+import com.bleurubin.budgetanalyzer.currency.service.dto.ExchangeRateImportResult;
 
 @Schema(description = "Exchange rate import result response")
 public record ExchangeRateImportResultResponse(

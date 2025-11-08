@@ -3,43 +3,115 @@ package com.bleurubin.budgetanalyzer.currency.service;
 import java.util.Currency;
 import java.util.List;
 
+import org.slf4j.MDC;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
+import com.bleurubin.budgetanalyzer.currency.domain.event.CurrencyCreatedEvent;
 import com.bleurubin.budgetanalyzer.currency.repository.CurrencySeriesRepository;
+import com.bleurubin.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
 import com.bleurubin.service.exception.BusinessException;
+import com.bleurubin.service.exception.ClientException;
 import com.bleurubin.service.exception.ResourceNotFoundException;
+import com.bleurubin.service.exception.ServiceUnavailableException;
+import com.bleurubin.service.http.CorrelationIdFilter;
 
-/** Service for managing currency operations. */
+/**
+ * Service for managing currency operations.
+ *
+ * <p>This service handles all currency-related business logic including creation, retrieval,
+ * updates, and validation. It publishes domain events for significant business operations (e.g.,
+ * currency creation) using Spring's event infrastructure, which are then processed asynchronously
+ * by event listeners via Spring Modulith's transactional outbox pattern.
+ *
+ * @see CurrencyCreatedEvent
+ */
 @Service
 public class CurrencyService {
 
   private final CurrencySeriesRepository currencySeriesRepository;
+  private final ExchangeRateProvider exchangeRateProvider;
+  private final ApplicationEventPublisher eventPublisher;
 
   /**
    * Constructor for CurrencyService.
    *
    * @param currencySeriesRepository The currency series repository
+   * @param exchangeRateProvider The exchange rate provider for validating series IDs
+   * @param eventPublisher The Spring event publisher for publishing domain events
    */
-  public CurrencyService(CurrencySeriesRepository currencySeriesRepository) {
+  public CurrencyService(
+      CurrencySeriesRepository currencySeriesRepository,
+      ExchangeRateProvider exchangeRateProvider,
+      ApplicationEventPublisher eventPublisher) {
     this.currencySeriesRepository = currencySeriesRepository;
+    this.exchangeRateProvider = exchangeRateProvider;
+    this.eventPublisher = eventPublisher;
   }
 
   /**
    * Create a new currency series.
    *
+   * <p>This method validates the currency code and provider series ID, persists the currency series
+   * to the database, and publishes a {@link CurrencyCreatedEvent} domain event. The event is
+   * automatically persisted to the event_publication table by Spring Modulith within the same
+   * database transaction, ensuring guaranteed delivery via the transactional outbox pattern.
+   *
+   * <p><b>Event Publishing Flow:</b>
+   *
+   * <ol>
+   *   <li>Currency entity is saved to the database (within transaction)
+   *   <li>Domain event is published via ApplicationEventPublisher (in-memory)
+   *   <li>Spring Modulith intercepts the event and persists it to event_publication table (same
+   *       transaction)
+   *   <li>Transaction commits (currency entity + event both saved atomically)
+   *   <li>Spring Modulith asynchronously processes the event via {@code @ApplicationModuleListener}
+   *   <li>Event listener publishes external message to RabbitMQ
+   * </ol>
+   *
+   * <p><b>Transactional Guarantees:</b>
+   *
+   * <p>The event is stored in the same database transaction as the currency entity, guaranteeing:
+   *
+   * <ul>
+   *   <li>No lost events - Event survives application crashes since it's persisted in database
+   *   <li>Exactly-once semantics - Event and entity are saved atomically, preventing dual-write
+   *       issues
+   *   <li>Async processing - HTTP request returns immediately after transaction commit without
+   *       waiting for RabbitMQ publishing
+   * </ul>
+   *
    * @param currencySeries The currency series to create
-   * @return The created currency series
-   * @throws BusinessException if currency code is invalid or already exists
+   * @return The created currency series with database-generated ID
+   * @throws BusinessException if currency code is invalid or already exists, or if provider series
+   *     ID is invalid
+   * @throws ServiceUnavailableException if unable to validate provider series ID due to external
+   *     API failure
+   * @see CurrencyCreatedEvent
+   * @see com.bleurubin.budgetanalyzer.currency.messaging.listener.MessagingEventListener#
+   *     onCurrencyCreated(CurrencyCreatedEvent)
    */
   @Transactional
   public CurrencySeries create(CurrencySeries currencySeries) {
     validateCurrencyCode(currencySeries.getCurrencyCode());
+    validateProviderSeriesId(currencySeries.getProviderSeriesId());
 
     try {
-      return currencySeriesRepository.save(currencySeries);
+      // Save currency entity to database
+      var saved = currencySeriesRepository.save(currencySeries);
+
+      // Get correlation ID from MDC (set by CorrelationIdFilter for HTTP requests)
+      var correlationId = MDC.get(CorrelationIdFilter.CORRELATION_ID_MDC_KEY);
+
+      // Publish domain event - Spring Modulith will persist this to event_publication table
+      // in the SAME transaction, guaranteeing delivery even if application crashes
+      eventPublisher.publishEvent(
+          new CurrencyCreatedEvent(saved.getId(), saved.getCurrencyCode(), correlationId));
+
+      return saved;
     } catch (DataIntegrityViolationException e) {
       throw new BusinessException(
           "Currency code '" + currencySeries.getCurrencyCode() + "' already exists",
@@ -86,10 +158,12 @@ public class CurrencyService {
    * @param enabled The new enabled status
    * @return The updated currency series
    * @throws ResourceNotFoundException if currency series not found
+   * @throws BusinessException if provider series ID is invalid
    */
   @Transactional
   public CurrencySeries update(Long id, String providerSeriesId, boolean enabled) {
     var currencySeries = getById(id);
+    validateProviderSeriesId(providerSeriesId);
     currencySeries.setProviderSeriesId(providerSeriesId);
     currencySeries.setEnabled(enabled);
 
@@ -112,6 +186,33 @@ public class CurrencyService {
       throw new BusinessException(
           "Invalid ISO 4217 currency code: " + currencyCode,
           CurrencyServiceError.INVALID_ISO_4217_CODE.name());
+    }
+  }
+
+  /**
+   * Validate that the provider series ID exists in the external provider.
+   *
+   * <p>Note: Format validation is already handled by Bean Validation in the request DTO. This
+   * method validates that the series ID exists in the external provider.
+   *
+   * @param providerSeriesId The provider series ID to validate
+   * @throws BusinessException if provider series ID does not exist or validation fails
+   */
+  private void validateProviderSeriesId(String providerSeriesId) {
+    boolean exists;
+    try {
+      exists = exchangeRateProvider.validateSeriesExists(providerSeriesId);
+    } catch (ClientException e) {
+      throw new ServiceUnavailableException(
+          "Unable to validate provider series ID due to external provider API error: "
+              + e.getMessage(),
+          e);
+    }
+
+    if (!exists) {
+      throw new BusinessException(
+          "Provider series ID '" + providerSeriesId + "' does not exist in the external provider",
+          CurrencyServiceError.INVALID_PROVIDER_SERIES_ID.name());
     }
   }
 }
