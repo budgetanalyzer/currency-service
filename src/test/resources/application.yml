@@ -23,6 +23,15 @@ spring:
   cache:
     type: none  # Disable Redis cache in tests
 
+  # Task execution configuration for tests - disable wait on shutdown to prevent hanging
+  task:
+    execution:
+      shutdown:
+        await-termination: false
+    scheduling:
+      shutdown:
+        await-termination: false
+
 currency-service:
   exchange-rate-import:
     import-on-startup: false  # Disable startup import in tests

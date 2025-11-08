@@ -15,10 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bleurubin.budgetanalyzer.currency.config.CacheConfig;
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
-import com.bleurubin.budgetanalyzer.currency.service.dto.ExchangeRateImportResult;
 import com.bleurubin.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
+import com.bleurubin.budgetanalyzer.currency.service.dto.ExchangeRateImportResult;
 import com.bleurubin.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
+import com.bleurubin.service.exception.ResourceNotFoundException;
 import com.bleurubin.service.exception.ServiceException;
 
 /**
@@ -137,6 +138,34 @@ public class ExchangeRateImportService {
 
     return new ExchangeRateImportResult(
         totalNew, totalUpdated, totalSkipped, earliestDate, latestDate);
+  }
+
+  /**
+   * Imports exchange rates for a specific currency series by ID.
+   *
+   * <p>This method is called by the message consumer when a new currency is created. It fetches the
+   * currency series, determines the appropriate start date, and imports exchange rates from the
+   * external provider.
+   *
+   * @param currencySeriesId The ID of the currency series to import rates for
+   * @return Import result with counts of new, updated, and skipped rates
+   * @throws ResourceNotFoundException if currency series not found
+   */
+  @Transactional
+  @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
+  public ExchangeRateImportResult importExchangeRatesForSeries(Long currencySeriesId) {
+    var currencySeries =
+        currencySeriesRepository
+            .findById(currencySeriesId)
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "Currency series not found with id: " + currencySeriesId));
+
+    var targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
+    var startDate = determineStartDate(targetCurrency);
+
+    return importExchangeRates(currencySeries, startDate);
   }
 
   /**

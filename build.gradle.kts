@@ -20,6 +20,13 @@ repositories {
     mavenCentral()
 }
 
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2024.0.0")
+        mavenBom("org.springframework.modulith:spring-modulith-bom:1.3.1")
+    }
+}
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -30,6 +37,10 @@ dependencies {
     implementation ("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation("org.springframework.cloud:spring-cloud-stream")
+    implementation("org.springframework.cloud:spring-cloud-stream-binder-rabbit")
+    implementation("org.springframework.modulith:spring-modulith-starter-core")
+    implementation("org.springframework.modulith:spring-modulith-starter-jpa")
     implementation("net.javacrumbs.shedlock:shedlock-spring:6.0.2")
     implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:6.0.2")
     implementation("org.flywaydb:flyway-core")

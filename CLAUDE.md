@@ -12,6 +12,7 @@ The Currency Service is a production-grade Spring Boot microservice responsible 
 - **Language**: Java 24
 - **Database**: PostgreSQL (production), H2 (testing)
 - **Cache**: Redis (distributed caching)
+- **Messaging**: Spring Cloud Stream with RabbitMQ (event-driven architecture)
 - **API Documentation**: SpringDoc OpenAPI 3
 - **Build Tool**: Gradle (Kotlin DSL)
 - **Code Quality**: Spotless (Google Java Format), Checkstyle
@@ -21,7 +22,8 @@ The Currency Service is a production-grade Spring Boot microservice responsible 
 The service follows a clean, layered architecture with clear separation of concerns:
 
 - **api/**: REST controllers and API-specific request/response DTOs only
-- **domain/**: JPA entities representing business domain
+- **domain/**: JPA entities and domain events
+  - **domain/event/**: Domain events (internal business facts)
 - **service/**: Business logic, orchestration, validation
   - **service/dto/**: Internal data transfer objects (NOT API contracts)
   - **service/provider/**: Provider abstraction interfaces and implementations
@@ -29,20 +31,32 @@ The service follows a clean, layered architecture with clear separation of conce
 - **client/**: External API integrations
 - **config/**: Spring configuration classes
 - **scheduler/**: Scheduled background tasks
+- **messaging/**: Event-driven messaging components
+  - **messaging/message/**: Message payload classes (external contracts)
+  - **messaging/publisher/**: Message publishers (encapsulate StreamBridge)
+  - **messaging/listener/**: Event listeners (bridge domain events to messages)
+  - **messaging/consumer/**: Message consumers (functional bean pattern)
 
 **Package Dependency Rules:**
 ```
 api → service (NEVER repository)
 service → repository
-service → domain
+service → domain (entities AND events)
 service → client
+service → ApplicationEventPublisher (can publish domain events)
 service/provider → client
+messaging/listener → domain/event (listens to domain events)
+messaging/listener → messaging/publisher (publishes external messages)
+messaging/publisher → messaging/message (publishes messages)
+messaging/consumer → service (delegates to services)
 repository → domain
 ```
 
 **Critical Boundaries:**
 - API classes should NEVER be imported by service layer
 - **Controllers should NEVER import repositories** - all repository access must go through services
+- **Messaging consumers should NEVER import repositories** - all repository access via services
+- **Service layer publishes messages** via publisher abstraction (not StreamBridge directly)
 
 ## Architectural Principles
 
@@ -241,11 +255,377 @@ public class CurrencyService {
 - Only `FredExchangeRateProvider` and `FredClient` contain FRED-specific logic
 - Error messages use "external provider" not "FRED"
 
-### 5. Clear Package Separation
+### 5. Event-Driven Messaging with Transactional Outbox Pattern
+
+**RULE**: Use Spring Modulith's transactional outbox pattern for guaranteed message delivery. Services publish domain events that are automatically persisted in the database, then asynchronously processed and published to external messaging systems.
+
+**Architecture:**
+```
+service/ → domain/event/CurrencyCreatedEvent (domain event)
+         → messaging/listener/MessagingEventListener (bridges events to messages)
+         → messaging/publisher/CurrencyMessagePublisher (abstraction)
+         → messaging/message/CurrencyCreatedMessage (external payload)
+messaging/consumer/ExchangeRateImportConsumer → service/ExchangeRateImportService
+```
+
+**The Problem We're Solving:**
+
+Traditional message publishing has the "dual-write problem":
+```java
+@Transactional
+public void create(Currency currency) {
+    repository.save(currency);           // Write #1: Database
+    messagePublisher.publish(message);   // Write #2: RabbitMQ
+    // What if app crashes between these two writes?
+    // What if RabbitMQ is down but database succeeded?
+    // Result: Data saved but no message sent = lost event!
+}
+```
+
+**The Solution: Transactional Outbox Pattern**
+
+Spring Modulith automatically stores events in the database **within the same transaction** as your business data:
+```java
+@Transactional
+public void create(Currency currency) {
+    var saved = repository.save(currency);           // Write #1: Database
+    eventPublisher.publishEvent(new Event(...));     // Write #2: Database (same transaction!)
+    // Spring Modulith stores event in event_publication table
+    // Both writes succeed or both fail - atomic guarantee!
+}
+// After transaction commits, Spring Modulith asynchronously publishes to RabbitMQ
+```
+
+**Components:**
+
+1. **Domain Events** (`domain/event/`): Internal events representing business facts
+   ```java
+   /**
+    * Domain event published when a new currency series is created.
+    * Spring Modulith automatically persists this to event_publication table.
+    */
+   public record CurrencyCreatedEvent(
+       Long currencySeriesId,
+       String currencyCode,
+       String correlationId
+   ) {}
+   ```
+
+2. **Service Layer** (`service/`): Publishes domain events within transactions
+   ```java
+   @Service
+   public class CurrencyService {
+       private final ApplicationEventPublisher eventPublisher;
+
+       @Transactional
+       public CurrencySeries create(CurrencySeries currencySeries) {
+           // Save entity to database
+           var saved = repository.save(currencySeries);
+
+           // Publish domain event - Spring Modulith persists to event_publication table
+           // in the SAME transaction as the entity save
+           var correlationId = MDC.get(CorrelationIdFilter.CORRELATION_ID_MDC_KEY);
+           eventPublisher.publishEvent(
+               new CurrencyCreatedEvent(saved.getId(), saved.getCurrencyCode(), correlationId)
+           );
+
+           return saved;  // Transaction commits - both entity and event saved atomically!
+       }
+   }
+   ```
+
+3. **Event Listeners** (`messaging/listener/`): Bridge domain events to external messages
+   ```java
+   @Component
+   public class MessagingEventListener {
+       private final CurrencyMessagePublisher messagePublisher;
+
+       /**
+        * @ApplicationModuleListener enables transactional outbox pattern:
+        * - Event already persisted to database before this method is called
+        * - Runs asynchronously on background thread after transaction commits
+        * - Automatically retries on failure until successful
+        * - Event marked completed in database after successful processing
+        */
+       @ApplicationModuleListener
+       void onCurrencyCreated(CurrencyCreatedEvent event) {
+           MDC.put("correlationId", event.correlationId());
+           MDC.put("eventType", "currency_created");
+           try {
+               // Publish to RabbitMQ - if this fails, Spring Modulith will retry
+               messagePublisher.publishCurrencyCreated(
+                   new CurrencyCreatedMessage(
+                       event.currencySeriesId(),
+                       event.currencyCode(),
+                       event.correlationId()
+                   )
+               );
+           } finally {
+               MDC.clear();
+           }
+       }
+   }
+   ```
+
+4. **Message Publishers** (`messaging/publisher/`): Thin wrappers around StreamBridge
+   ```java
+   @Component
+   public class CurrencyMessagePublisher {
+       private final StreamBridge streamBridge;
+
+       public void publishCurrencyCreated(CurrencyCreatedMessage message) {
+           streamBridge.send("currencyCreated-out-0", message);
+       }
+   }
+   ```
+
+5. **Message Classes** (`messaging/message/`): External message contracts
+   ```java
+   public record CurrencyCreatedMessage(
+       Long currencySeriesId,
+       String currencyCode,
+       String correlationId
+   ) {}
+   ```
+
+6. **Consumers** (`messaging/consumer/`): Functional beans that delegate to services
+   ```java
+   @Configuration
+   public class ExchangeRateImportConsumer {
+       private final ExchangeRateImportService service;
+
+       @Bean
+       public Consumer<CurrencyCreatedMessage> importExchangeRates() {
+           return message -> {
+               MDC.put("correlationId", message.correlationId());
+               MDC.put("eventType", "currency_created");
+               try {
+                   service.importExchangeRatesForSeries(message.currencySeriesId());
+               } finally {
+                   MDC.clear();  // Always clean up MDC
+               }
+               // Exceptions propagate to Spring Cloud Stream retry mechanism
+           };
+       }
+   }
+   ```
+
+**CRITICAL: Message Consumer Error Handling**
+
+Message consumers **MUST NOT** catch and swallow exceptions. Spring Cloud Stream's retry and DLQ mechanisms depend on exceptions propagating from the consumer.
+
+**WRONG - Breaks retry mechanism:**
+```java
+@Bean
+public Consumer<CurrencyCreatedMessage> importExchangeRates() {
+    return message -> {
+        try {
+            service.importExchangeRatesForSeries(message.currencySeriesId());
+        } catch (Exception e) {
+            log.error("Failed to import", e);
+            // ❌ Exception swallowed - Spring Cloud Stream thinks it succeeded!
+            // Result: No retry, message acknowledged and removed from queue
+        }
+    };
+}
+```
+
+**CORRECT - Allows retry mechanism:**
+```java
+@Bean
+public Consumer<CurrencyCreatedMessage> importExchangeRates() {
+    return message -> {
+        MDC.put("correlationId", message.correlationId());
+        try {
+            service.importExchangeRatesForSeries(message.currencySeriesId());
+        } finally {
+            MDC.clear();  // ✅ Always clean up MDC, even on exception
+        }
+        // ✅ Exception propagates naturally to Spring Cloud Stream
+    };
+}
+```
+
+**How Spring Cloud Stream Retry Works:**
+
+1. **Success**: Consumer returns normally → Message acknowledged, removed from queue
+2. **Failure**: Consumer throws exception → Spring Cloud Stream retry logic triggers
+3. **After max retries**: Message published to Dead Letter Queue (DLQ) for manual investigation
+
+**Retry Configuration** (application.yml):
+```yaml
+spring.cloud.stream.rabbit.bindings.importExchangeRates-in-0.consumer:
+  max-attempts: 3              # 1 initial + 2 retries
+  initial-interval: 1000       # 1 second initial delay
+  multiplier: 2.0              # Exponential backoff (1s, 2s, 4s)
+  auto-bind-dlq: true          # Create DLQ automatically
+  republish-to-dlq: true       # Preserve original message in DLQ
+```
+
+**Why the `finally` block?**
+
+The `finally` block ensures MDC is cleaned up even when exceptions are thrown. Without it, MDC values would leak across messages in the thread pool (Spring Cloud Stream reuses threads).
+
+**Key Points:**
+- Use `finally` for cleanup (MDC, resources) - it always executes
+- Never use `catch` unless rethrowing the exception
+- Let exceptions propagate naturally to Spring Cloud Stream
+- Spring Cloud Stream handles retry, backoff, and DLQ automatically
+
+**Event Flow with Transactional Outbox:**
+
+```
+HTTP Request (Thread 1: nio-8084-exec-1)
+│
+├─> CurrencyController.create()
+│   └─> CurrencyService.create()
+│       ├─> repository.save(currency)              [Transaction START]
+│       ├─> eventPublisher.publishEvent(...)
+│       │   └─> Spring Modulith intercepts
+│       │       └─> INSERT INTO event_publication  [Same transaction!]
+│       └─> return                                 [Transaction COMMIT - atomic!]
+│
+└─> HTTP 201 Created (request completes immediately)
+
+Background (Thread 2: modulith-event-processor)
+│
+└─> Spring Modulith polls event_publication table
+    ├─> SELECT * FROM event_publication WHERE completion_date IS NULL
+    ├─> Found unpublished event
+    ├─> Invokes @ApplicationModuleListener method
+    │   └─> MessagingEventListener.onCurrencyCreated()
+    │       └─> messagePublisher.publishCurrencyCreated()
+    │           └─> StreamBridge.send() → RabbitMQ
+    └─> UPDATE event_publication SET completion_date = NOW()
+```
+
+**Dependency Rules:**
+- ✅ `CurrencyService` → `ApplicationEventPublisher` (Spring event publishing)
+- ✅ `MessagingEventListener` → `CurrencyMessagePublisher` (bridges events to messages)
+- ✅ `CurrencyMessagePublisher` → `StreamBridge` (Spring Cloud Stream)
+- ✅ `ExchangeRateImportConsumer` → `ExchangeRateImportService` (delegates to service)
+- ❌ `CurrencyService` → `CurrencyMessagePublisher` (direct message publishing - FORBIDDEN)
+- ❌ `CurrencyService` → `StreamBridge` (bypass domain events - FORBIDDEN)
+- ❌ `ExchangeRateImportConsumer` → `ExchangeRateRepository` (direct DB access - FORBIDDEN)
+
+**Why This Pattern?**
+
+1. **100% Guaranteed Delivery**
+   - Events persisted in database within same transaction as business data
+   - Survives application crashes, network failures, RabbitMQ downtime
+   - No lost events - if entity exists in database, event will be published
+
+2. **Exactly-Once Semantics**
+   - Eliminates dual-write problem (database + message queue)
+   - Atomic commit: both entity and event saved together or both fail
+   - No partial states where entity exists but event wasn't published
+
+3. **Async HTTP Responses**
+   - HTTP request returns immediately after database commit
+   - Client doesn't wait for RabbitMQ publishing (200ms vs 2ms response time)
+   - Better user experience and higher throughput
+
+4. **Automatic Retries**
+   - Spring Modulith retries failed event processing until successful
+   - No manual retry logic needed in application code
+   - Failed events remain in database for troubleshooting
+
+5. **Event Replay & Audit Trail**
+   - All events stored in database with timestamps
+   - Can manually replay events from database if needed
+   - Full audit trail of all domain events for debugging
+
+6. **Decoupled Architecture**
+   - Service layer publishes domain events (internal concern)
+   - Event listeners translate to external messages (infrastructure concern)
+   - Easy to add new listeners without changing service layer
+
+**Database Schema:**
+
+Spring Modulith requires an `event_publication` table (created via Flyway migration):
+```sql
+CREATE TABLE event_publication (
+    id UUID PRIMARY KEY,
+    listener_id VARCHAR(512) NOT NULL,          -- Event listener method
+    event_type VARCHAR(512) NOT NULL,           -- Domain event class
+    serialized_event TEXT NOT NULL,             -- JSON event payload
+    publication_date TIMESTAMP NOT NULL,        -- When event was created
+    completion_date TIMESTAMP                   -- When successfully processed (NULL = pending)
+);
+
+-- Index for polling unpublished events
+CREATE INDEX idx_event_publication_unpublished
+    ON event_publication(completion_date)
+    WHERE completion_date IS NULL;
+```
+
+**Configuration:**
+
+Spring Modulith configuration in `application.yml`:
+```yaml
+spring:
+  modulith:
+    events:
+      # Republish outstanding events on application restart
+      republish-outstanding-events-on-restart: true
+      # Retain completed events for audit trail (30 days)
+      delete-completion-after: 30d
+
+  cloud:
+    function:
+      definition: importExchangeRates  # Consumer bean name
+    stream:
+      bindings:
+        currencyCreated-out-0:
+          destination: currency.created
+        importExchangeRates-in-0:
+          destination: currency.created
+          group: exchange-rate-import-service
+      rabbit:
+        bindings:
+          importExchangeRates-in-0:
+            consumer:
+              auto-bind-dlq: true
+              republish-to-dlq: true
+              max-attempts: 3
+              initial-interval: 1000
+              multiplier: 2.0
+```
+
+**Error Handling:**
+
+- **Event Listener Failures**: Spring Modulith catches exceptions and retries event processing. Event remains in database with NULL completion_date until successful.
+- **Consumer Failures**: Spring Cloud Stream retry mechanism handles failures automatically. Failed messages sent to Dead Letter Queue after max attempts.
+- **Database Failures**: Transaction rolls back - neither entity nor event is saved (atomic guarantee).
+
+**Distributed Tracing with MDC:**
+
+Correlation ID flows through entire pipeline:
+```
+HTTP Request
+  └─> CorrelationIdFilter sets MDC["correlationId"] = UUID
+      └─> CurrencyService reads MDC, includes in domain event
+          └─> MessagingEventListener sets MDC from event.correlationId()
+              └─> External message includes correlationId
+                  └─> Consumer sets MDC from message.correlationId()
+```
+
+All logs from HTTP request → service → event listener → external consumer include the same correlation ID for end-to-end tracing.
+
+**Key Points:**
+- Domain events ≠ External messages (conceptually different, structurally similar)
+- Events are internal facts ("currency was created"), messages are external contracts ("notify other services")
+- Domain events belong in `domain/event/` package (part of domain model, not service logic)
+- Use `@ApplicationModuleListener` (Spring Modulith), not `@EventListener` (no outbox guarantee)
+- Event listeners must be in separate package (`messaging/listener/`) from domain events (`domain/event/`)
+- Always propagate correlation ID through events for distributed tracing
+- Completed events retained in database for audit trail (configurable TTL)
+
+### 6. Clear Package Separation
 
 Package boundaries should be self-evident from inspection. See the **Package Structure** section above for the complete package organization and dependency rules.
 
-### 6. Exception Handling Strategy
+### 7. Exception Handling Strategy
 
 **CRITICAL**: Understand the difference between validation failures and business rule violations.
 
@@ -306,7 +686,7 @@ These are **valid requests** that violate **business logic**.
 **Rule of Thumb:**
 If the validation can be done with `@NotBlank`, `@NotNull`, `@Pattern`, `@Size`, etc., it belongs in the request DTO, NOT in the service layer.
 
-### 7. Validation Strategy
+### 8. Validation Strategy
 
 **CRITICAL PRINCIPLE: Clear Separation of Concerns**
 
@@ -426,7 +806,7 @@ try {
 
 The service layer should **trust** that the controller layer has validated request format. If null/blank values reach the service from the API, that's a **programming error** (forgot `@Valid` annotation), not a user error.
 
-### 8. Code Quality Standards
+### 9. Code Quality Standards
 
 **Spotless Configuration:**
 - Google Java Format (1.17.0)
@@ -1250,7 +1630,8 @@ Build completed with Checkstyle warnings that I cannot resolve:
 
 #### High Priority - Testing & Quality
 - [ ] **Add comprehensive integration tests** - Currently only smoke test exists; need controller, service, and repository layer tests
-- [ ] **Implement test containers for integration tests** - Replace H2 with PostgreSQL/Redis test containers for realistic integration testing
+- [ ] **Migrate to Testcontainers for integration tests** - Replace H2 with PostgreSQL/Redis test containers for realistic integration testing; enables use of PostgreSQL-specific features in tests
+- [ ] **Add PostgreSQL partial indexes after Testcontainers migration** - Replace full indexes with partial indexes (e.g., `WHERE completion_date IS NULL` for event_publication table) for improved performance and reduced index size
 - [ ] **Add WireMock for external API testing** - Mock FRED API responses for reliable external integration tests
 
 #### High Priority - Resilience & Reliability
