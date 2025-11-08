@@ -20,26 +20,29 @@ The Currency Service is a production-grade Spring Boot microservice responsible 
 
 The service follows a clean, layered architecture with clear separation of concerns:
 
-- **api/**: REST controllers and API-specific response DTOs only
+- **api/**: REST controllers and API-specific request/response DTOs only
 - **domain/**: JPA entities representing business domain
 - **service/**: Business logic, orchestration, validation
+  - **service/dto/**: Internal data transfer objects (NOT API contracts)
+  - **service/provider/**: Provider abstraction interfaces and implementations
 - **repository/**: Data access layer (Spring Data JPA)
 - **client/**: External API integrations
 - **config/**: Spring configuration classes
-- **dto/**: Internal data transfer objects (NOT API contracts)
 - **scheduler/**: Scheduled background tasks
 
 **Package Dependency Rules:**
 ```
-api → service → repository
-api → domain
-service → domain
+api → service (NEVER repository)
 service → repository
+service → domain
 service → client
+service/provider → client
 repository → domain
 ```
 
-API classes should NEVER be imported by service layer.
+**Critical Boundaries:**
+- API classes should NEVER be imported by service layer
+- **Controllers should NEVER import repositories** - all repository access must go through services
 
 ## Architectural Principles
 
@@ -64,57 +67,87 @@ This enables service reusability across multiple contexts:
 - Message queue consumers (future)
 - Internal service-to-service calls
 
+**CRITICAL RULE**: Controllers NEVER import repositories. All repository access is encapsulated in the service layer.
+
 **Controller Responsibilities:**
 - Handle HTTP concerns (status codes, headers)
-- Retrieve entities by ID from repositories
 - Map API DTOs to/from domain entities
-- Delegate business logic to services
+- Delegate ALL business operations to services (including entity retrieval by ID)
+- Handle controller-level exceptions (ResourceNotFoundException, InvalidRequestException)
 
 **Service Responsibilities:**
 - Execute business logic
 - Perform business validation
 - Manage transactions
 - Coordinate between repositories
+- Retrieve entities by ID from repositories
 - Publish domain events
 
 **Example Pattern:**
 ```java
 @RestController
-@RequestMapping("/exchange-rates")
+@RequestMapping("/v1/exchange-rates")
 public class ExchangeRateController {
 
-  @Autowired private ExchangeRateRepository exchangeRateRepository;
   @Autowired private ExchangeRateMapper mapper;
   @Autowired private ExchangeRateService exchangeRateService;
 
   @PutMapping("/{id}")
   public ExchangeRateResponse update(@PathVariable Long id,
                                       @RequestBody ExchangeRateRequest request) {
-    // 1. Retrieve entity
-    var exchangeRate = exchangeRateRepository.findById(id)
-        .orElseThrow(() -> new ResourceNotFoundException("Exchange rate not found"));
+    // 1. Map request to entity (for updates)
+    var updates = mapper.fromRequest(request);
 
-    // 2. Map request to entity
-    mapper.updateFromRequest(request, exchangeRate);
+    // 2. Delegate to service (service retrieves entity by ID internally)
+    var updated = exchangeRateService.update(id, updates);
 
-    // 3. Delegate to service
-    var updated = exchangeRateService.update(exchangeRate);
-
-    // 4. Map entity to response
+    // 3. Map entity to response
     return mapper.toResponse(updated);
+  }
+
+  @GetMapping("/{id}")
+  public ExchangeRateResponse getById(@PathVariable Long id) {
+    // Service handles entity retrieval and throws ResourceNotFoundException if not found
+    var exchangeRate = exchangeRateService.getById(id);
+    return mapper.toResponse(exchangeRate);
+  }
+}
+```
+
+**Service Pattern:**
+```java
+@Service
+public class ExchangeRateService {
+
+  @Autowired private ExchangeRateRepository exchangeRateRepository;
+
+  public ExchangeRate getById(Long id) {
+    return exchangeRateRepository.findById(id)
+        .orElseThrow(() -> new ResourceNotFoundException("Exchange rate not found: " + id));
+  }
+
+  @Transactional
+  public ExchangeRate update(Long id, ExchangeRate updates) {
+    var entity = getById(id);  // Reuse getById for entity retrieval
+    // Apply updates
+    entity.setRate(updates.getRate());
+    // Business validation
+    validateExchangeRate(entity);
+    return exchangeRateRepository.save(entity);
   }
 }
 ```
 
 **Controllers ONLY:**
-- Use `repository.findById(id)` for entity resolution
-- Throw `ResourceNotFoundException` when entity not found
-- Throw `InvalidRequestException` for malformed requests
+- Map API DTOs to/from domain entities
+- Delegate to service methods
+- Throw `InvalidRequestException` for malformed requests (automatically via Bean Validation)
 
 **Controllers NEVER:**
-- Perform complex repository queries
-- Execute business logic or validation
-- Import service-level exceptions beyond ResourceNotFoundException
+- Import or use repositories directly
+- Perform complex business logic or validation
+- Access the database
+- Import service-level exceptions beyond ResourceNotFoundException (thrown by services)
 
 ### 3. Persistence Layer: Pure JPA
 
@@ -146,6 +179,7 @@ public class ExchangeRateController {
 **Architecture:**
 ```
 service/ → service/provider/ExchangeRateProvider (interface)
+         → service/dto/ (internal DTOs)
 service/provider/FredExchangeRateProvider (impl) → client/fred/FredClient
 ```
 
@@ -1180,11 +1214,12 @@ Build completed with Checkstyle warnings that I cannot resolve:
 
 ### Architecture Conventions
 
-- Controllers: Thin, HTTP-focused, delegate to services
-- Services: Business logic, validation, transactions
-- Repositories: Data access only
+- Controllers: Thin, HTTP-focused, delegate to services, NEVER import repositories
+- Services: Business logic, validation, transactions, entity retrieval by ID
+- Repositories: Data access only, ONLY imported by services
 - Domain entities: Pure JPA, no business logic
-- API DTOs: In `api/response` package only, never used by services
+- API DTOs: In `api/` package only, never used by services
+- Service DTOs: In `service/dto/` package, for internal service-to-service communication
 
 ### Testing Requirements
 

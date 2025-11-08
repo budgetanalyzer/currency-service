@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.bleurubin.budgetanalyzer.currency.config.CacheConfig;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
-import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateData;
+import com.bleurubin.budgetanalyzer.currency.service.dto.ExchangeRateData;
 import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import com.bleurubin.budgetanalyzer.currency.repository.spec.ExchangeRateSpecifications;
 import com.bleurubin.service.exception.ResourceNotFoundException;

@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bleurubin.budgetanalyzer.currency.config.CacheConfig;
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
-import com.bleurubin.budgetanalyzer.currency.dto.ExchangeRateImportResult;
+import com.bleurubin.budgetanalyzer.currency.service.dto.ExchangeRateImportResult;
 import com.bleurubin.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import com.bleurubin.budgetanalyzer.currency.service.provider.ExchangeRateProvider;

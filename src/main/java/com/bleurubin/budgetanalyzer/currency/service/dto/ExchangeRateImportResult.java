@@ -1,4 +1,4 @@
-package com.bleurubin.budgetanalyzer.currency.dto;
+package com.bleurubin.budgetanalyzer.currency.service.dto;
 
 import java.time.Instant;
 import java.time.LocalDate;
