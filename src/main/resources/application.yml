@@ -155,7 +155,7 @@ bleurubin:
       enabled: true
       log-level: DEBUG
       include-request-body: true
-      include-response-body: true
+      include-response-body: false
       max-body-size: 10000
       exclude-patterns:
         - /actuator/**

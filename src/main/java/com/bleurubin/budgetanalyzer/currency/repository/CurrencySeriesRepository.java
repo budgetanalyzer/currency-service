@@ -24,4 +24,12 @@ public interface CurrencySeriesRepository extends JpaRepository<CurrencySeries, 
    * @return Optional containing the currency series if found and enabled
    */
   Optional<CurrencySeries> findByCurrencyCodeAndEnabledTrue(String currencyCode);
+
+  /**
+   * Find a currency series by currency code (regardless of enabled status).
+   *
+   * @param currencyCode The ISO 4217 currency code
+   * @return Optional containing the currency series if found
+   */
+  Optional<CurrencySeries> findByCurrencyCode(String currencyCode);
 }

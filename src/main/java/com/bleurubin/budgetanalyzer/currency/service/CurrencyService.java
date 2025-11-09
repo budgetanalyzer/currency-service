@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
 import com.bleurubin.budgetanalyzer.currency.domain.event.CurrencyCreatedEvent;
+import com.bleurubin.budgetanalyzer.currency.domain.event.CurrencyUpdatedEvent;
 import com.bleurubin.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import com.bleurubin.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
 import com.bleurubin.service.exception.BusinessException;
@@ -55,10 +56,16 @@ public class CurrencyService {
   /**
    * Create a new currency series.
    *
-   * <p>This method validates the currency code and provider series ID, persists the currency series
-   * to the database, and publishes a {@link CurrencyCreatedEvent} domain event. The event is
-   * automatically persisted to the event_publication table by Spring Modulith within the same
-   * database transaction, ensuring guaranteed delivery via the transactional outbox pattern.
+   * <p>This method validates the currency code and provider series ID against the external provider
+   * (FRED), persists the currency series to the database, and publishes a {@link
+   * CurrencyCreatedEvent} domain event. The event is automatically persisted to the
+   * event_publication table by Spring Modulith within the same database transaction, ensuring
+   * guaranteed delivery via the transactional outbox pattern.
+   *
+   * <p><b>Typical Use Case:</b> This endpoint is intended for adding new currencies when FRED adds
+   * support for additional currency pairs. Most users will not need to use this endpoint, as 23
+   * commonly-used currencies are pre-populated on application startup and can be enabled via the
+   * PUT endpoint.
    *
    * <p><b>Event Publishing Flow:</b>
    *
@@ -84,10 +91,11 @@ public class CurrencyService {
    *       waiting for RabbitMQ publishing
    * </ul>
    *
-   * @param currencySeries The currency series to create
+   * @param currencySeries The currency series to create (must include both currencyCode and
+   *     providerSeriesId)
    * @return The created currency series with database-generated ID
    * @throws BusinessException if currency code is invalid or already exists, or if provider series
-   *     ID is invalid
+   *     ID does not exist in the external provider
    * @throws ServiceUnavailableException if unable to validate provider series ID due to external
    *     API failure
    * @see CurrencyCreatedEvent
@@ -109,7 +117,8 @@ public class CurrencyService {
       // Publish domain event - Spring Modulith will persist this to event_publication table
       // in the SAME transaction, guaranteeing delivery even if application crashes
       eventPublisher.publishEvent(
-          new CurrencyCreatedEvent(saved.getId(), saved.getCurrencyCode(), correlationId));
+          new CurrencyCreatedEvent(
+              saved.getId(), saved.getCurrencyCode(), saved.isEnabled(), correlationId));
 
       return saved;
     } catch (DataIntegrityViolationException e) {
@@ -150,24 +159,37 @@ public class CurrencyService {
   /**
    * Update an existing currency series.
    *
-   * <p>Note: Currency code is immutable and cannot be changed. Only providerSeriesId and enabled
-   * can be updated.
+   * <p>Note: Currency code and providerSeriesId are immutable and cannot be changed after creation.
+   * Only the enabled status can be updated.
+   *
+   * <p>This method publishes a {@link
+   * com.bleurubin.budgetanalyzer.currency.domain.event.CurrencyUpdatedEvent} domain event which is
+   * automatically persisted to the event_publication table by Spring Modulith within the same
+   * database transaction. The event listener will only trigger exchange rate imports if the
+   * currency is enabled.
    *
    * @param id The currency series ID
-   * @param providerSeriesId The new provider series ID
    * @param enabled The new enabled status
    * @return The updated currency series
    * @throws ResourceNotFoundException if currency series not found
-   * @throws BusinessException if provider series ID is invalid
    */
   @Transactional
-  public CurrencySeries update(Long id, String providerSeriesId, boolean enabled) {
+  public CurrencySeries update(Long id, boolean enabled) {
     var currencySeries = getById(id);
-    validateProviderSeriesId(providerSeriesId);
-    currencySeries.setProviderSeriesId(providerSeriesId);
     currencySeries.setEnabled(enabled);
 
-    return currencySeriesRepository.save(currencySeries);
+    var saved = currencySeriesRepository.save(currencySeries);
+
+    // Get correlation ID from MDC (set by CorrelationIdFilter for HTTP requests)
+    var correlationId = MDC.get(CorrelationIdFilter.CORRELATION_ID_MDC_KEY);
+
+    // Publish domain event - Spring Modulith will persist this to event_publication table
+    // in the SAME transaction, guaranteeing delivery even if application crashes
+    eventPublisher.publishEvent(
+        new CurrencyUpdatedEvent(
+            saved.getId(), saved.getCurrencyCode(), saved.isEnabled(), correlationId));
+
+    return saved;
   }
 
   /**
@@ -190,13 +212,11 @@ public class CurrencyService {
   }
 
   /**
-   * Validate that the provider series ID exists in the external provider.
-   *
-   * <p>Note: Format validation is already handled by Bean Validation in the request DTO. This
-   * method validates that the series ID exists in the external provider.
+   * Validate that the provider series ID exists in the external provider (FRED).
    *
    * @param providerSeriesId The provider series ID to validate
-   * @throws BusinessException if provider series ID does not exist or validation fails
+   * @throws BusinessException if provider series ID does not exist in the external provider
+   * @throws ServiceUnavailableException if unable to validate due to external API failure
    */
   private void validateProviderSeriesId(String providerSeriesId) {
     boolean exists;

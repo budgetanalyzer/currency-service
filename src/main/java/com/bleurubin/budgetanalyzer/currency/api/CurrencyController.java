@@ -49,7 +49,9 @@ public class CurrencyController {
   @Operation(
       summary = "Create a new currency series",
       description =
-          "Create a new currency series mapping between ISO 4217 code and provider series ID")
+          "Create a new currency series. This endpoint is typically used when FRED adds support "
+              + "for new currency pairs. The 23 commonly-used currencies are already "
+              + "pre-populated and can be enabled via the PUT endpoint.")
   @ApiResponses(
       value = {
         @ApiResponse(
@@ -91,14 +93,14 @@ public class CurrencyController {
                       }
                       """),
                       @ExampleObject(
-                          name = "Invalid Provider Series ID",
-                          summary = "Provider series ID does not exist",
+                          name = "Currency Not Supported",
+                          summary = "Currency code is not supported",
                           value =
                               """
                       {
                         "type": "APPLICATION_ERROR",
-                        "message": "Provider series ID 'INVALID_SERIES' does not exist in the external provider",
-                        "code": "INVALID_PROVIDER_SERIES_ID"
+                        "message": "Currency code 'ZZZ' is not supported. Supported currencies: [AUD, BRL, CAD, ...]",
+                        "code": "CURRENCY_NOT_SUPPORTED"
                       }
                       """)
                     }))
@@ -163,8 +165,8 @@ public class CurrencyController {
   @Operation(
       summary = "Update currency series",
       description =
-          "Update an existing currency series (currency code is immutable, "
-              + "only providerSeriesId and enabled can be changed)")
+          "Update an existing currency series (currency code and provider series ID are immutable, "
+              + "only enabled status can be changed)")
   @ApiResponses(
       value = {
         @ApiResponse(
@@ -175,34 +177,14 @@ public class CurrencyController {
                     mediaType = "application/json",
                     schema = @Schema(implementation = CurrencySeriesResponse.class))),
         @ApiResponse(responseCode = "400", description = "Invalid request"),
-        @ApiResponse(responseCode = "404", description = "Currency series not found"),
-        @ApiResponse(
-            responseCode = "422",
-            description = "Business validation failed",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = ApiErrorResponse.class),
-                    examples = {
-                      @ExampleObject(
-                          name = "Invalid Provider Series ID",
-                          summary = "Provider series ID does not exist",
-                          value =
-                              """
-                      {
-                        "type": "APPLICATION_ERROR",
-                        "message": "Provider series ID 'INVALID_SERIES' does not exist in the external provider",
-                        "code": "INVALID_PROVIDER_SERIES_ID"
-                      }
-                      """)
-                    }))
+        @ApiResponse(responseCode = "404", description = "Currency series not found")
       })
   @PutMapping(path = "/{id}", produces = "application/json", consumes = "application/json")
   public CurrencySeriesResponse update(
       @PathVariable Long id, @Valid @RequestBody CurrencySeriesUpdateRequest request) {
     log.info("Updating currency series id: {}", id);
 
-    var updated = currencyService.update(id, request.providerSeriesId(), request.enabled());
+    var updated = currencyService.update(id, request.enabled());
     return CurrencySeriesResponse.from(updated);
   }
 }

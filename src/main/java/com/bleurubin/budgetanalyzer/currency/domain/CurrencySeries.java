@@ -25,7 +25,7 @@ public class CurrencySeries extends AuditableEntity {
   private String currencyCode;
 
   /** Exchange rate provider series id. */
-  @Column(nullable = false, length = 50)
+  @Column(nullable = false, unique = true, length = 50)
   @NotNull
   private String providerSeriesId;
 

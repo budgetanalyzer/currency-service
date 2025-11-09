@@ -7,6 +7,7 @@ import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
 import com.bleurubin.budgetanalyzer.currency.domain.event.CurrencyCreatedEvent;
+import com.bleurubin.budgetanalyzer.currency.domain.event.CurrencyUpdatedEvent;
 import com.bleurubin.budgetanalyzer.currency.messaging.message.CurrencyCreatedMessage;
 import com.bleurubin.budgetanalyzer.currency.messaging.publisher.CurrencyMessagePublisher;
 import com.bleurubin.service.http.CorrelationIdFilter;
@@ -107,13 +108,21 @@ public class MessagingEventListener {
    * persisted the currency entity has committed. The event itself was stored in the {@code
    * event_publication} table within the same transaction, guaranteeing delivery.
    *
+   * <p><b>Enabled Check:</b>
+   *
+   * <p>This method only publishes external messages if the currency is enabled. This prevents
+   * triggering exchange rate imports for disabled currencies. The domain event is always published
+   * (truthful state representation), but the messaging layer decides whether to notify external
+   * systems.
+   *
    * <p><b>Execution Flow:</b>
    *
    * <ol>
    *   <li>Spring Modulith detects unpublished event in {@code event_publication} table
    *   <li>Invokes this method on background thread with event payload
    *   <li>Correlation ID is set in MDC for distributed tracing
-   *   <li>External message is published to RabbitMQ via {@link CurrencyMessagePublisher}
+   *   <li>If currency is enabled, external message is published to RabbitMQ via {@link
+   *       CurrencyMessagePublisher}
    *   <li>On success, Spring Modulith marks event as completed in database
    *   <li>On failure, Spring Modulith retries according to retry policy
    * </ol>
@@ -149,9 +158,18 @@ public class MessagingEventListener {
 
     try {
       log.info(
-          "Processing currency created event: currencySeriesId={}, currencyCode={}",
+          "Processing currency created event: currencySeriesId={}, currencyCode={}, enabled={}",
           event.currencySeriesId(),
+          event.currencyCode(),
+          event.enabled());
+
+      // Only publish external message if currency is enabled
+      if (!event.enabled()) {
+        log.info(
+            "Skipping external message publication for disabled currency: currencyCode={}",
           event.currencyCode());
+        return;
+      }
 
       // Publish external message to RabbitMQ
       messagePublisher.publishCurrencyCreated(
@@ -159,14 +177,97 @@ public class MessagingEventListener {
               event.currencySeriesId(), event.currencyCode(), event.correlationId()));
 
       log.info(
-          "Successfully published currency created message: currencySeriesId={}",
-          event.currencySeriesId());
+          "Successfully published currency created message: currencyCode={}",
+       event.currencyCode());
 
     } catch (Exception e) {
       // Log error - Spring Modulith will retry event processing
       log.error(
-          "Failed to publish currency created message: currencySeriesId={}",
+          "Failed to publish currency created message: currencyCode={}",
+          event.currencyCode(),
+          e);
+      // Re-throw to signal Spring Modulith that event processing failed
+      throw e;
+
+    } finally {
+      // Always clear MDC to prevent memory leaks in thread pool
+      MDC.clear();
+    }
+  }
+
+  /**
+   * Handles currency updated events by publishing external messages to RabbitMQ when appropriate.
+   *
+   * <p>This method is invoked asynchronously by Spring Modulith after the database transaction that
+   * updated the currency entity has committed. The event itself was stored in the {@code
+   * event_publication} table within the same transaction, guaranteeing delivery.
+   *
+   * <p><b>Enabled Check:</b>
+   *
+   * <p>This method only publishes external messages if the currency is enabled. When a currency is
+   * toggled from disabled to enabled, this triggers exchange rate imports. When toggled from
+   * enabled to disabled, no external message is published (no need to import rates for disabled
+   * currency).
+   *
+   * <p><b>Execution Flow:</b>
+   *
+   * <ol>
+   *   <li>Spring Modulith detects unpublished event in {@code event_publication} table
+   *   <li>Invokes this method on background thread with event payload
+   *   <li>Correlation ID is set in MDC for distributed tracing
+   *   <li>If currency is enabled, external message is published to RabbitMQ via {@link
+   *       CurrencyMessagePublisher}
+   *   <li>On success, Spring Modulith marks event as completed in database
+   *   <li>On failure, Spring Modulith retries according to retry policy
+   * </ol>
+   *
+   * <p><b>Note:</b>
+   *
+   * <p>The external message uses {@link CurrencyCreatedMessage} (not a separate
+   * CurrencyUpdatedMessage) because from the perspective of the exchange rate import service, an
+   * enabled currency is a "new" currency that needs rate import, regardless of whether it was just
+   * created or toggled from disabled to enabled.
+   *
+   * @param event The currency updated domain event containing currency series details and
+   *     correlation ID
+   * @see CurrencyUpdatedEvent
+   * @see CurrencyMessagePublisher#publishCurrencyCreated(CurrencyCreatedMessage)
+   */
+  @ApplicationModuleListener
+  void onCurrencyUpdated(CurrencyUpdatedEvent event) {
+    // Set correlation ID in MDC for distributed tracing across async boundaries
+    MDC.put(CorrelationIdFilter.CORRELATION_ID_MDC_KEY, event.correlationId());
+    MDC.put("eventType", "currency_updated");
+
+    try {
+      log.info(
+          "Processing currency updated event: currencySeriesId={}, currencyCode={}, enabled={}",
           event.currencySeriesId(),
+          event.currencyCode(),
+          event.enabled());
+
+      // Only publish external message if currency is enabled
+      if (!event.enabled()) {
+        log.info(
+            "Skipping external message publication for disabled currency: currencyCode={}",
+            event.currencyCode());
+        return;
+      }
+
+      // Publish external message to RabbitMQ (reuse CurrencyCreatedMessage)
+      messagePublisher.publishCurrencyCreated(
+          new CurrencyCreatedMessage(
+              event.currencySeriesId(), event.currencyCode(), event.correlationId()));
+
+      log.info(
+          "Successfully published currency updated message: currencyCode={}",
+          event.currencyCode());
+
+    } catch (Exception e) {
+      // Log error - Spring Modulith will retry event processing
+      log.error(
+          "Failed to publish currency updated message: currencyCode={}",
+          event.currencyCode(),
           e);
       // Re-throw to signal Spring Modulith that event processing failed
       throw e;

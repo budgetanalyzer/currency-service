@@ -8,8 +8,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
 
-/** Request DTO for creating a new currency series. */
-@Schema(description = "Request to create a new currency series mapping")
+/**
+ * Request DTO for creating a new currency series.
+ *
+ * <p>This endpoint is typically used when FRED adds support for new currency pairs. The 23
+ * commonly-used currencies are already pre-populated in the database and can be enabled via the PUT
+ * endpoint.
+ */
+@Schema(description = "Request to create a new currency series")
 public record CurrencySeriesCreateRequest(
     @Schema(
             description = "ISO 4217 three-letter currency code",
@@ -20,7 +26,9 @@ public record CurrencySeriesCreateRequest(
         @Pattern(regexp = "^[A-Z]{3}$", message = "Currency code must be 3 uppercase letters")
         String currencyCode,
     @Schema(
-            description = "Exchange rate provider series identifier for this currency",
+            description =
+                "Exchange rate provider series identifier (e.g., DEXUSEU for EUR/USD). "
+                    + "Must be a valid FRED series ID.",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "DEXUSEU")
         @NotBlank(message = "Provider series ID is required")
