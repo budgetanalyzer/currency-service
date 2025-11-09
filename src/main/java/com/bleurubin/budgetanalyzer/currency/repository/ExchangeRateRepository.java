@@ -6,6 +6,8 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
 import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
@@ -21,6 +23,16 @@ public interface ExchangeRateRepository
 
   Optional<ExchangeRate> findTopByTargetCurrencyAndDateLessThanOrderByDateDesc(
       Currency targetCurrency, LocalDate date);
+
+  /**
+   * Finds the earliest date for which exchange rate data exists for a given target currency.
+   *
+   * @param targetCurrency The target currency to find the earliest date for
+   * @return Optional containing the earliest date, or empty if no data exists
+   */
+  @Query("SELECT MIN(e.date) FROM ExchangeRate e WHERE e.targetCurrency = :targetCurrency")
+  Optional<LocalDate> findEarliestDateByTargetCurrency(
+      @Param("targetCurrency") Currency targetCurrency);
 
   /**
    * Count the number of exchange rates for a given currency series.

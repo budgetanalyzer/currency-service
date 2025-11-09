@@ -10,4 +10,10 @@ public enum CurrencyServiceError {
 
   /** Provider series ID does not exist in the external provider. */
   INVALID_PROVIDER_SERIES_ID,
+
+  /** No exchange rate data exists for the requested currency. */
+  NO_EXCHANGE_RATE_DATA_AVAILABLE,
+
+  /** Start date is before the earliest available exchange rate data. */
+  START_DATE_OUT_OF_RANGE,
 }

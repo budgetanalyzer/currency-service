@@ -28,6 +28,7 @@ import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateImportResu
 import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateResponse;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateImportService;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateService;
+import com.bleurubin.service.exception.InvalidRequestException;
 
 @Tag(name = "Exchange Rates Handler", description = "Endpoints for operations on exchange rates")
 @RestController
@@ -82,6 +83,11 @@ public class ExchangeRateController {
         startDate.orElse(null),
         endDate.orElse(null),
         targetCurrency);
+
+    // Request format validation: check if startDate is after endDate
+    if (startDate.isPresent() && endDate.isPresent() && startDate.get().isAfter(endDate.get())) {
+      throw new InvalidRequestException("Start date must be before or equal to end date");
+    }
 
     var exchangeRates =
         exchangeRateService.getExchangeRates(
