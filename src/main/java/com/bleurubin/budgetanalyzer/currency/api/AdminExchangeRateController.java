@@ -1,5 +1,7 @@
 package com.bleurubin.budgetanalyzer.currency.api;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -7,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -35,8 +38,8 @@ public class AdminExchangeRateController {
   @Operation(
       summary = "Import latest available rates from FRED",
       description =
-          "Retrieve latest un-imported exchange rates from FRED - manually triggers daily cron"
-              + " job")
+          "Retrieve latest un-imported exchange rates from FRED for all enabled currencies -"
+              + " manually triggers daily cron job")
   @ApiResponses(
       value = {
         @ApiResponse(
@@ -44,13 +47,16 @@ public class AdminExchangeRateController {
             content =
                 @Content(
                     mediaType = "application/json",
-                    schema = @Schema(implementation = ExchangeRateImportResultResponse.class))),
+                    array =
+                        @ArraySchema(
+                            schema =
+                                @Schema(implementation = ExchangeRateImportResultResponse.class)))),
       })
   @PostMapping(path = "/import", produces = "application/json")
-  public ExchangeRateImportResultResponse importLatestExchangeRates() {
+  public List<ExchangeRateImportResultResponse> importLatestExchangeRates() {
     log.info("Received importLatestExchangeRates request");
 
-    var exchangeRateImportResult = exchangeRateImportService.importLatestExchangeRates();
-    return ExchangeRateImportResultResponse.from(exchangeRateImportResult);
+    var results = exchangeRateImportService.importLatestExchangeRates();
+    return results.stream().map(ExchangeRateImportResultResponse::from).toList();
   }
 }

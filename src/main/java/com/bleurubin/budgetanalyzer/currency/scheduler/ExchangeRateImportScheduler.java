@@ -56,11 +56,12 @@ public class ExchangeRateImportScheduler {
     var sample = Timer.start(meterRegistry);
 
     try {
-      var result = exchangeRateImportService.importLatestExchangeRates();
+      var results = exchangeRateImportService.importLatestExchangeRates();
       log.info(
-          "Successfully completed exchange rate import on attempt {} result: {}",
+          "Successfully completed exchange rate import on attempt {} for {} currencies: {}",
           attemptNumber,
-          SafeLogger.toJson(result));
+          results.size(),
+          SafeLogger.toJson(results));
 
       recordSuccess(sample, attemptNumber);
     } catch (Exception e) {

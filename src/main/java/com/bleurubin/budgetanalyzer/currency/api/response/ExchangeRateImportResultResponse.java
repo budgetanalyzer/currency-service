@@ -7,8 +7,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import com.bleurubin.budgetanalyzer.currency.service.dto.ExchangeRateImportResult;
 
-@Schema(description = "Exchange rate import result response")
+@Schema(description = "Exchange rate import result response for a specific currency")
 public record ExchangeRateImportResultResponse(
+    @Schema(
+            description = "ISO 4217 currency code",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "EUR")
+        String currencyCode,
+    @Schema(
+            description = "Provider series ID used for this import",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "DEXUSEU")
+        String providerSeriesId,
     @Schema(
             description = "Number of new exchange rates created",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -47,6 +57,8 @@ public record ExchangeRateImportResultResponse(
   public static ExchangeRateImportResultResponse from(
       ExchangeRateImportResult exchangeRateImportResult) {
     return new ExchangeRateImportResultResponse(
+        exchangeRateImportResult.currencyCode(),
+        exchangeRateImportResult.providerSeriesId(),
         exchangeRateImportResult.newRecords(),
         exchangeRateImportResult.updatedRecords(),
         exchangeRateImportResult.skippedRecords(),

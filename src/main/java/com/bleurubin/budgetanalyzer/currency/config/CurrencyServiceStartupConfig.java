@@ -41,10 +41,11 @@ public class CurrencyServiceStartupConfig {
     }
 
     try {
-      var exchangeRateImportResult = exchangeRateImportService.importMissingExchangeRates();
+      var results = exchangeRateImportService.importMissingExchangeRates();
       log.info(
-          "Successfully completed startup exchange rate import: {}",
-          SafeLogger.toJson(exchangeRateImportResult));
+          "Successfully completed startup exchange rate import for {} currencies: {}",
+          results.size(),
+          SafeLogger.toJson(results));
     } catch (Exception e) {
       log.error("CRITICAL: failed to import exchange rates on startup, exiting...", e);
       throw new IllegalStateException(

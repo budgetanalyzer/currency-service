@@ -68,11 +68,11 @@ public class ExchangeRateImportService {
    * <p>After successful import, evicts all cached exchange rate queries to ensure immediate
    * consistency across all application instances.
    *
-   * @return import result with combined counts of new, updated, and skipped rates
+   * @return list of import results, one per currency series
    */
   @Transactional
   @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
-  public ExchangeRateImportResult importMissingExchangeRates() {
+  public List<ExchangeRateImportResult> importMissingExchangeRates() {
     log.info("Checking if all enabled currency series have exchange rate data...");
 
     var seriesToImport = getSeriesWithMissingData();
@@ -86,12 +86,11 @@ public class ExchangeRateImportService {
    * <p>After successful import, evicts all cached exchange rate queries to ensure immediate
    * consistency across all application instances.
    *
-   * @return import result with combined counts of new, updated, and skipped rates across all
-   *     currencies
+   * @return list of import results, one per currency series
    */
   @Transactional
   @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
-  public ExchangeRateImportResult importLatestExchangeRates() {
+  public List<ExchangeRateImportResult> importLatestExchangeRates() {
     var seriesToImport = getAllEnabledSeries();
     return importExchangeRatesForSeries(seriesToImport);
   }
@@ -138,57 +137,42 @@ public class ExchangeRateImportService {
    * Imports exchange rates for a list of currency series.
    *
    * <p>This method handles the common import logic for both missing data and latest exchange rate
-   * imports. It iterates through the provided series, imports exchange rates for each, and
-   * aggregates the results.
+   * imports. It iterates through the provided series and imports exchange rates for each, returning
+   * individual results.
    *
    * @param seriesToImport List of currency series to import exchange rates for
-   * @return Combined import result with counts of new, updated, and skipped rates
+   * @return List of import results, one per currency series
    */
-  private ExchangeRateImportResult importExchangeRatesForSeries(
+  private List<ExchangeRateImportResult> importExchangeRatesForSeries(
       List<CurrencySeries> seriesToImport) {
     if (seriesToImport.isEmpty()) {
       log.warn("No currency series to import - skipping");
-      return new ExchangeRateImportResult(0, 0, 0, null, null);
+      return List.of();
     }
 
-    var totalNew = 0;
-    var totalUpdated = 0;
-    var totalSkipped = 0;
-    LocalDate earliestDate = null;
-    LocalDate latestDate = null;
+    var results =
+        seriesToImport.stream()
+            .map(
+                currencySeries -> {
+                  var targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
+                  var startDate = determineStartDate(targetCurrency);
+                  return importExchangeRates(currencySeries, startDate);
+                })
+            .toList();
 
-    for (var currencySeries : seriesToImport) {
-      var targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
-      var startDate = determineStartDate(targetCurrency);
-      var result = importExchangeRates(currencySeries, startDate);
-
-      totalNew += result.newRecords();
-      totalUpdated += result.updatedRecords();
-      totalSkipped += result.skippedRecords();
-
-      if (result.earliestExchangeRateDate() != null) {
-        if (earliestDate == null || result.earliestExchangeRateDate().isBefore(earliestDate)) {
-          earliestDate = result.earliestExchangeRateDate();
-        }
-      }
-
-      if (result.latestExchangeRateDate() != null) {
-        if (latestDate == null || result.latestExchangeRateDate().isAfter(latestDate)) {
-          latestDate = result.latestExchangeRateDate();
-        }
-      }
-    }
+    // Log summary
+    var totalNew = results.stream().mapToInt(ExchangeRateImportResult::newRecords).sum();
+    var totalUpdated = results.stream().mapToInt(ExchangeRateImportResult::updatedRecords).sum();
+    var totalSkipped = results.stream().mapToInt(ExchangeRateImportResult::skippedRecords).sum();
 
     log.info(
-        "Import complete: {} new, {} updated, {} skipped, earliest date: {}, latest date: {}",
+        "Import complete: {} currencies processed, {} new, {} updated, {} skipped",
+        results.size(),
         totalNew,
         totalUpdated,
-        totalSkipped,
-        earliestDate,
-        latestDate);
+        totalSkipped);
 
-    return new ExchangeRateImportResult(
-        totalNew, totalUpdated, totalSkipped, earliestDate, latestDate);
+    return results;
   }
 
   /**
@@ -254,11 +238,18 @@ public class ExchangeRateImportService {
 
       if (dateRateMap.isEmpty()) {
         log.warn("No exchange rates provided for {}", currencySeries.getCurrencyCode());
-        return new ExchangeRateImportResult(0, 0, 0, null, null);
+        return new ExchangeRateImportResult(
+            currencySeries.getCurrencyCode(),
+            currencySeries.getProviderSeriesId(),
+            0,
+            0,
+            0,
+            null,
+            null);
       }
 
       var exchangeRates = buildExchangeRates(dateRateMap, currencySeries, targetCurrency);
-      return saveExchangeRates(exchangeRates, targetCurrency);
+      return saveExchangeRates(exchangeRates, currencySeries);
     } catch (ServiceException serviceException) {
       throw serviceException;
     } catch (Exception e) {
@@ -379,10 +370,11 @@ public class ExchangeRateImportService {
   }
 
   private ExchangeRateImportResult saveExchangeRates(
-      List<ExchangeRate> rates, Currency targetCurrency) {
+      List<ExchangeRate> rates, CurrencySeries currencySeries) {
     var newCount = 0;
     var updatedCount = 0;
     var skippedCount = 0;
+    var targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
 
     // Get the most recent exchange rate date from database, if empty this is an initial import
     var isInitialImport =
@@ -435,6 +427,12 @@ public class ExchangeRateImportService {
         latestDate);
 
     return new ExchangeRateImportResult(
-        newCount, updatedCount, skippedCount, earliestDate, latestDate);
+        currencySeries.getCurrencyCode(),
+        currencySeries.getProviderSeriesId(),
+        newCount,
+        updatedCount,
+        skippedCount,
+        earliestDate,
+        latestDate);
   }
 }
