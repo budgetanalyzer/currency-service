@@ -29,17 +29,17 @@ import com.bleurubin.service.api.ApiErrorResponse;
 
 /** Admin endpoints for currency series management. */
 @Tag(
-    name = "Admin - Currency Handler",
+    name = "Admin - Currency Series Handler",
     description = "Admin endpoints for creating and updating currency series")
 @RestController
 @RequestMapping(path = "/v1/admin/currencies")
-public class AdminCurrencyController {
+public class AdminCurrencySeriesController {
 
-  private static final Logger log = LoggerFactory.getLogger(AdminCurrencyController.class);
+  private static final Logger log = LoggerFactory.getLogger(AdminCurrencySeriesController.class);
 
   private final CurrencyService currencyService;
 
-  public AdminCurrencyController(CurrencyService currencyService) {
+  public AdminCurrencySeriesController(CurrencyService currencyService) {
     this.currencyService = currencyService;
   }
 

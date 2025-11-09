@@ -21,16 +21,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import com.bleurubin.budgetanalyzer.currency.api.response.CurrencySeriesResponse;
 import com.bleurubin.budgetanalyzer.currency.service.CurrencyService;
 
-@Tag(name = "Currency Handler", description = "Endpoints for querying currencies")
+@Tag(name = "Currency Series Handler", description = "Endpoints for querying currency series")
 @RestController
 @RequestMapping(path = "/v1/currencies")
-public class CurrencyController {
+public class CurrencySeriesController {
 
-  private static final Logger log = LoggerFactory.getLogger(CurrencyController.class);
+  private static final Logger log = LoggerFactory.getLogger(CurrencySeriesController.class);
 
   private final CurrencyService currencyService;
 
-  public CurrencyController(CurrencyService currencyService) {
+  public CurrencySeriesController(CurrencyService currencyService) {
     this.currencyService = currencyService;
   }
 
