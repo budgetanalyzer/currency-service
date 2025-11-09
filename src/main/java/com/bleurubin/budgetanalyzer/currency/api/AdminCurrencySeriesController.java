@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -111,6 +112,28 @@ public class AdminCurrencySeriesController {
     var created = currencyService.create(entity);
 
     return CurrencySeriesResponse.from(created);
+  }
+
+  @Operation(
+      summary = "Get currency series by ID",
+      description = "Retrieve a currency series by its unique identifier")
+  @ApiResponses(
+      value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Currency series retrieved successfully",
+            content =
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = CurrencySeriesResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Currency series not found")
+      })
+  @GetMapping(path = "/{id}", produces = "application/json")
+  public CurrencySeriesResponse getById(@PathVariable Long id) {
+    log.info("Retrieving currency series id: {}", id);
+
+    var currencySeries = currencyService.getById(id);
+    return CurrencySeriesResponse.from(currencySeries);
   }
 
   @Operation(
