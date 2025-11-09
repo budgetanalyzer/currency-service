@@ -21,6 +21,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -30,6 +31,7 @@ import com.bleurubin.budgetanalyzer.currency.api.request.CurrencySeriesCreateReq
 import com.bleurubin.budgetanalyzer.currency.api.request.CurrencySeriesUpdateRequest;
 import com.bleurubin.budgetanalyzer.currency.api.response.CurrencySeriesResponse;
 import com.bleurubin.budgetanalyzer.currency.service.CurrencyService;
+import com.bleurubin.service.api.ApiErrorResponse;
 
 @Tag(name = "Currency Handler", description = "Endpoints for operations on currencies")
 @RestController
@@ -58,7 +60,48 @@ public class CurrencyController {
                     mediaType = "application/json",
                     schema = @Schema(implementation = CurrencySeriesResponse.class))),
         @ApiResponse(responseCode = "400", description = "Invalid request"),
-        @ApiResponse(responseCode = "422", description = "Business validation failed")
+        @ApiResponse(
+            responseCode = "422",
+            description = "Business validation failed",
+            content =
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class),
+                    examples = {
+                      @ExampleObject(
+                          name = "Duplicate Currency Code",
+                          summary = "Currency code already exists",
+                          value =
+                              """
+                      {
+                        "type": "APPLICATION_ERROR",
+                        "message": "Currency code 'EUR' already exists",
+                        "code": "DUPLICATE_CURRENCY_CODE"
+                      }
+                      """),
+                      @ExampleObject(
+                          name = "Invalid ISO 4217 Code",
+                          summary = "Currency code is not a valid ISO 4217 code",
+                          value =
+                              """
+                      {
+                        "type": "APPLICATION_ERROR",
+                        "message": "Invalid ISO 4217 currency code: XXX",
+                        "code": "INVALID_ISO_4217_CODE"
+                      }
+                      """),
+                      @ExampleObject(
+                          name = "Invalid Provider Series ID",
+                          summary = "Provider series ID does not exist",
+                          value =
+                              """
+                      {
+                        "type": "APPLICATION_ERROR",
+                        "message": "Provider series ID 'INVALID_SERIES' does not exist in the external provider",
+                        "code": "INVALID_PROVIDER_SERIES_ID"
+                      }
+                      """)
+                    }))
       })
   @PostMapping(produces = "application/json", consumes = "application/json")
   @ResponseStatus(HttpStatus.CREATED)
@@ -132,7 +175,27 @@ public class CurrencyController {
                     mediaType = "application/json",
                     schema = @Schema(implementation = CurrencySeriesResponse.class))),
         @ApiResponse(responseCode = "400", description = "Invalid request"),
-        @ApiResponse(responseCode = "404", description = "Currency series not found")
+        @ApiResponse(responseCode = "404", description = "Currency series not found"),
+        @ApiResponse(
+            responseCode = "422",
+            description = "Business validation failed",
+            content =
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class),
+                    examples = {
+                      @ExampleObject(
+                          name = "Invalid Provider Series ID",
+                          summary = "Provider series ID does not exist",
+                          value =
+                              """
+                      {
+                        "type": "APPLICATION_ERROR",
+                        "message": "Provider series ID 'INVALID_SERIES' does not exist in the external provider",
+                        "code": "INVALID_PROVIDER_SERIES_ID"
+                      }
+                      """)
+                    }))
       })
   @PutMapping(path = "/{id}", produces = "application/json", consumes = "application/json")
   public CurrencySeriesResponse update(

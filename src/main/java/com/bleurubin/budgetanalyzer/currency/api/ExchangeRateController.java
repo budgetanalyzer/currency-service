@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -28,6 +29,7 @@ import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateImportResu
 import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateResponse;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateImportService;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateService;
+import com.bleurubin.service.api.ApiErrorResponse;
 import com.bleurubin.service.exception.InvalidRequestException;
 
 @Tag(name = "Exchange Rates Handler", description = "Endpoints for operations on exchange rates")
@@ -61,6 +63,38 @@ public class ExchangeRateController {
                     array =
                         @ArraySchema(
                             schema = @Schema(implementation = ExchangeRateResponse.class)))),
+        @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(
+            responseCode = "422",
+            description = "Business validation failed",
+            content =
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class),
+                    examples = {
+                      @ExampleObject(
+                          name = "No Exchange Rate Data Available",
+                          summary = "No exchange rate data exists for the requested currency",
+                          value =
+                              """
+                      {
+                        "type": "APPLICATION_ERROR",
+                        "message": "No exchange rate data available for currency: EUR",
+                        "code": "NO_EXCHANGE_RATE_DATA_AVAILABLE"
+                      }
+                      """),
+                      @ExampleObject(
+                          name = "Start Date Out of Range",
+                          summary = "Start date is before the earliest available data",
+                          value =
+                              """
+                      {
+                        "type": "APPLICATION_ERROR",
+                        "message": "Exchange rates for THB not available before 2000-01-03",
+                        "code": "START_DATE_OUT_OF_RANGE"
+                      }
+                      """)
+                    }))
       })
   @GetMapping(path = "", produces = "application/json")
   public List<ExchangeRateResponse> getExchangeRates(
