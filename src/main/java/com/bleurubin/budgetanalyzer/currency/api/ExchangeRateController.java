@@ -25,28 +25,21 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateImportResultResponse;
 import com.bleurubin.budgetanalyzer.currency.api.response.ExchangeRateResponse;
-import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateImportService;
 import com.bleurubin.budgetanalyzer.currency.service.ExchangeRateService;
 import com.bleurubin.service.api.ApiErrorResponse;
 import com.bleurubin.service.exception.InvalidRequestException;
 
-@Tag(name = "Exchange Rates Handler", description = "Endpoints for operations on exchange rates")
+@Tag(name = "Exchange Rates Handler", description = "Endpoints for querying exchange rates")
 @RestController
 @RequestMapping(path = "/v1/exchange-rates")
 public class ExchangeRateController {
 
   private static final Logger log = LoggerFactory.getLogger(ExchangeRateController.class);
 
-  private static final Currency THB = Currency.getInstance("THB");
-
-  private final ExchangeRateImportService exchangeRateImportService;
   private final ExchangeRateService exchangeRateService;
 
-  public ExchangeRateController(
-      ExchangeRateImportService csvService, ExchangeRateService exchangeRateService) {
-    this.exchangeRateImportService = csvService;
+  public ExchangeRateController(ExchangeRateService exchangeRateService) {
     this.exchangeRateService = exchangeRateService;
   }
 
@@ -128,27 +121,5 @@ public class ExchangeRateController {
             targetCurrency, startDate.orElse(null), endDate.orElse(null));
 
     return exchangeRates.stream().map(ExchangeRateResponse::from).toList();
-  }
-
-  @Operation(
-      summary = "Import latest available rates from FRED",
-      description =
-          "Retrieve latest un-imported exchange rates from FRED- manually triggers daily cron job")
-  @ApiResponses(
-      value = {
-        @ApiResponse(
-            responseCode = "200",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = ExchangeRateImportResultResponse.class))),
-      })
-  @GetMapping(path = "/import", produces = "application/json")
-  public ExchangeRateImportResultResponse importLatestExchangeRates() {
-    log.info("Received importLatestExchangeRates request");
-
-    // we will take currency as parameter when we support multiple currencies
-    var exchangeRateImportResult = exchangeRateImportService.importLatestExchangeRates();
-    return ExchangeRateImportResultResponse.from(exchangeRateImportResult);
   }
 }

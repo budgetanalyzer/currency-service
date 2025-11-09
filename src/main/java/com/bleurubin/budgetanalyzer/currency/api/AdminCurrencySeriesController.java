@@ -1,25 +1,19 @@
 package com.bleurubin.budgetanalyzer.currency.api;
 
-import java.util.List;
-
 import jakarta.validation.Valid;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,16 +27,19 @@ import com.bleurubin.budgetanalyzer.currency.api.response.CurrencySeriesResponse
 import com.bleurubin.budgetanalyzer.currency.service.CurrencyService;
 import com.bleurubin.service.api.ApiErrorResponse;
 
-@Tag(name = "Currency Handler", description = "Endpoints for operations on currencies")
+/** Admin endpoints for currency series management. */
+@Tag(
+    name = "Admin - Currency Series Handler",
+    description = "Admin endpoints for creating and updating currency series")
 @RestController
-@RequestMapping(path = "/v1/currencies")
-public class CurrencyController {
+@RequestMapping(path = "/v1/admin/currencies")
+public class AdminCurrencySeriesController {
 
-  private static final Logger log = LoggerFactory.getLogger(CurrencyController.class);
+  private static final Logger log = LoggerFactory.getLogger(AdminCurrencySeriesController.class);
 
   private final CurrencyService currencyService;
 
-  public CurrencyController(CurrencyService currencyService) {
+  public AdminCurrencySeriesController(CurrencyService currencyService) {
     this.currencyService = currencyService;
   }
 
@@ -114,52 +111,6 @@ public class CurrencyController {
     var created = currencyService.create(entity);
 
     return CurrencySeriesResponse.from(created);
-  }
-
-  @Operation(
-      summary = "Get currency series by ID",
-      description = "Retrieve a specific currency series by its unique identifier")
-  @ApiResponses(
-      value = {
-        @ApiResponse(
-            responseCode = "200",
-            description = "Currency series found",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = CurrencySeriesResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Currency series not found")
-      })
-  @GetMapping(path = "/{id}", produces = "application/json")
-  public CurrencySeriesResponse getById(@PathVariable Long id) {
-    log.info("Getting currency series by id: {}", id);
-
-    var currencySeries = currencyService.getById(id);
-    return CurrencySeriesResponse.from(currencySeries);
-  }
-
-  @Operation(
-      summary = "Get all currency series",
-      description = "Retrieve all currency series, optionally filtered by enabled status")
-  @ApiResponses(
-      value = {
-        @ApiResponse(
-            responseCode = "200",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    array =
-                        @ArraySchema(
-                            schema = @Schema(implementation = CurrencySeriesResponse.class))))
-      })
-  @GetMapping(produces = "application/json")
-  public List<CurrencySeriesResponse> getAll(
-      @Parameter(description = "Filter by enabled status (true = enabled only, false = all)")
-          @RequestParam(required = false, defaultValue = "false")
-          boolean enabledOnly) {
-    log.info("Getting all currency series, enabledOnly: {}", enabledOnly);
-
-    return currencyService.getAll(enabledOnly).stream().map(CurrencySeriesResponse::from).toList();
   }
 
   @Operation(

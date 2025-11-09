@@ -478,7 +478,7 @@ The `finally` block ensures MDC is cleaned up even when exceptions are thrown. W
 ```
 HTTP Request (Thread 1: nio-8084-exec-1)
 │
-├─> CurrencyController.create()
+├─> CurrencySeriesController.create()
 │   └─> CurrencyService.create()
 │       ├─> repository.save(currency)              [Transaction START]
 │       ├─> eventPublisher.publishEvent(...)
@@ -1676,7 +1676,7 @@ Build completed with Checkstyle warnings that I cannot resolve:
 
 ### Completed ✅
 - [x] **Implement Redis caching layer** - Fully implemented with distributed caching, JSON serialization, and automatic cache invalidation ([CacheConfig.java](src/main/java/com/bleurubin/budgetanalyzer/currency/config/CacheConfig.java))
-- [x] **Add API versioning strategy** - Implemented URL-based versioning with `/v1/` prefix on all endpoints; NGINX gateway handles `/api` prefix ([CurrencyController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/CurrencyController.java), [ExchangeRateController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/ExchangeRateController.java))
+- [x] **Add API versioning strategy** - Implemented URL-based versioning with `/v1/` prefix on all endpoints; NGINX gateway handles `/api` prefix ([CurrencySeriesController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/CurrencySeriesController.java), [ExchangeRateController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/ExchangeRateController.java))
 - [x] **Add Flyway for database migrations** - Version-controlled schema evolution with baseline migration; automatic migration on application startup ([V1__initial_schema.sql](src/main/resources/db/migration/V1__initial_schema.sql))
 - [x] **Implement distributed locking with ShedLock** - Fully implemented with JDBC/PostgreSQL-based distributed locking; ensures only one scheduler instance runs import jobs in multi-pod deployments ([ShedLockConfig.java](src/main/java/com/bleurubin/budgetanalyzer/currency/config/ShedLockConfig.java), [V2__add_shedlock_table.sql](src/main/resources/db/migration/V2__add_shedlock_table.sql), [ExchangeRateImportScheduler.java:42](src/main/java/com/bleurubin/budgetanalyzer/currency/scheduler/ExchangeRateImportScheduler.java#L42))
 
