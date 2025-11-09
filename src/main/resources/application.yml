@@ -27,9 +27,10 @@ spring:
       max-request-size: 10MB
 
   jackson:
-    default-property-inclusion: non_null
+    default-property-inclusion: non_null  # Exclude null fields from JSON
     serialization:
-      indent-output: true           # Pretty print JSON
+      indent-output: true                 # Pretty print JSON
+      write-dates-as-timestamps: false    # Use ISO-8601 format for dates
     date-format: com.fasterxml.jackson.databind.util.StdDateFormat
 
   datasource:

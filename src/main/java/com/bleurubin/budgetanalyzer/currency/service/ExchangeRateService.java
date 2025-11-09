@@ -59,7 +59,13 @@ public class ExchangeRateService {
 
     var definedRates = exchangeRateRepository.findAll(spec, Sort.by("date").ascending());
     if (definedRates.isEmpty()) {
-      throw new ResourceNotFoundException("No rates found for currency: " + targetCurrency);
+      throw new ResourceNotFoundException(
+          "No rates found for currency: "
+              + targetCurrency
+              + " for date range startDate: "
+              + startDate
+              + " endDate: "
+              + endDate);
     }
 
     // If startDate is null, use the date of the first rate
