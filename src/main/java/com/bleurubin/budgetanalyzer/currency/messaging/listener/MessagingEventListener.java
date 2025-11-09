@@ -167,7 +167,7 @@ public class MessagingEventListener {
       if (!event.enabled()) {
         log.info(
             "Skipping external message publication for disabled currency: currencyCode={}",
-          event.currencyCode());
+            event.currencyCode());
         return;
       }
 
@@ -177,15 +177,12 @@ public class MessagingEventListener {
               event.currencySeriesId(), event.currencyCode(), event.correlationId()));
 
       log.info(
-          "Successfully published currency created message: currencyCode={}",
-       event.currencyCode());
+          "Successfully published currency created message: currencyCode={}", event.currencyCode());
 
     } catch (Exception e) {
       // Log error - Spring Modulith will retry event processing
       log.error(
-          "Failed to publish currency created message: currencyCode={}",
-          event.currencyCode(),
-          e);
+          "Failed to publish currency created message: currencyCode={}", event.currencyCode(), e);
       // Re-throw to signal Spring Modulith that event processing failed
       throw e;
 
@@ -260,15 +257,12 @@ public class MessagingEventListener {
               event.currencySeriesId(), event.currencyCode(), event.correlationId()));
 
       log.info(
-          "Successfully published currency updated message: currencyCode={}",
-          event.currencyCode());
+          "Successfully published currency updated message: currencyCode={}", event.currencyCode());
 
     } catch (Exception e) {
       // Log error - Spring Modulith will retry event processing
       log.error(
-          "Failed to publish currency updated message: currencyCode={}",
-          event.currencyCode(),
-          e);
+          "Failed to publish currency updated message: currencyCode={}", event.currencyCode(), e);
       // Re-throw to signal Spring Modulith that event processing failed
       throw e;
 

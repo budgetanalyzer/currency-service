@@ -8,13 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import com.bleurubin.budgetanalyzer.currency.domain.CurrencySeries;
 
-/**
- * Request DTO for creating a new currency series.
- *
- * <p>This endpoint is typically used when FRED adds support for new currency pairs. The 23
- * commonly-used currencies are already pre-populated in the database and can be enabled via the PUT
- * endpoint.
- */
+/** Request DTO for creating a new currency series. */
 @Schema(description = "Request to create a new currency series")
 public record CurrencySeriesCreateRequest(
     @Schema(

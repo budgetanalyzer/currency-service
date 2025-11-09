@@ -93,14 +93,14 @@ public class CurrencyController {
                       }
                       """),
                       @ExampleObject(
-                          name = "Currency Not Supported",
-                          summary = "Currency code is not supported",
+                          name = "Invalid Provider Series ID",
+                          summary = "Provider series ID does not exist in FRED",
                           value =
                               """
                       {
                         "type": "APPLICATION_ERROR",
-                        "message": "Currency code 'ZZZ' is not supported. Supported currencies: [AUD, BRL, CAD, ...]",
-                        "code": "CURRENCY_NOT_SUPPORTED"
+                        "message": "Provider series ID 'INVALID_SERIES' does not exist in the external provider",
+                        "code": "INVALID_PROVIDER_SERIES_ID"
                       }
                       """)
                     }))
