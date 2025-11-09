@@ -155,13 +155,14 @@ public class ExchangeRateService {
 **Controllers ONLY:**
 - Map API DTOs to/from domain entities
 - Delegate to service methods
-- Throw `InvalidRequestException` for malformed requests (automatically via Bean Validation)
+- Throw `InvalidRequestException` for request format validation (e.g., startDate > endDate)
+- Bean Validation annotations (`@Valid`, `@NotBlank`, etc.) automatically return 400 Bad Request
 
 **Controllers NEVER:**
 - Import or use repositories directly
 - Perform complex business logic or validation
 - Access the database
-- Import service-level exceptions beyond ResourceNotFoundException (thrown by services)
+- Throw `BusinessException` (service-layer exception)
 
 ### 3. Persistence Layer: Pure JPA
 
@@ -631,11 +632,17 @@ Package boundaries should be self-evident from inspection. See the **Package Str
 
 **Controller-Level Exceptions:**
 - `ResourceNotFoundException` - Entity not found by ID (404)
-- `InvalidRequestException` - Malformed request data (400) - thrown automatically by Bean Validation
+- `InvalidRequestException` - Malformed request data (400)
 
 **Service-Level Exceptions:**
 - `BusinessException` - Business rule violations (422)
 - `ExternalServiceException` - External API failures (502/503)
+- `IllegalArgumentException` / `IllegalStateException` - Defensive programming checks (programming errors)
+
+**Exception Throwing Rules:**
+- **Controllers ONLY throw**: `InvalidRequestException` for request format validation
+- **Services ONLY throw**: `BusinessException` for business rule violations, `IllegalArgumentException`/`IllegalStateException` for defensive checks
+- **Services NEVER throw**: `InvalidRequestException` (controller-level exception)
 
 **Global Exception Handler:**
 All exceptions are handled centrally via `@RestControllerAdvice` in service-common library.
@@ -678,13 +685,63 @@ These are **valid requests** that violate **business logic**.
 **What is NOT a BusinessException?**
 
 ❌ **DO NOT use BusinessException for:**
-- Missing required fields (null/blank values) - Bean Validation handles this → `InvalidRequestException` (400)
-- Invalid format (wrong data type, regex mismatch) - Bean Validation handles this → `InvalidRequestException` (400)
+- Missing required fields (null/blank values) - Bean Validation handles this → 400 Bad Request
+- Invalid format (wrong data type, regex mismatch) - Bean Validation handles this → 400 Bad Request
+- Request format issues (startDate > endDate) - Controller throws `InvalidRequestException` → 400 Bad Request
 - Missing entity ID in update - This is a programming error, not a user error
 - Programming errors (illegal state) - Use `IllegalArgumentException` or `IllegalStateException`
 
 **Rule of Thumb:**
-If the validation can be done with `@NotBlank`, `@NotNull`, `@Pattern`, `@Size`, etc., it belongs in the request DTO, NOT in the service layer.
+- If validation can be done with `@NotBlank`, `@NotNull`, `@Pattern`, `@Size`, etc. → Bean Validation in request DTO
+- If validation is request format (comparing request parameters) → Controller throws `InvalidRequestException` (400)
+- If validation is business logic (ISO 4217, data availability, duplicates) → Service throws `BusinessException` (422)
+- If validation is defensive programming (service layer constraint check) → Service throws `IllegalArgumentException`
+
+**Controller vs Service Exception Example:**
+```java
+// CONTROLLER - Request format validation
+@GetMapping
+public List<ExchangeRateResponse> getExchangeRates(
+    @RequestParam Optional<LocalDate> startDate,
+    @RequestParam Optional<LocalDate> endDate) {
+
+    // Request format validation: startDate > endDate → InvalidRequestException (400)
+    if (startDate.isPresent() && endDate.isPresent() && startDate.get().isAfter(endDate.get())) {
+        throw new InvalidRequestException("Start date must be before or equal to end date");
+    }
+
+    return service.getExchangeRates(...);
+}
+
+// SERVICE - Business validation + defensive programming
+@Service
+public class ExchangeRateService {
+    public List<ExchangeRateData> getExchangeRates(
+        Currency targetCurrency, LocalDate startDate, LocalDate endDate) {
+
+        // Defensive programming: validate constraint (programming error protection)
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date must be before or equal to end date");
+        }
+
+        // Business validation: check data availability → BusinessException (422)
+        var earliestDate = repository.findEarliestDateByTargetCurrency(targetCurrency);
+        if (earliestDate.isEmpty()) {
+            throw new BusinessException(
+                "No exchange rate data available for currency: " + targetCurrency.getCurrencyCode(),
+                CurrencyServiceError.NO_EXCHANGE_RATE_DATA_AVAILABLE.name());
+        }
+
+        // Business validation: start date out of range → BusinessException (422)
+        if (startDate != null && startDate.isBefore(earliestDate.get())) {
+            throw new BusinessException(
+                "Exchange rates for " + targetCurrency.getCurrencyCode()
+                    + " not available before " + earliestDate.get(),
+                CurrencyServiceError.START_DATE_OUT_OF_RANGE.name());
+        }
+    }
+}
+```
 
 ### 8. Validation Strategy
 
@@ -707,7 +764,7 @@ If the validation can be done with `@NotBlank`, `@NotNull`, `@Pattern`, `@Size`,
 @PostMapping
 public CurrencySeriesResponse create(@Valid @RequestBody CurrencySeriesRequest request) {
     // Bean validation automatically applied BEFORE this method executes
-    // @NotBlank, @Pattern, @Size violations → InvalidRequestException (400)
+    // @NotBlank, @Pattern, @Size violations → 400 Bad Request
 }
 
 public record CurrencySeriesRequest(

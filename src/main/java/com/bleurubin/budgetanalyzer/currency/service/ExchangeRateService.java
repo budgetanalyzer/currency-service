@@ -17,7 +17,7 @@ import com.bleurubin.budgetanalyzer.currency.domain.ExchangeRate;
 import com.bleurubin.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import com.bleurubin.budgetanalyzer.currency.repository.spec.ExchangeRateSpecifications;
 import com.bleurubin.budgetanalyzer.currency.service.dto.ExchangeRateData;
-import com.bleurubin.service.exception.ResourceNotFoundException;
+import com.bleurubin.service.exception.BusinessException;
 
 /**
  * Service for querying and managing exchange rates.
@@ -55,17 +55,35 @@ public class ExchangeRateService {
       key = "#targetCurrency.currencyCode + ':' + #startDate + ':' + #endDate")
   public List<ExchangeRateData> getExchangeRates(
       Currency targetCurrency, LocalDate startDate, LocalDate endDate) {
+    // Defensive programming: validate date range constraint
+    if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+      throw new IllegalArgumentException("Start date must be before or equal to end date");
+    }
+
+    // Business validation: check if data exists for currency
+    var earliestDate = exchangeRateRepository.findEarliestDateByTargetCurrency(targetCurrency);
+    if (earliestDate.isEmpty()) {
+      throw new BusinessException(
+          "No exchange rate data available for currency: " + targetCurrency.getCurrencyCode(),
+          CurrencyServiceError.NO_EXCHANGE_RATE_DATA_AVAILABLE.name());
+    }
+
+    // Business validation: check if startDate is before earliest available data
+    if (startDate != null && startDate.isBefore(earliestDate.get())) {
+      throw new BusinessException(
+          "Exchange rates for "
+              + targetCurrency.getCurrencyCode()
+              + " not available before "
+              + earliestDate.get(),
+          CurrencyServiceError.START_DATE_OUT_OF_RANGE.name());
+    }
+
     var spec = buildSpecification(targetCurrency, startDate, endDate);
 
     var definedRates = exchangeRateRepository.findAll(spec, Sort.by("date").ascending());
+    // nothing available for the date range isn't the same as NO_EXCHANGE_RATE_DATA_AVAILABLE
     if (definedRates.isEmpty()) {
-      throw new ResourceNotFoundException(
-          "No rates found for currency: "
-              + targetCurrency
-              + " for date range startDate: "
-              + startDate
-              + " endDate: "
-              + endDate);
+      return List.of();
     }
 
     // If startDate is null, use the date of the first rate
