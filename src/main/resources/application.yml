@@ -6,7 +6,7 @@ server:
 logging:
   level:
     root: WARN
-    com.bleurubin: TRACE
+    org.budgetanalyzer: TRACE
     org.springframework.web.reactive.function.client: DEBUG
     # Spring Cloud Stream / Integration / AMQP - INFO by default
     org.springframework.cloud.stream: INFO
