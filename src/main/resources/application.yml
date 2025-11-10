@@ -149,7 +149,7 @@ currency-service:
       # Delay between retries in minutes
       delay-minutes: 1
 
-bleurubin:
+budgetanalyzer:
   service:
     http-logging:
       enabled: true
