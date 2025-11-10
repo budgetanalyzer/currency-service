@@ -45,7 +45,7 @@ public class CacheConfig {
     var typeValidator =
         BasicPolymorphicTypeValidator.builder()
             .allowIfBaseType(Object.class)
-            .allowIfSubType("com.bleurubin")
+            .allowIfSubType("org.budgetanalyzer")
             .allowIfSubType("java.util")
             .allowIfSubType("java.time")
             .build();

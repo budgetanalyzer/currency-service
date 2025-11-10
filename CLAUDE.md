@@ -198,7 +198,7 @@ service/ → service/provider/ExchangeRateProvider (interface)
 service/provider/FredExchangeRateProvider (impl) → client/fred/FredClient
 ```
 
-**Provider Interface:** [ExchangeRateProvider.java](src/main/java/com/bleurubin/budgetanalyzer/currency/service/provider/ExchangeRateProvider.java)
+**Provider Interface:** [ExchangeRateProvider.java](src/main/java/org/budgetanalyzer/currency/service/provider/ExchangeRateProvider.java)
 ```java
 public interface ExchangeRateProvider {
   Map<LocalDate, BigDecimal> getExchangeRates(CurrencySeries currencySeries, LocalDate startDate);
@@ -867,7 +867,7 @@ The service layer should **trust** that the controller layer has validated reque
 
 **Spotless Configuration:**
 - Google Java Format (1.17.0)
-- Automatic import ordering: java → javax → jakarta → org → com → com.bleurubin
+- Automatic import ordering: java → javax → jakarta → org → com → org.bleurubin
 - Trailing whitespace removal
 - File ends with newline
 - Unused import removal
@@ -1066,7 +1066,7 @@ Key Prefix: currency-service: (namespace isolation)
 - Memory usage: ~500MB for 10,000 cached queries
 
 **Configuration Files:**
-- Cache logic: [CacheConfig.java](src/main/java/com/bleurubin/budgetanalyzer/currency/config/CacheConfig.java)
+- Cache logic: [CacheConfig.java](src/main/java/org/budgetanalyzer/currency/config/CacheConfig.java)
 - Redis connection: [application.yml](src/main/resources/application.yml)
 - Service annotations: `@Cacheable`, `@CacheEvict` in service classes
 
@@ -1129,9 +1129,9 @@ CREATE TABLE shedlock (
 ```
 
 **Configuration Files:**
-- Lock configuration: [ShedLockConfig.java](src/main/java/com/bleurubin/budgetanalyzer/currency/config/ShedLockConfig.java)
+- Lock configuration: [ShedLockConfig.java](src/main/java/org/budgetanalyzer/currency/config/ShedLockConfig.java)
 - Database migration: [V2__add_shedlock_table.sql](src/main/resources/db/migration/V2__add_shedlock_table.sql)
-- Scheduler with lock: [ExchangeRateImportScheduler.java:42](src/main/java/com/bleurubin/budgetanalyzer/currency/scheduler/ExchangeRateImportScheduler.java#L42)
+- Scheduler with lock: [ExchangeRateImportScheduler.java:42](src/main/java/org/budgetanalyzer/currency/scheduler/ExchangeRateImportScheduler.java#L42)
 - Configuration: [application.yml:68-94](src/main/resources/application.yml#L68-L94)
 - Dependencies: [build.gradle.kts:33-34](build.gradle.kts#L33-L34)
 
@@ -1637,14 +1637,14 @@ When working on this project:
 **Example Response Pattern:**
 ```
 Build completed successfully, but found Checkstyle warnings:
-- File: src/main/java/com/bleurubin/service/Example.java:42
+- File: src/main/java/org/budgetanalyzer/service/Example.java:42
 - Issue: Javadoc comment missing period at end of first sentence
 - Action: Fixed by adding period to Javadoc summary
 
 OR
 
 Build completed with Checkstyle warnings that I cannot resolve:
-- File: src/main/java/com/bleurubin/service/Example.java:42
+- File: src/main/java/org/budgetanalyzer/service/Example.java:42
 - Warning: [specific warning message]
 - Reason: [explanation of why it cannot be fixed]
 ```
@@ -1675,10 +1675,10 @@ Build completed with Checkstyle warnings that I cannot resolve:
 ## Future Enhancements
 
 ### Completed ✅
-- [x] **Implement Redis caching layer** - Fully implemented with distributed caching, JSON serialization, and automatic cache invalidation ([CacheConfig.java](src/main/java/com/bleurubin/budgetanalyzer/currency/config/CacheConfig.java))
-- [x] **Add API versioning strategy** - Implemented URL-based versioning with `/v1/` prefix on all endpoints; NGINX gateway handles `/api` prefix ([CurrencySeriesController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/CurrencySeriesController.java), [ExchangeRateController.java](src/main/java/com/bleurubin/budgetanalyzer/currency/api/ExchangeRateController.java))
+- [x] **Implement Redis caching layer** - Fully implemented with distributed caching, JSON serialization, and automatic cache invalidation ([CacheConfig.java](src/main/java/org/budgetanalyzer/currency/config/CacheConfig.java))
+- [x] **Add API versioning strategy** - Implemented URL-based versioning with `/v1/` prefix on all endpoints; NGINX gateway handles `/api` prefix ([CurrencySeriesController.java](src/main/java/org/budgetanalyzer/currency/api/CurrencySeriesController.java), [ExchangeRateController.java](src/main/java/org/budgetanalyzer/currency/api/ExchangeRateController.java))
 - [x] **Add Flyway for database migrations** - Version-controlled schema evolution with baseline migration; automatic migration on application startup ([V1__initial_schema.sql](src/main/resources/db/migration/V1__initial_schema.sql))
-- [x] **Implement distributed locking with ShedLock** - Fully implemented with JDBC/PostgreSQL-based distributed locking; ensures only one scheduler instance runs import jobs in multi-pod deployments ([ShedLockConfig.java](src/main/java/com/bleurubin/budgetanalyzer/currency/config/ShedLockConfig.java), [V2__add_shedlock_table.sql](src/main/resources/db/migration/V2__add_shedlock_table.sql), [ExchangeRateImportScheduler.java:42](src/main/java/com/bleurubin/budgetanalyzer/currency/scheduler/ExchangeRateImportScheduler.java#L42))
+- [x] **Implement distributed locking with ShedLock** - Fully implemented with JDBC/PostgreSQL-based distributed locking; ensures only one scheduler instance runs import jobs in multi-pod deployments ([ShedLockConfig.java](src/main/java/org/budgetanalyzer/currency/config/ShedLockConfig.java), [V2__add_shedlock_table.sql](src/main/resources/db/migration/V2__add_shedlock_table.sql), [ExchangeRateImportScheduler.java:42](src/main/java/org/budgetanalyzer/currency/scheduler/ExchangeRateImportScheduler.java#L42))
 
 ### In Progress / Partial 🟡
 - [~] **Add Prometheus metrics** - Micrometer instrumentation present with custom metrics in scheduler, but Prometheus endpoint not explicitly configured
