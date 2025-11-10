@@ -30,5 +30,5 @@ import com.bleurubin.service.config.BaseOpenApiConfig;
     externalDocs =
         @ExternalDocumentation(
             description = "Find more info here",
-            url = "https://github.com/bleurubin/currency-service"))
+            url = "https://github.com/budget-analyzer/currency-service"))
 public class OpenApiConfig extends BaseOpenApiConfig {}

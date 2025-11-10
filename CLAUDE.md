@@ -1337,7 +1337,7 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 
 2. **Start Services:**
    ```bash
-   cd ../budget-analyzer
+   cd ../orchestration
    docker compose up
    ```
    This starts PostgreSQL and Redis shared across all microservices. Each service has its own predefined database.
@@ -1580,7 +1580,7 @@ void shouldHandleRowsWithFewerColumnsThanHeaders() {
 - **If encountering "cannot resolve" errors for service-common classes** (e.g., `SoftDeletableEntity`, `SafeLogger`, `ApiErrorResponse`):
   - Navigate to service-common directory: `cd /workspace/service-common`
   - Publish latest artifact: `./gradlew clean build publishToMavenLocal`
-  - Return to budget-analyzer-api directory: `cd /workspace/budget-analyzer-api`
+  - Return to currency-service directory: `cd /workspace/currency-service`
   - Retry the build: `./gradlew clean build`
 
 **Checkstyle errors:**
@@ -1601,7 +1601,7 @@ When working on this project:
 2. **Distinguish between informational statements and action requests** - If the user says "I did X", they're informing you, not asking you to do it
 3. **Questions deserve answers, not implementations** - Respond to questions with information, not code changes
 4. **Wait for explicit implementation requests** - Only implement when the user says "implement", "do it", "make this change", or similar action-oriented language
-5. **Limit file access to the current directory and below** - Don't read or write files outside of the current budget-analyzer-api directory
+5. **Limit file access to the current directory and below** - Don't read or write files outside of the current currency-service directory
 
 ### Code Quality
 
