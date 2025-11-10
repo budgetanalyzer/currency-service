@@ -1,0 +1,607 @@
+openapi: 3.1.0
+info:
+  title: Currency Service
+  description: API documentation for Currency Service resources
+  contact:
+    name: Bleu Rubin
+    email: support@bleurubin.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  version: "1.0"
+externalDocs:
+  description: Find more info here
+  url: https://github.com/budget-analyzer/currency-service
+servers:
+- url: http://localhost:8080/api
+  description: Local environment (via gateway)
+- url: http://localhost:8084/currency-service
+  description: Local environment (direct)
+- url: https://api.bleurubin.com
+  description: Production environment
+tags:
+- name: Exchange Rates Handler
+  description: Endpoints for querying exchange rates
+- name: Admin - Exchange Rates Handler
+  description: Admin endpoints for importing and managing exchange rates
+- name: Currency Series Handler
+  description: Endpoints for querying currency series
+- name: Admin - Currency Series Handler
+  description: Admin endpoints for creating and updating currency series
+paths:
+  /v1/admin/currencies/{id}:
+    get:
+      tags:
+      - Admin - Currency Series Handler
+      summary: Get currency series by ID
+      description: Retrieve a currency series by its unique identifier
+      operationId: getById
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: Currency series retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrencySeriesResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: NOT_FOUND
+                message: Not Found
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: INTERNAL_ERROR
+                message: Internal Server Error
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: SERVICE_UNAVAILABLE
+                message: Service Unavailable
+    put:
+      tags:
+      - Admin - Currency Series Handler
+      summary: Update currency series
+      description: "Update an existing currency series (currency code and provider\
+        \ series ID are immutable, only enabled status can be changed)"
+      operationId: update
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CurrencySeriesUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: Currency series updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrencySeriesResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: INVALID_REQUEST
+                message: Bad Request
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: NOT_FOUND
+                message: Not Found
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: INTERNAL_ERROR
+                message: Internal Server Error
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: SERVICE_UNAVAILABLE
+                message: Service Unavailable
+  /v1/admin/exchange-rates/import:
+    post:
+      tags:
+      - Admin - Exchange Rates Handler
+      summary: Import latest available rates from FRED
+      description: Retrieve latest un-imported exchange rates from FRED for all enabled
+        currencies - manually triggers daily cron job
+      operationId: importLatestExchangeRates
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExchangeRateImportResultResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: INVALID_REQUEST
+                message: Bad Request
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: INTERNAL_ERROR
+                message: Internal Server Error
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: SERVICE_UNAVAILABLE
+                message: Service Unavailable
+  /v1/admin/currencies:
+    post:
+      tags:
+      - Admin - Currency Series Handler
+      summary: Create a new currency series
+      description: Create a new currency series. This endpoint is typically used when
+        FRED adds support for new currency pairs. The 23 commonly-used currencies
+        are already pre-populated and can be enabled via the PUT endpoint.
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CurrencySeriesCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: Currency series created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrencySeriesResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: INVALID_REQUEST
+                message: Bad Request
+        "422":
+          description: Business validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              examples:
+                Duplicate Currency Code:
+                  summary: Currency code already exists
+                  description: Duplicate Currency Code
+                  value:
+                    type: APPLICATION_ERROR
+                    message: Currency code 'EUR' already exists
+                    code: DUPLICATE_CURRENCY_CODE
+                Invalid ISO 4217 Code:
+                  summary: Currency code is not a valid ISO 4217 code
+                  description: Invalid ISO 4217 Code
+                  value:
+                    type: APPLICATION_ERROR
+                    message: "Invalid ISO 4217 currency code: XXX"
+                    code: INVALID_ISO_4217_CODE
+                Invalid Provider Series ID:
+                  summary: Provider series ID does not exist in FRED
+                  description: Invalid Provider Series ID
+                  value:
+                    type: APPLICATION_ERROR
+                    message: Provider series ID 'INVALID_SERIES' does not exist in
+                      the external provider
+                    code: INVALID_PROVIDER_SERIES_ID
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: INTERNAL_ERROR
+                message: Internal Server Error
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: SERVICE_UNAVAILABLE
+                message: Service Unavailable
+  /v1/exchange-rates:
+    get:
+      tags:
+      - Exchange Rates Handler
+      summary: Get exchange rates
+      description: Get exchange rates for converting USD to the target currency
+      operationId: getExchangeRates
+      parameters:
+      - name: startDate
+        in: query
+        description: Start date for exchange rates in ISO format
+        required: false
+        schema:
+          type: string
+          format: date
+        example: 2024-01-01
+      - name: endDate
+        in: query
+        description: End date for exchange rates in ISO format
+        required: false
+        schema:
+          type: string
+          format: date
+        example: 2024-12-31
+      - name: targetCurrency
+        in: query
+        description: Target currency of exchange rate
+        required: true
+        schema:
+          type: string
+        example: THB
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExchangeRateResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExchangeRateResponse"
+        "422":
+          description: Business validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              examples:
+                No Exchange Rate Data Available:
+                  summary: No exchange rate data exists for the requested currency
+                  description: No Exchange Rate Data Available
+                  value:
+                    type: APPLICATION_ERROR
+                    message: "No exchange rate data available for currency: EUR"
+                    code: NO_EXCHANGE_RATE_DATA_AVAILABLE
+                Start Date Out of Range:
+                  summary: Start date is before the earliest available data
+                  description: Start Date Out of Range
+                  value:
+                    type: APPLICATION_ERROR
+                    message: Exchange rates for THB not available before 2000-01-03
+                    code: START_DATE_OUT_OF_RANGE
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: INTERNAL_ERROR
+                message: Internal Server Error
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: SERVICE_UNAVAILABLE
+                message: Service Unavailable
+  /v1/currencies:
+    get:
+      tags:
+      - Currency Series Handler
+      summary: Get all currency series
+      description: "Retrieve all currency series, optionally filtered by enabled status"
+      operationId: getAll
+      parameters:
+      - name: enabledOnly
+        in: query
+        description: "Filter by enabled status (true = enabled only, false = all)"
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CurrencySeriesResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: INTERNAL_ERROR
+                message: Internal Server Error
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                type: SERVICE_UNAVAILABLE
+                message: Service Unavailable
+components:
+  schemas:
+    CurrencySeriesUpdateRequest:
+      type: object
+      description: Request to update an existing currency series (currency code and
+        provider series ID are immutable)
+      properties:
+        enabled:
+          type: boolean
+          description: Whether this currency is enabled for exchange rate access
+          example: true
+      required:
+      - enabled
+    CurrencySeriesResponse:
+      type: object
+      description: Currency series response with mapping details
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique identifier
+          example: 1
+        currencyCode:
+          type: string
+          description: ISO 4217 three-letter currency code
+          example: EUR
+        providerSeriesId:
+          type: string
+          description: Exchange rate provider series identifier
+          example: DEXUSEU
+        enabled:
+          type: boolean
+          description: Whether this currency is enabled for exchange rate access
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when this currency series was created
+          example: 2025-01-15T10:30:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when this currency series was last updated
+          example: 2025-01-15T14:45:00Z
+      required:
+      - createdAt
+      - currencyCode
+      - enabled
+      - id
+      - providerSeriesId
+      - updatedAt
+    ExchangeRateImportResultResponse:
+      type: object
+      description: Exchange rate import result response for a specific currency
+      properties:
+        currencyCode:
+          type: string
+          description: ISO 4217 currency code
+          example: EUR
+        providerSeriesId:
+          type: string
+          description: Provider series ID used for this import
+          example: DEXUSEU
+        newRecords:
+          type: integer
+          format: int32
+          description: Number of new exchange rates created
+          example: 10
+        updatedRecords:
+          type: integer
+          format: int32
+          description: "Number of exchange rates that were updated due to having a\
+            \ different rate than what we have stored- should never happen, rates\
+            \ shouldn't change"
+          example: 0
+        skippedRecords:
+          type: integer
+          format: int32
+          description: Number of rows in the csv that already had matching exchange
+            rates created in the database
+          example: 5
+        earliestExchangeRateDate:
+          type: string
+          format: date
+          description: Date of the earliest exchange rate in this import
+          example: 2025-01-01
+        latestExchangeRateDate:
+          type: string
+          format: date
+          description: Date of the latest exchange rate in this import
+          example: 2025-10-31
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the import execution
+          example: 2025-10-31T15:30:00Z
+      required:
+      - currencyCode
+      - newRecords
+      - providerSeriesId
+      - skippedRecords
+      - timestamp
+      - updatedRecords
+    CurrencySeriesCreateRequest:
+      type: object
+      description: Request to create a new currency series
+      properties:
+        currencyCode:
+          type: string
+          description: ISO 4217 three-letter currency code
+          example: EUR
+          maxLength: 3
+          minLength: 3
+          pattern: "^[A-Z]{3}$"
+        providerSeriesId:
+          type: string
+          description: "Exchange rate provider series identifier (e.g., DEXUSEU for\
+            \ EUR/USD). Must be a valid FRED series ID."
+          example: DEXUSEU
+          maxLength: 50
+          minLength: 0
+        enabled:
+          type: boolean
+          default: true
+          description: Whether this currency is enabled for exchange rate access
+          example: true
+      required:
+      - currencyCode
+      - providerSeriesId
+    ApiErrorResponse:
+      description: Standard API error response format
+      properties:
+        type:
+          type: string
+          description: Error type categorization for API responses
+          enum:
+          - INVALID_REQUEST
+          - VALIDATION_ERROR
+          - NOT_FOUND
+          - APPLICATION_ERROR
+          - SERVICE_UNAVAILABLE
+          - INTERNAL_ERROR
+          example: APPLICATION_ERROR
+        message:
+          type: string
+          description: Human-readable message describing the error
+          example: "CSV format: fake-bank not supported"
+        code:
+          type: string
+          description: Machine-readable error code for specific application errors
+            (required for APPLICATION_ERROR type)
+          example: CSV_PARSING_ERROR
+        fieldErrors:
+          type: array
+          description: List of field-level validation errors (populated for VALIDATION_ERROR
+            type)
+          items:
+            $ref: "#/components/schemas/FieldError"
+      required:
+      - message
+      - type
+    FieldError:
+      description: Field-level validation error details
+      properties:
+        field:
+          type: string
+          description: Field that triggered the error
+          example: email
+        message:
+          type: string
+          description: Error message
+          example: must be a valid email address
+        rejectedValue:
+          type: object
+          description: Value that caused the error
+          example: invalid@email
+      required:
+      - field
+      - message
+      - rejectedValue
+    ExchangeRateResponse:
+      type: object
+      description: Exchange rate response
+      properties:
+        baseCurrency:
+          type: string
+          description: Base currency for conversion (currently only USD supported)
+          example: USD
+        targetCurrency:
+          type: string
+          description: Target currency for conversion (currently only THB supported)
+          example: THB
+        date:
+          type: string
+          format: date
+          description: Date for the given rate
+          example: 2025-11-02
+        rate:
+          type: number
+          description: Exchange rate for the given date
+          example: 32.68
+        publishedDate:
+          type: string
+          format: date
+          description: "Date the exchange rate was published. FRED doesn't publish\
+            \ rates for weekends and holidays, so we use the nearest previously published\
+            \ rate"
+          example: 2025-10-31
+      required:
+      - baseCurrency
+      - date
+      - publishedDate
+      - rate
+      - targetCurrency
