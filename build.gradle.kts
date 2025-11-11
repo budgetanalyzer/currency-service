@@ -1,7 +1,7 @@
 plugins {
     java
     checkstyle
-    id("org.springframework.boot") version "3.5.6"
+    id("org.springframework.boot") version "3.5.7"
     id("io.spring.dependency-management") version "1.1.7"
     id("com.diffplug.spotless") version "8.0.0"
 }
@@ -23,7 +23,7 @@ repositories {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.cloud:spring-cloud-dependencies:2024.0.0")
-        mavenBom("org.springframework.modulith:spring-modulith-bom:1.3.1")
+        mavenBom("org.springframework.modulith:spring-modulith-bom:1.4.0")
     }
 }
 
@@ -52,7 +52,13 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("com.h2database:h2")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.springframework.modulith:spring-modulith-starter-test")
+    testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:rabbitmq")
+    testImplementation("org.wiremock:wiremock-standalone:3.10.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
