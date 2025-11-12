@@ -2,12 +2,10 @@ package org.budgetanalyzer.currency.base;
 
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+
+import org.budgetanalyzer.currency.config.TestContainersConfiguration;
 
 /**
  * Base class for repository integration tests with PostgreSQL TestContainer.
@@ -61,25 +59,10 @@ import org.testcontainers.utility.DockerImageName;
  * @see org.springframework.transaction.annotation.Transactional
  */
 @DataJpaTest
-@Testcontainers
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import(TestContainersConfiguration.class)
 public abstract class AbstractRepositoryTest {
-
-  /**
-   * PostgreSQL container for repository tests.
-   *
-   * <p>Shared across all repository test classes for performance. Container reuse is enabled to
-   * avoid repeated container startup.
-   *
-   * <p>Flyway migrations are automatically applied by Spring Boot's {@code FlywayAutoConfiguration}
-   * on test context startup.
-   */
-  @Container @ServiceConnection
-  static PostgreSQLContainer<?> postgresContainer =
-      new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
-          .withDatabaseName("currency_test")
-          .withUsername("test")
-          .withPassword("test")
-          .withReuse(true);
+  // PostgreSQL container is imported from TestContainersConfiguration
+  // This ensures a single container instance is shared across all test classes
 }
