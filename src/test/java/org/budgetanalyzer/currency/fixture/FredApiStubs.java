@@ -1,6 +1,10 @@
 package org.budgetanalyzer.currency.fixture;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -49,6 +53,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public final class FredApiStubs {
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
+
+  private FredApiStubs() {
+    throw new UnsupportedOperationException("Utility class - do not instantiate");
+  }
 
   // ===========================================================================================
   // Success Scenarios
@@ -394,9 +402,5 @@ public final class FredApiStubs {
     public static Observation missingData(LocalDate date) {
       return new Observation(date.toString(), TestConstants.FRED_MISSING_DATA_VALUE);
     }
-  }
-
-  private FredApiStubs() {
-    throw new UnsupportedOperationException("Utility class - do not instantiate");
   }
 }

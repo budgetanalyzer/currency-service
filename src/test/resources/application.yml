@@ -26,6 +26,19 @@ spring:
       shutdown:
         await-termination: false
 
+  # Spring Modulith configuration for tests
+  modulith:
+    events:
+      completion-mode: delete  # Clean up completed events immediately
+      republish-outstanding-events-on-restart: false  # Don't republish on test restart
+
+  # HikariCP configuration for tests - fast failure to prevent 30s hangs on shutdown
+  datasource:
+    hikari:
+      connection-timeout: 1000  # 1 second instead of default 30 seconds
+      validation-timeout: 1000  # 1 second validation timeout
+      initialization-fail-timeout: 0  # Fail fast if pool can't initialize
+
 currency-service:
   exchange-rate-import:
     import-on-startup: false  # Disable startup import in tests
