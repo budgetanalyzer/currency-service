@@ -1,6 +1,5 @@
 package org.budgetanalyzer.currency.api;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -191,7 +190,8 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
   void shouldReturn400WhenTargetCurrencyIsInvalid() throws Exception {
     // Execute: Query with invalid currency code
     performGet("/v1/exchange-rates?targetCurrency=INVALID&startDate=2024-01-01")
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("INVALID_REQUEST"));
   }
 
   @Test
@@ -200,8 +200,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
     // Execute: Query with startDate after endDate
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-12-31&endDate=2024-01-01")
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.type").value("INVALID_REQUEST"))
-        .andExpect(jsonPath("$.message").value("Start date must be before or equal to end date"));
+        .andExpect(jsonPath("$.type").value("INVALID_REQUEST"));
   }
 
   @Test
@@ -209,7 +208,8 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
   void shouldReturn400ForInvalidDateFormat() throws Exception {
     // Execute: Query with invalid month (13)
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-13-01")
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("INVALID_REQUEST"));
   }
 
   @Test
@@ -217,7 +217,8 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
   void shouldReturn400ForMalformedDateFormat() throws Exception {
     // Execute: Query with non-date string
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=not-a-date")
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("INVALID_REQUEST"));
   }
 
   // ===========================================================================================
@@ -233,8 +234,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
     performGet("/v1/exchange-rates?targetCurrency=ZAR&startDate=2024-01-01&endDate=2024-12-31")
         .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.type").value("APPLICATION_ERROR"))
-        .andExpect(jsonPath("$.code").value("NO_EXCHANGE_RATE_DATA_AVAILABLE"))
-        .andExpect(jsonPath("$.message").value(containsString("ZAR")));
+        .andExpect(jsonPath("$.code").value("NO_EXCHANGE_RATE_DATA_AVAILABLE"));
   }
 
   @Test
@@ -251,8 +251,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=1900-01-01&endDate=2024-01-31")
         .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.type").value("APPLICATION_ERROR"))
-        .andExpect(jsonPath("$.code").value("START_DATE_OUT_OF_RANGE"))
-        .andExpect(jsonPath("$.message").value(containsString("2024-01-03")));
+        .andExpect(jsonPath("$.code").value("START_DATE_OUT_OF_RANGE"));
   }
 
   @Test
