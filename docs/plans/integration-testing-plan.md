@@ -35,7 +35,7 @@ Transform currency-service from minimal test coverage (1 smoke test) to comprehe
 - Test cascade delete behavior with exchange rates
 - Test audit timestamp population
 
-### Step 2.2: ExchangeRateRepository Tests
+### Step 2.2: ExchangeRateRepository Tests ✅
 - Test `findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc()`
 - Test `findEarliestDateByTargetCurrency()` with multiple series
 - Test `countByCurrencySeries()` aggregation
@@ -45,21 +45,21 @@ Transform currency-service from minimal test coverage (1 smoke test) to comprehe
 ## Phase 3: Service Layer Tests (40-50 tests)
 **Goal**: Test business logic, validation, transactions, and event publishing
 
-### Step 3.1: CurrencySeriesService Tests
+### Step 3.1: CurrencySeriesService Tests ✅
 - **Happy Paths**: Create/update/query currency series
 - **Validation**: ISO 4217 validation, duplicate detection
 - **FRED Integration**: Mock provider to validate series existence
 - **Events**: Verify CurrencyCreatedEvent and CurrencyUpdatedEvent published
 - **Error Cases**: Invalid currency codes, non-existent provider series
 
-### Step 3.2: ExchangeRateService Tests
+### Step 3.2: ExchangeRateService Tests ✅
 - **Query Operations**: Date range filtering, enabled series only
 - **Gap-Filling Algorithm**: Forward-fill missing dates, weekend handling
 - **Caching**: Verify cache hits/misses with Redis TestContainer
 - **Validation**: Start > end date, no data available scenarios
 - **Complex Queries**: Multiple currencies, overlapping date ranges
 
-### Step 3.3: ExchangeRateImportService Tests
+### Step 3.3: ExchangeRateImportService Tests ✅
 - **Import Modes**: Missing data, latest data, specific series
 - **Deduplication**: Skip existing dates, update modified rates
 - **Cache Eviction**: Verify `@CacheEvict(allEntries=true)` clears Redis
