@@ -63,7 +63,7 @@ public final class TestConstants {
   public static final String INVALID_CURRENCY_WITH_SPECIAL_CHARS = "US$";
 
   /** Invalid currency code: non-existent in ISO 4217. */
-  public static final String INVALID_CURRENCY_NON_EXISTENT = "XXX";
+  public static final String INVALID_CURRENCY = "XXX";
 
   /** Invalid currency code: another non-existent code. */
   public static final String INVALID_CURRENCY_ZZZ = "ZZZ";
