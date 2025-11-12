@@ -95,7 +95,7 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryTest {
     // Act: Query for currency pair with no data
     var result =
         exchangeRateRepository.findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc(
-            TestConstants.BASE_CURRENCY_USD, TestConstants.CURRENCY_ZAR);
+            TestConstants.BASE_CURRENCY_USD, TestConstants.CURRENCY_ZAR_NOT_IN_DB);
 
     // Assert
     assertThat(result).isEmpty();
@@ -176,7 +176,8 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryTest {
   void findEarliestDateByTargetCurrencyWithNoDataReturnsEmpty() {
     // Act: Query for currency with no exchange rates
     var result =
-        exchangeRateRepository.findEarliestDateByTargetCurrency(TestConstants.CURRENCY_ZAR);
+        exchangeRateRepository.findEarliestDateByTargetCurrency(
+            TestConstants.CURRENCY_ZAR_NOT_IN_DB);
 
     // Assert
     assertThat(result).isEmpty();
