@@ -4,7 +4,9 @@
   "service": "claude-dev",
   "workspaceFolder": "/workspace/currency-service",
   "shutdownAction": "none",
-  
+
+  "initializeCommand": "bash ${localWorkspaceFolder}/../orchestration/claude-code-sandbox/setup-env.sh",
+
   "customizations": {
     "vscode": {
       "extensions": [
