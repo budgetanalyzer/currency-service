@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -105,13 +107,20 @@ public class AdminCurrencySeriesController {
       })
   @PostMapping(produces = "application/json", consumes = "application/json")
   @ResponseStatus(HttpStatus.CREATED)
-  public CurrencySeriesResponse create(@Valid @RequestBody CurrencySeriesCreateRequest request) {
+  public ResponseEntity<CurrencySeriesResponse> create(
+      @Valid @RequestBody CurrencySeriesCreateRequest request) {
     log.info("Creating currency series for currency code: {}", request.currencyCode());
 
     var entity = request.toEntity();
     var created = currencyService.create(entity);
 
-    return CurrencySeriesResponse.from(created);
+    var location =
+        ServletUriComponentsBuilder.fromCurrentRequest()
+            .path("/{id}")
+            .buildAndExpand(created.getId())
+            .toUri();
+
+    return ResponseEntity.created(location).body(CurrencySeriesResponse.from(created));
   }
 
   @Operation(
