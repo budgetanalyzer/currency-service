@@ -1,9 +1,9 @@
 plugins {
     java
     checkstyle
-    id("org.springframework.boot") version "3.5.7"
-    id("io.spring.dependency-management") version "1.1.7"
-    id("com.diffplug.spotless") version "8.0.0"
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.spotless)
 }
 
 group = "org.budgetanalyzer"
@@ -22,49 +22,49 @@ repositories {
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2024.0.0")
-        mavenBom("org.springframework.modulith:spring-modulith-bom:1.4.0")
+        mavenBom("org.springframework.cloud:spring-cloud-dependencies:${libs.versions.springCloud.get()}")
+        mavenBom("org.springframework.modulith:spring-modulith-bom:${libs.versions.springModulith.get()}")
     }
 }
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13")
-    implementation("org.springframework.boot:spring-boot-starter-data-jdbc")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation ("org.springframework.boot:spring-boot-starter-webflux")
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    implementation("org.springframework.boot:spring-boot-starter-cache")
-    implementation("org.springframework.cloud:spring-cloud-stream")
-    implementation("org.springframework.cloud:spring-cloud-stream-binder-rabbit")
-    implementation("org.springframework.modulith:spring-modulith-starter-core")
-    implementation("org.springframework.modulith:spring-modulith-starter-jpa")
-    implementation("net.javacrumbs.shedlock:shedlock-spring:6.0.2")
-    implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:6.0.2")
-    implementation("org.flywaydb:flyway-core")
-    implementation("org.flywaydb:flyway-database-postgresql")
+    implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.web)
+    implementation(libs.springdoc.openapi)
+    implementation(libs.spring.boot.starter.data.jdbc)
+    implementation(libs.spring.boot.starter.data.jpa)
+    implementation(libs.spring.boot.starter.validation)
+    implementation(libs.spring.boot.starter.webflux)
+    implementation(libs.spring.boot.starter.data.redis)
+    implementation(libs.spring.boot.starter.cache)
+    implementation(libs.spring.cloud.stream)
+    implementation(libs.spring.cloud.stream.binder.rabbit)
+    implementation(libs.spring.modulith.starter.core)
+    implementation(libs.spring.modulith.starter.jpa)
+    implementation(libs.shedlock.spring)
+    implementation(libs.shedlock.provider.jdbc)
+    implementation(libs.flyway.core)
+    implementation(libs.flyway.database.postgresql)
 
-    implementation("com.opencsv:opencsv:3.7")
-    implementation("org.budgetanalyzer:service-common:0.0.1-SNAPSHOT")
+    implementation(libs.opencsv)
+    implementation(libs.service.common)
 
-    runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly(libs.postgresql)
 
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.springframework.modulith:spring-modulith-starter-test")
-    testImplementation("org.testcontainers:testcontainers")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
-    testImplementation("org.testcontainers:rabbitmq")
-    testImplementation("org.wiremock:wiremock-standalone:3.10.0")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.spring.boot.testcontainers)
+    testImplementation(libs.spring.modulith.starter.test)
+    testImplementation(libs.testcontainers)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.rabbitmq)
+    testImplementation(libs.wiremock.standalone)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 spotless {
     java {
-        googleJavaFormat("1.17.0") // optional: specify version
+        googleJavaFormat(libs.versions.googleJavaFormat.get())
         trimTrailingWhitespace()
         endWithNewline()
         importOrder("java", "javax", "jakarta", "org", "com", "", "org.budgetanalyzer")
@@ -73,7 +73,7 @@ spotless {
 }
 
 checkstyle {
-    toolVersion = "12.0.1"
+    toolVersion = libs.versions.checkstyle.get()
 }
 
 tasks.named("check") {

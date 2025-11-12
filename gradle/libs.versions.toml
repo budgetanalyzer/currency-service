@@ -1,0 +1,65 @@
+[versions]
+springBoot = "3.5.7"
+springCloud = "2024.0.0"
+springModulith = "1.4.0"
+dependencyManagement = "1.1.7"
+spotless = "8.0.0"
+checkstyle = "12.0.1"
+googleJavaFormat = "1.17.0"
+opencsv = "3.7"
+springdoc = "2.8.13"
+shedlock = "6.0.2"
+wiremock = "3.10.0"
+junitPlatform = "1.12.2"
+serviceCommon = "0.0.1-SNAPSHOT"
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "dependencyManagement" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+
+[libraries]
+# Spring Boot starters (versions managed by Spring Boot BOM)
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
+spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
+spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+
+# Spring Cloud (versions managed by Spring Cloud BOM)
+spring-cloud-stream = { module = "org.springframework.cloud:spring-cloud-stream" }
+spring-cloud-stream-binder-rabbit = { module = "org.springframework.cloud:spring-cloud-stream-binder-rabbit" }
+
+# Spring Modulith (versions managed by Spring Modulith BOM)
+spring-modulith-starter-core = { module = "org.springframework.modulith:spring-modulith-starter-core" }
+spring-modulith-starter-jpa = { module = "org.springframework.modulith:spring-modulith-starter-jpa" }
+spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
+
+# Flyway (versions managed by Spring Boot BOM)
+flyway-core = { module = "org.flywaydb:flyway-core" }
+flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+
+# Third-party libraries with explicit versions
+opencsv = { module = "com.opencsv:opencsv", version.ref = "opencsv" }
+springdoc-openapi = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.ref = "shedlock" }
+shedlock-provider-jdbc = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
+
+# Service dependencies
+service-common = { module = "org.budgetanalyzer:service-common", version.ref = "serviceCommon" }
+
+# Runtime dependencies
+postgresql = { module = "org.postgresql:postgresql" }
+
+# Test dependencies
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }
+testcontainers = { module = "org.testcontainers:testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
+testcontainers-rabbitmq = { module = "org.testcontainers:rabbitmq" }
+wiremock-standalone = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
