@@ -140,6 +140,7 @@ currency-service:
     fred:
       base-url: https://api.stlouisfed.org/fred
       api-key: ${FRED_API_KEY}
+      timeout-seconds: 30  # Timeout for FRED API requests
 
     # Retry configuration
     retry:

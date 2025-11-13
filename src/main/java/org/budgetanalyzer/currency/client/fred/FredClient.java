@@ -34,6 +34,7 @@ public class FredClient {
   private final WebClient webClient;
   private final String fredApiKey;
   private final ObjectMapper objectMapper;
+  private final Duration timeout;
 
   public FredClient(
       WebClient.Builder webClientBuilder,
@@ -48,6 +49,7 @@ public class FredClient {
     }
 
     this.fredApiKey = fredConfig.getApiKey();
+    this.timeout = Duration.ofSeconds(fredConfig.getTimeoutSeconds());
     this.webClient =
         webClientBuilder
             .baseUrl(fredConfig.getBaseUrl())
@@ -55,7 +57,10 @@ public class FredClient {
             .build();
     this.objectMapper = objectMapper;
 
-    log.info("FredClient initialized with base URL: {}", fredConfig.getBaseUrl());
+    log.info(
+        "FredClient initialized with base URL: {}, timeout: {}s",
+        fredConfig.getBaseUrl(),
+        fredConfig.getTimeoutSeconds());
   }
 
   public FredSeriesObservationsResponse getSeriesObservationsData(
@@ -72,7 +77,7 @@ public class FredClient {
               .retrieve()
               .onStatus(HttpStatusCode::isError, this::handleErrorResponse)
               .bodyToMono(FredSeriesObservationsResponse.class)
-              .timeout(Duration.ofSeconds(30))
+              .timeout(timeout)
               .block();
 
       if (response == null) {
@@ -194,7 +199,7 @@ public class FredClient {
                         .defaultIfEmpty("No response body")
                         .flatMap(body -> Mono.error(parseErrorAndCreateException(response, body)));
                   })
-              .timeout(Duration.ofSeconds(5))
+              .timeout(timeout)
               .block();
 
       return result != null ? result : false;

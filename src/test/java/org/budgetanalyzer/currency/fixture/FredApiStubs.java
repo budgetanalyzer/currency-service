@@ -249,7 +249,7 @@ public final class FredApiStubs {
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody("{}")
-                        .withFixedDelay(35_000))); // 35 seconds delay
+                        .withFixedDelay(5_000))); // 5 seconds delay
   }
 
   // ===========================================================================================

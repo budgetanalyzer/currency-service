@@ -1,4 +1,4 @@
-package org.budgetanalyzer.currency.client;
+package org.budgetanalyzer.currency.client.fred;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
@@ -20,7 +20,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import com.github.tomakehurst.wiremock.WireMockServer;
 
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
-import org.budgetanalyzer.currency.client.fred.FredClient;
 import org.budgetanalyzer.currency.config.WireMockConfiguration;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.service.exception.ClientException;
@@ -55,7 +54,7 @@ import org.budgetanalyzer.service.exception.ClientException;
  * <p><b>Key Behaviors Validated:</b>
  *
  * <ul>
- *   <li>HTTP timeout configuration (30s for observations, 5s for exists)
+ *   <li>HTTP timeout configuration (2s for tests)
  *   <li>Error response parsing (FredErrorResponse JSON format)
  *   <li>Distinction between "not found" (return false) vs "server error" (throw exception)
  *   <li>Handling of FRED's missing data indicator (".")
@@ -257,18 +256,18 @@ class FredClientIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on timeout after 30 seconds")
+  @DisplayName("Should throw ClientException on timeout after 2 seconds")
   void shouldThrowClientExceptionOnTimeout() {
     // Given
     var seriesId = FRED_SERIES_EUR;
-    FredApiStubs.stubTimeout(seriesId); // 35 second delay
+    FredApiStubs.stubTimeout(seriesId); // 2 second delay
 
     // When/Then
     assertThatThrownBy(() -> fredClient.getSeriesObservationsData(seriesId, null))
         .isInstanceOf(ClientException.class)
         .satisfies(
             ex -> {
-              // Should timeout in ~30 seconds, not wait full 35
+              // Should timeout in ~2 seconds, not wait full 5
               // Message should mention timeout or series failure
               var message = ex.getMessage().toLowerCase();
               assertThat(message)
@@ -404,7 +403,7 @@ class FredClientIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on timeout after 5 seconds for seriesExists")
+  @DisplayName("Should throw ClientException on timeout after 3 seconds for seriesExists")
   void shouldThrowClientExceptionOnTimeoutForSeriesExists() {
     // Given
     var seriesId = FRED_SERIES_EUR;
