@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
+import org.springframework.test.context.TestPropertySource;
 
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
 import org.budgetanalyzer.currency.config.CacheConfig;
@@ -38,8 +39,12 @@ import org.budgetanalyzer.service.exception.BusinessException;
  * </ul>
  *
  * <p>Uses TestContainers for PostgreSQL, Redis, and RabbitMQ infrastructure.
+ *
+ * <p><b>Cache Configuration:</b> This test explicitly enables Redis cache to verify caching
+ * behavior.
  */
 @SpringBootTest
+@TestPropertySource(properties = "spring.cache.type=redis")
 class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private ExchangeRateService service;

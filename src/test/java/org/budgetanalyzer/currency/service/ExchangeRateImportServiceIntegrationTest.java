@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
@@ -55,8 +56,12 @@ import org.budgetanalyzer.service.exception.ServiceException;
  *
  * <p><b>Mocking Strategy:</b> Uses {@code @MockitoBean} for {@link ExchangeRateProvider} to avoid
  * external FRED API calls, ensuring fast and deterministic tests.
+ *
+ * <p><b>Cache Configuration:</b> This test explicitly enables Redis cache to verify cache eviction
+ * behavior.
  */
 @SpringBootTest
+@TestPropertySource(properties = "spring.cache.type=redis")
 class ExchangeRateImportServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private ExchangeRateImportService importService;
@@ -74,10 +79,8 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractIntegrationTest {
     // Clean database and cache for test isolation
     exchangeRateRepository.deleteAll();
     seriesRepository.deleteAll();
-    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
-    if (cache != null) {
-      cache.clear();
-    }
+
+    cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE).clear();
 
     // Reset mock provider
     reset(mockProvider);
@@ -944,15 +947,24 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   /**
-   * Test: Cache IS cleared even on transaction rollback.
+   * Test: Cache is NOT cleared on transaction rollback (maintains consistency).
    *
-   * <p>With Spring's default proxy behavior, {@code @CacheEvict(allEntries=true)} executes in the
-   * AOP proxy layer before transaction management. Therefore, cache eviction occurs even when the
-   * transaction rolls back due to an exception.
+   * <p>With transaction-aware caching enabled via {@code transactionAware()}, cache eviction is
+   * deferred until the after-commit phase of a successful transaction. When a transaction rolls
+   * back due to an exception, the cache eviction does NOT occur. This maintains consistency between
+   * the cache and database - if the database transaction was rolled back, the cache should remain
+   * unchanged as well.
+   *
+   * <p><b>Consistency Guarantee:</b> Cache and database state remain synchronized. A rollback means
+   * no data changes, so no cache changes either.
+   *
+   * <p><b>Technical Details:</b> {@code @CacheEvict} with default {@code beforeInvocation=false}
+   * triggers eviction after successful method completion. With {@code transactionAware()}, this is
+   * further deferred to the transaction's after-commit phase, which never executes on rollback.
    */
   @Test
-  @DisplayName("Cache IS cleared even on transaction rollback")
-  void cacheIsClearedEvenOnTransactionRollback() {
+  @DisplayName("Cache is NOT cleared on transaction rollback (maintains consistency)")
+  void cacheIsNotClearedOnTransactionRollback() {
     // Arrange - EUR series with existing data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     seriesRepository.save(eurSeries);
@@ -978,11 +990,12 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractIntegrationTest {
     assertThatThrownBy(() -> importService.importExchangeRatesForSeries(eurSeries.getId()))
         .isInstanceOf(ServiceException.class);
 
-    // Verify cache IS cleared even on rollback
-    // Note: With @CacheEvict(allEntries=true) and Spring's default proxy behavior,
-    // the cache eviction happens in the proxy layer before transaction management,
-    // so it clears even when the transaction rolls back.
-    assertThat(cache.get("test-key")).isNull();
+    // Verify cache is NOT cleared on rollback to maintain consistency
+    // With transaction-aware caching, cache eviction is deferred to after-commit phase.
+    // Since the transaction rolled back, the after-commit phase never executes,
+    // so the cache remains unchanged (consistent with the unchanged database).
+    assertThat(cache.get("test-key")).isNotNull();
+    assertThat(cache.get("test-key").get()).isEqualTo("test-value");
   }
 
   // ===========================================================================================

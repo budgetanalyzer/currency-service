@@ -10,10 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -46,27 +43,11 @@ import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
  *   <li>Response structure validation (JSON schema, data types, headers)
  * </ul>
  */
-@SpringBootTest
 class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository repository;
 
   @Autowired private ObjectMapper objectMapper;
-
-  /**
-   * Override WireMock configuration with correct property path.
-   *
-   * <p>The base class uses incorrect property path, so we override it here with the correct path
-   * from application.yml: currency-service.exchange-rate-import.fred.base-url
-   */
-  @DynamicPropertySource
-  static void overrideWireMockConfig(DynamicPropertyRegistry registry) {
-    if (wireMockServer != null) {
-      registry.add(
-          "currency-service.exchange-rate-import.fred.base-url",
-          () -> "http://localhost:" + wireMockServer.port());
-    }
-  }
 
   @BeforeEach
   void setUp() {

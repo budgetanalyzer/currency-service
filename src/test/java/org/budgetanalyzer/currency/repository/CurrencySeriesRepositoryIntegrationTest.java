@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.NonTransientDataAccessException;
 
-import org.budgetanalyzer.currency.base.AbstractRepositoryTest;
+import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
 import org.budgetanalyzer.currency.domain.CurrencySeries;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.ExchangeRateTestBuilder;
@@ -36,7 +36,7 @@ import org.budgetanalyzer.currency.fixture.TestConstants;
  * isolation.
  */
 @DisplayName("CurrencySeriesRepository Integration Tests")
-class CurrencySeriesRepositoryTest extends AbstractRepositoryTest {
+class CurrencySeriesRepositoryIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
 

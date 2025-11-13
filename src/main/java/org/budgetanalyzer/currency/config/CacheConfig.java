@@ -67,6 +67,10 @@ public class CacheConfig {
    *   <li><b>Eviction Strategy:</b> Manual only - All import operations use
    *       {@code @CacheEvict(allEntries = true)} to clear the entire cache. This trades targeted
    *       eviction complexity for simplicity and consistency guarantees.
+   *   <li><b>Transaction Awareness:</b> Cache operations are synchronized with Spring-managed
+   *       transactions via {@code transactionAware()}. Cache eviction is deferred until the
+   *       after-commit phase of successful transactions. If a transaction rolls back, cache
+   *       eviction does NOT occur, maintaining consistency between cache and database.
    *   <li><b>Key Structure:</b> {@code
    *       currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}} - Enables
    *       currency-specific cache isolation (THB queries don't collide with EUR queries)
@@ -88,17 +92,19 @@ public class CacheConfig {
   public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
       GenericJackson2JsonRedisSerializer redisSerializer) {
     return builder ->
-        builder.withCacheConfiguration(
-            EXCHANGE_RATES_CACHE,
-            RedisCacheConfiguration.defaultCacheConfig()
-                // No TTL - rates only change during imports, explicitly evicted via @CacheEvict
-                .entryTtl(Duration.ZERO)
-                .serializeKeysWith(
-                    RedisSerializationContext.SerializationPair.fromSerializer(
-                        new StringRedisSerializer()))
-                .serializeValuesWith(
-                    RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer))
-                .prefixCacheNameWith("currency-service:"));
+        builder
+            .transactionAware() // Synchronize cache operations with Spring transactions
+            .withCacheConfiguration(
+                EXCHANGE_RATES_CACHE,
+                RedisCacheConfiguration.defaultCacheConfig()
+                    // No TTL - rates only change during imports, explicitly evicted via @CacheEvict
+                    .entryTtl(Duration.ZERO)
+                    .serializeKeysWith(
+                        RedisSerializationContext.SerializationPair.fromSerializer(
+                            new StringRedisSerializer()))
+                    .serializeValuesWith(
+                        RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer))
+                    .prefixCacheNameWith("currency-service:"));
   }
 
   /**
