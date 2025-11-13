@@ -46,6 +46,7 @@ currency-service:
     fred:
       # base-url is set dynamically via @DynamicPropertySource in TestContainersConfiguration
       api-key: test-key
+      timeout-seconds: 2  # Timeout for FRED API requests
     retry:
       max-attempts: 1
       delay-minutes: 1  # Minimum allowed value

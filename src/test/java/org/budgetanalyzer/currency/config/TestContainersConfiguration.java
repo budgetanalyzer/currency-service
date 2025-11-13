@@ -8,13 +8,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
-
 /**
  * Centralized TestContainers configuration for all integration tests.
  *
- * <p>Provides all infrastructure containers:
+ * <p>Provides all infrastructure Docker containers:
  *
  * <ul>
  *   <li>PostgreSQL container for database operations with Flyway migrations
@@ -28,8 +25,9 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
  * <p>Container reuse is enabled via testcontainers.reuse.enable=true system property for faster
  * test execution during development.
  *
- * <p>WireMock server for mocking external FRED API is configured in {@link
- * org.budgetanalyzer.currency.base.AbstractControllerTest} since only controller tests require it.
+ * <p><b>Note:</b> This configuration only manages Docker containers via TestContainers. For
+ * WireMock server configuration (used for mocking external HTTP APIs), see {@link
+ * WireMockConfiguration}.
  *
  * <p><b>Usage:</b>
  *
@@ -43,6 +41,7 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
  *
  * @see org.springframework.boot.testcontainers.service.connection.ServiceConnection
  * @see org.testcontainers.junit.jupiter.Testcontainers
+ * @see WireMockConfiguration
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestContainersConfiguration {
@@ -80,26 +79,6 @@ public class TestContainersConfiguration {
   static RabbitMQContainer rabbitMQContainer =
       new RabbitMQContainer(DockerImageName.parse("rabbitmq:3-management-alpine")).withReuse(true);
 
-  /**
-   * WireMock server for mocking FRED API responses.
-   *
-   * <p>Runs on random port to avoid conflicts. Shared across all test classes for performance.
-   * Initialized statically to ensure it's available before Spring context loads.
-   *
-   * <p>Bean configuration is in {@link org.budgetanalyzer.currency.base.AbstractControllerTest}
-   * since only controller tests require WireMock.
-   *
-   * @return WireMock server instance (may be null if not yet initialized)
-   */
-  static WireMockServer wireMockServer;
-
-  static {
-    // Start WireMock server in static initializer to ensure it's available
-    // before @DynamicPropertySource is evaluated in AbstractControllerTest
-    wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
-    wireMockServer.start();
-  }
-
   @Bean
   @ServiceConnection
   PostgreSQLContainer<?> postgresContainer() {
@@ -116,17 +95,5 @@ public class TestContainersConfiguration {
   @ServiceConnection
   RabbitMQContainer rabbitMQContainer() {
     return rabbitMQContainer;
-  }
-
-  /**
-   * Returns the WireMock server instance for controller tests.
-   *
-   * <p>Used by {@link org.budgetanalyzer.currency.base.AbstractControllerTest} to access the shared
-   * WireMock server.
-   *
-   * @return WireMock server instance
-   */
-  public static WireMockServer getWireMockServer() {
-    return wireMockServer;
   }
 }

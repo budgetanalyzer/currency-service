@@ -76,6 +76,11 @@ public class CurrencyServiceProperties {
       @Sensitive(showLast = 4)
       private String apiKey;
 
+      /** Timeout in seconds for FRED API requests. */
+      @Min(1)
+      @Max(120)
+      private int timeoutSeconds = 30;
+
       public String getBaseUrl() {
         return baseUrl;
       }
@@ -90,6 +95,14 @@ public class CurrencyServiceProperties {
 
       public void setApiKey(String apiKey) {
         this.apiKey = apiKey;
+      }
+
+      public int getTimeoutSeconds() {
+        return timeoutSeconds;
+      }
+
+      public void setTimeoutSeconds(int timeoutSeconds) {
+        this.timeoutSeconds = timeoutSeconds;
       }
     }
 

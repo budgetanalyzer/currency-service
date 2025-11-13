@@ -34,6 +34,7 @@ public class FredClient {
   private final WebClient webClient;
   private final String fredApiKey;
   private final ObjectMapper objectMapper;
+  private final Duration timeout;
 
   public FredClient(
       WebClient.Builder webClientBuilder,
@@ -48,6 +49,7 @@ public class FredClient {
     }
 
     this.fredApiKey = fredConfig.getApiKey();
+    this.timeout = Duration.ofSeconds(fredConfig.getTimeoutSeconds());
     this.webClient =
         webClientBuilder
             .baseUrl(fredConfig.getBaseUrl())
@@ -55,7 +57,10 @@ public class FredClient {
             .build();
     this.objectMapper = objectMapper;
 
-    log.info("FredClient initialized with base URL: {}", fredConfig.getBaseUrl());
+    log.info(
+        "FredClient initialized with base URL: {}, timeout: {}s",
+        fredConfig.getBaseUrl(),
+        fredConfig.getTimeoutSeconds());
   }
 
   public FredSeriesObservationsResponse getSeriesObservationsData(
@@ -72,7 +77,7 @@ public class FredClient {
               .retrieve()
               .onStatus(HttpStatusCode::isError, this::handleErrorResponse)
               .bodyToMono(FredSeriesObservationsResponse.class)
-              .timeout(Duration.ofSeconds(30))
+              .timeout(timeout)
               .block();
 
       if (response == null) {
@@ -119,18 +124,18 @@ public class FredClient {
 
   private Throwable parseErrorAndCreateException(ClientResponse response, String body) {
     Integer errorCode = null;
-    String errorMessage = body;
+    var errorMessage = body;
+    var httpStatus = response.statusCode().value();
 
     // Try to parse structured error response
     if (body != null && !body.isBlank()) {
       try {
-        FredErrorResponse errorResponse = objectMapper.readValue(body, FredErrorResponse.class);
+        var errorResponse = objectMapper.readValue(body, FredErrorResponse.class);
 
         if (errorResponse.errorMessage() != null) {
           errorMessage = errorResponse.errorMessage();
         }
         errorCode = errorResponse.errorCode();
-
       } catch (JsonProcessingException e) {
         // Not JSON or doesn't match our error structure
         // Keep the raw body as the message
@@ -149,7 +154,9 @@ public class FredClient {
         errorCode,
         errorMessage);
 
-    return new ClientException("FRED API error message: " + errorMessage + " code: " + errorCode);
+    // Use error code from response if available, otherwise use HTTP status
+    var code = errorCode != null ? errorCode : httpStatus;
+    return new ClientException("FRED API error message: " + errorMessage + " code: " + code);
   }
 
   /**
@@ -165,33 +172,37 @@ public class FredClient {
     log.debug("Checking if FRED series exists: {}", seriesId);
 
     try {
-      return webClient
-          .get()
-          .uri(url)
-          .accept(MediaType.APPLICATION_JSON)
-          .exchangeToMono(
-              response -> {
-                int statusCode = response.statusCode().value();
+      var result =
+          webClient
+              .get()
+              .uri(url)
+              .accept(MediaType.APPLICATION_JSON)
+              .exchangeToMono(
+                  response -> {
+                    var statusCode = response.statusCode().value();
 
-                // Series exists
-                if (statusCode == 200) {
-                  log.debug("FRED series exists: {}", seriesId);
-                  return Mono.just(true);
-                }
+                    // Series exists
+                    if (statusCode == 200) {
+                      log.debug("FRED series exists: {}", seriesId);
+                      return Mono.just(true);
+                    }
 
-                // Series doesn't exist
-                if (statusCode == 400 || statusCode == 404) {
-                  log.debug("FRED series does not exist: {} (HTTP {})", seriesId, statusCode);
-                  return Mono.just(false);
-                }
+                    // Series doesn't exist
+                    if (statusCode == 400 || statusCode == 404) {
+                      log.debug("FRED series does not exist: {} (HTTP {})", seriesId, statusCode);
+                      return Mono.just(false);
+                    }
 
-                // Any other error - parse and throw
-                return response
-                    .bodyToMono(String.class)
-                    .defaultIfEmpty("No response body")
-                    .flatMap(body -> Mono.error(parseErrorAndCreateException(response, body)));
-              })
-          .block(Duration.ofSeconds(5));
+                    // Any other error - parse and throw
+                    return response
+                        .bodyToMono(String.class)
+                        .defaultIfEmpty("No response body")
+                        .flatMap(body -> Mono.error(parseErrorAndCreateException(response, body)));
+                  })
+              .timeout(timeout)
+              .block();
+
+      return result != null ? result : false;
 
     } catch (ClientException ce) {
       throw ce;

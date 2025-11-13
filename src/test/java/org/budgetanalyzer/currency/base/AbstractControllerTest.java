@@ -8,8 +8,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -19,7 +17,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
-import org.budgetanalyzer.currency.config.TestContainersConfiguration;
+import org.budgetanalyzer.currency.config.WireMockConfiguration;
 
 /**
  * Base class for controller integration tests with MockMvc and WireMock.
@@ -32,12 +30,9 @@ import org.budgetanalyzer.currency.config.TestContainersConfiguration;
  *   <li>Helper methods for JSON request/response handling
  * </ul>
  *
- * <p>WireMock server is configured in this class since only controller tests require external API
- * mocking. The server instance is shared across all tests (started in {@link
- * TestContainersConfiguration}), but bean configuration and property overrides are scoped to
- * controller tests only.
- *
- * <p>WireMock server is reset between tests to ensure isolation.
+ * <p>WireMock server is configured via {@link WireMockConfiguration} which is imported by this
+ * class. The server instance is shared across all tests that import the configuration and is reset
+ * between tests to ensure isolation.
  *
  * <p><b>Usage:</b>
  *
@@ -62,16 +57,17 @@ import org.budgetanalyzer.currency.config.TestContainersConfiguration;
  *
  * @see MockMvc
  * @see WireMockServer
+ * @see WireMockConfiguration
  */
 @AutoConfigureMockMvc
-@Import(AbstractControllerTest.WireMockConfiguration.class)
+@Import(WireMockConfiguration.class)
 public abstract class AbstractControllerTest extends AbstractIntegrationTest {
 
   /**
    * WireMock server for mocking FRED API responses.
    *
-   * <p>Server instance is shared across all tests (created in {@link TestContainersConfiguration}),
-   * but configured as a bean only for controller tests via {@link WireMockConfiguration}.
+   * <p>Server instance is provided by {@link WireMockConfiguration} and shared across all tests
+   * that import the configuration.
    */
   @Autowired protected WireMockServer wireMockServer;
 
@@ -88,33 +84,10 @@ public abstract class AbstractControllerTest extends AbstractIntegrationTest {
    */
   @DynamicPropertySource
   static void configureWireMockProperties(DynamicPropertyRegistry registry) {
-    var wireMock = TestContainersConfiguration.getWireMockServer();
+    var wireMock = WireMockConfiguration.getWireMockServer();
     registry.add(
         "currency-service.exchange-rate-import.fred.base-url",
         () -> "http://localhost:" + wireMock.port());
-  }
-
-  /**
-   * WireMock configuration for controller tests.
-   *
-   * <p>Configures WireMock server as a Spring bean. This configuration is only loaded for
-   * controller tests extending {@link AbstractControllerTest}.
-   */
-  @TestConfiguration
-  static class WireMockConfiguration {
-
-    /**
-     * Returns the WireMock server instance as a Spring bean.
-     *
-     * <p>Server is started in {@link TestContainersConfiguration} static initializer and stopped on
-     * application context shutdown via {@code destroyMethod}.
-     *
-     * @return WireMock server instance
-     */
-    @Bean(destroyMethod = "stop")
-    WireMockServer wireMockServer() {
-      return TestContainersConfiguration.getWireMockServer();
-    }
   }
 
   /**

@@ -3,7 +3,7 @@ package org.budgetanalyzer.currency.fixture;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
-import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.matching;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 
 import java.time.LocalDate;
@@ -13,6 +13,9 @@ import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+
+import org.budgetanalyzer.currency.config.WireMockConfiguration;
 
 /**
  * WireMock stub templates for FRED API responses.
@@ -54,8 +57,26 @@ public final class FredApiStubs {
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
+  /** FRED API base path for series metadata endpoint. */
+  private static final String FRED_API_PATH_SERIES = "/series";
+
+  /** Cached WireMock server instance. */
+  private static WireMockServer wireMockServer;
+
   private FredApiStubs() {
     throw new UnsupportedOperationException("Utility class - do not instantiate");
+  }
+
+  /**
+   * Gets the WireMock server instance, caching it for reuse.
+   *
+   * @return WireMock server instance
+   */
+  private static WireMockServer getWireMockServer() {
+    if (wireMockServer == null) {
+      wireMockServer = WireMockConfiguration.getWireMockServer();
+    }
+    return wireMockServer;
   }
 
   // ===========================================================================================
@@ -72,14 +93,15 @@ public final class FredApiStubs {
    */
   public static void stubSuccessWithObservations(String seriesId, List<Observation> observations) {
     var responseBody = buildFredSuccessResponse(seriesId, observations);
-    stubFor(
-        get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
-            .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
-            .willReturn(
-                aResponse()
-                    .withStatus(200)
-                    .withHeader("Content-Type", "application/json")
-                    .withBody(responseBody)));
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(responseBody)));
   }
 
   /**
@@ -153,14 +175,15 @@ public final class FredApiStubs {
         buildFredErrorResponse(
             TestConstants.HTTP_BAD_REQUEST,
             "Bad Request. The series does not exist or the parameters are invalid.");
-    stubFor(
-        get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
-            .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
-            .willReturn(
-                aResponse()
-                    .withStatus(TestConstants.HTTP_BAD_REQUEST)
-                    .withHeader("Content-Type", "application/json")
-                    .withBody(errorResponse)));
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .willReturn(
+                    aResponse()
+                        .withStatus(TestConstants.HTTP_BAD_REQUEST)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(errorResponse)));
   }
 
   /**
@@ -175,14 +198,15 @@ public final class FredApiStubs {
         buildFredErrorResponse(
             TestConstants.HTTP_NOT_FOUND,
             "Not Found. The series '" + seriesId + "' does not exist.");
-    stubFor(
-        get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
-            .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
-            .willReturn(
-                aResponse()
-                    .withStatus(TestConstants.HTTP_NOT_FOUND)
-                    .withHeader("Content-Type", "application/json")
-                    .withBody(errorResponse)));
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .willReturn(
+                    aResponse()
+                        .withStatus(TestConstants.HTTP_NOT_FOUND)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(errorResponse)));
   }
 
   /**
@@ -197,14 +221,15 @@ public final class FredApiStubs {
         buildFredErrorResponse(
             TestConstants.HTTP_INTERNAL_SERVER_ERROR,
             "Internal Server Error. Please try again later.");
-    stubFor(
-        get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
-            .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
-            .willReturn(
-                aResponse()
-                    .withStatus(TestConstants.HTTP_INTERNAL_SERVER_ERROR)
-                    .withHeader("Content-Type", "application/json")
-                    .withBody(errorResponse)));
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .willReturn(
+                    aResponse()
+                        .withStatus(TestConstants.HTTP_INTERNAL_SERVER_ERROR)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(errorResponse)));
   }
 
   /**
@@ -215,15 +240,16 @@ public final class FredApiStubs {
    * @param seriesId the FRED series ID
    */
   public static void stubTimeout(String seriesId) {
-    stubFor(
-        get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
-            .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
-            .willReturn(
-                aResponse()
-                    .withStatus(200)
-                    .withHeader("Content-Type", "application/json")
-                    .withBody("{}")
-                    .withFixedDelay(35_000))); // 35 seconds delay
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{}")
+                        .withFixedDelay(5_000))); // 5 seconds delay
   }
 
   // ===========================================================================================
@@ -238,14 +264,15 @@ public final class FredApiStubs {
    * @param seriesId the FRED series ID
    */
   public static void stubMalformedJson(String seriesId) {
-    stubFor(
-        get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
-            .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
-            .willReturn(
-                aResponse()
-                    .withStatus(200)
-                    .withHeader("Content-Type", "application/json")
-                    .withBody("{invalid json content here...")));
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{invalid json content here...")));
   }
 
   /**
@@ -256,18 +283,19 @@ public final class FredApiStubs {
    * @param seriesId the FRED series ID
    */
   public static void stubRateLimited(String seriesId) {
-    stubFor(
-        get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
-            .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
-            .willReturn(
-                aResponse()
-                    .withStatus(TestConstants.HTTP_TOO_MANY_REQUESTS)
-                    .withHeader("Content-Type", "application/json")
-                    .withHeader("Retry-After", "60")
-                    .withBody(
-                        buildFredErrorResponse(
-                            TestConstants.HTTP_TOO_MANY_REQUESTS,
-                            "Too Many Requests. Rate limit exceeded."))));
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(TestConstants.FRED_API_PATH_OBSERVATIONS))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .willReturn(
+                    aResponse()
+                        .withStatus(TestConstants.HTTP_TOO_MANY_REQUESTS)
+                        .withHeader("Content-Type", "application/json")
+                        .withHeader("Retry-After", "60")
+                        .withBody(
+                            buildFredErrorResponse(
+                                TestConstants.HTTP_TOO_MANY_REQUESTS,
+                                "Too Many Requests. Rate limit exceeded."))));
   }
 
   /**
@@ -297,6 +325,148 @@ public final class FredApiStubs {
     }
 
     stubSuccessWithObservations(seriesId, observations);
+  }
+
+  // ===========================================================================================
+  // Series Existence Check Stubs (for seriesExists() method)
+  // ===========================================================================================
+
+  /**
+   * Stubs successful series validation (200 OK).
+   *
+   * <p>Returns minimal valid series metadata JSON indicating the series exists.
+   *
+   * @param seriesId the FRED series ID
+   */
+  public static void stubSeriesExistsSuccess(String seriesId) {
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(FRED_API_PATH_SERIES))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .withQueryParam(TestConstants.FRED_PARAM_API_KEY, matching(".*"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """
+                        {
+                          "seriess": [{
+                            "id": "%s",
+                            "title": "Test Series",
+                            "observation_start": "2024-01-01",
+                            "observation_end": "2024-12-31"
+                          }]
+                        }
+                        """
+                                .formatted(seriesId))));
+  }
+
+  /**
+   * Stubs series not found (404).
+   *
+   * <p>FredClient.seriesExists() should return false (not throw exception).
+   *
+   * @param seriesId the FRED series ID
+   */
+  public static void stubSeriesExistsNotFound(String seriesId) {
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(FRED_API_PATH_SERIES))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .withQueryParam(TestConstants.FRED_PARAM_API_KEY, matching(".*"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(404)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """
+                        {
+                          "error_code": 404,
+                          "error_message": "Series not found."
+                        }
+                        """)));
+  }
+
+  /**
+   * Stubs invalid series ID (400).
+   *
+   * <p>FredClient.seriesExists() should return false (not throw exception).
+   *
+   * @param seriesId the FRED series ID
+   */
+  public static void stubSeriesExistsBadRequest(String seriesId) {
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(FRED_API_PATH_SERIES))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .withQueryParam(TestConstants.FRED_PARAM_API_KEY, matching(".*"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(400)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """
+                        {
+                          "error_code": 400,
+                          "error_message": "Bad Request. Variable series_id is not valid."
+                        }
+                        """)));
+  }
+
+  /**
+   * Stubs server error (500).
+   *
+   * <p>FredClient.seriesExists() should throw ClientException (not return false).
+   *
+   * @param seriesId the FRED series ID
+   */
+  public static void stubSeriesExistsServerError(String seriesId) {
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(FRED_API_PATH_SERIES))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .withQueryParam(TestConstants.FRED_PARAM_API_KEY, matching(".*"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(500)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """
+                        {
+                          "error_code": 500,
+                          "error_message": "Internal Server Error"
+                        }
+                        """)));
+  }
+
+  /**
+   * Stubs timeout scenario (6+ second delay).
+   *
+   * <p>FredClient has 5 second timeout for seriesExists().
+   *
+   * @param seriesId the FRED series ID
+   */
+  public static void stubSeriesExistsTimeout(String seriesId) {
+    getWireMockServer()
+        .stubFor(
+            get(urlPathEqualTo(FRED_API_PATH_SERIES))
+                .withQueryParam(TestConstants.FRED_PARAM_SERIES_ID, equalTo(seriesId))
+                .withQueryParam(TestConstants.FRED_PARAM_API_KEY, matching(".*"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withFixedDelay(6000) // 6 seconds > 5 second timeout
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """
+                        {
+                          "seriess": [{
+                            "id": "%s"
+                          }]
+                        }
+                        """
+                                .formatted(seriesId))));
   }
 
   // ===========================================================================================
