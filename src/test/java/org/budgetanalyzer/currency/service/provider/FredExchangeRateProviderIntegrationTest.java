@@ -111,7 +111,7 @@ class FredExchangeRateProviderIntegrationTest extends AbstractIntegrationTest {
             LocalDate.of(2024, 1, 8), // Mon
             LocalDate.of(2024, 1, 9), // Tue
             LocalDate.of(2024, 1, 10) // Wed
-            );
+        );
 
     // Verify values are parsed correctly as BigDecimal
     assertThat(rates.values())
