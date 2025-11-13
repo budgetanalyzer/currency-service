@@ -103,15 +103,14 @@ class FredExchangeRateProviderIntegrationTest extends AbstractIntegrationTest {
     assertThat(rates).hasSize(8);
     assertThat(rates)
         .containsOnlyKeys(
-            LocalDate.of(2024, 1, 1), // Mon
-            LocalDate.of(2024, 1, 2), // Tue
-            LocalDate.of(2024, 1, 3), // Wed
-            LocalDate.of(2024, 1, 4), // Thu
-            LocalDate.of(2024, 1, 5), // Fri
-            LocalDate.of(2024, 1, 8), // Mon
-            LocalDate.of(2024, 1, 9), // Tue
-            LocalDate.of(2024, 1, 10) // Wed
-        );
+            LocalDate.of(2024, 1, 1),
+            LocalDate.of(2024, 1, 2),
+            LocalDate.of(2024, 1, 3),
+            LocalDate.of(2024, 1, 4),
+            LocalDate.of(2024, 1, 5),
+            LocalDate.of(2024, 1, 8),
+            LocalDate.of(2024, 1, 9),
+            LocalDate.of(2024, 1, 10));
 
     // Verify values are parsed correctly as BigDecimal
     assertThat(rates.values())
