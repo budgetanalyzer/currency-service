@@ -204,7 +204,7 @@ public final class TestConstants {
   // ===========================================================================================
 
   /** FRED API base path for series observations. */
-  public static final String FRED_API_PATH_OBSERVATIONS = "/fred/series/observations";
+  public static final String FRED_API_PATH_OBSERVATIONS = "/series/observations";
 
   /** FRED API query parameter: series_id. */
   public static final String FRED_PARAM_SERIES_ID = "series_id";
