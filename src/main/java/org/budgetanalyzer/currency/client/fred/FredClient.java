@@ -119,19 +119,18 @@ public class FredClient {
 
   private Throwable parseErrorAndCreateException(ClientResponse response, String body) {
     Integer errorCode = null;
-    String errorMessage = body;
-    int httpStatus = response.statusCode().value();
+    var errorMessage = body;
+    var httpStatus = response.statusCode().value();
 
     // Try to parse structured error response
     if (body != null && !body.isBlank()) {
       try {
-        FredErrorResponse errorResponse = objectMapper.readValue(body, FredErrorResponse.class);
+        var errorResponse = objectMapper.readValue(body, FredErrorResponse.class);
 
         if (errorResponse.errorMessage() != null) {
           errorMessage = errorResponse.errorMessage();
         }
         errorCode = errorResponse.errorCode();
-
       } catch (JsonProcessingException e) {
         // Not JSON or doesn't match our error structure
         // Keep the raw body as the message
@@ -175,7 +174,7 @@ public class FredClient {
               .accept(MediaType.APPLICATION_JSON)
               .exchangeToMono(
                   response -> {
-                    int statusCode = response.statusCode().value();
+                    var statusCode = response.statusCode().value();
 
                     // Series exists
                     if (statusCode == 200) {
