@@ -10,6 +10,7 @@ opencsv = "3.7"
 springdoc = "2.8.13"
 shedlock = "6.0.2"
 wiremock = "3.10.0"
+awaitility = "4.2.2"
 junitPlatform = "1.12.2"
 serviceCommon = "0.0.1-SNAPSHOT"
 
@@ -64,3 +65,4 @@ testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
 testcontainers-rabbitmq = { module = "org.testcontainers:rabbitmq" }
 wiremock-standalone = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }

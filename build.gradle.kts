@@ -60,6 +60,7 @@ dependencies {
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.testcontainers.rabbitmq)
     testImplementation(libs.wiremock.standalone)
+    testImplementation(libs.awaitility)
     testRuntimeOnly(libs.h2)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
