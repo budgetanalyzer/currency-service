@@ -19,10 +19,10 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 **Pattern**: Clean layered architecture (Controller → Service → Repository) with standardized naming, pure JPA persistence, and base entity classes.
 
 **When to consult documentation**:
-- Setting up architecture layers → Read service-common/CLAUDE.md Architecture Layers section
-- Creating entities → Review Base Entity Classes in service-common/CLAUDE.md (AuditableEntity, SoftDeletableEntity)
-- Writing controllers → See HTTP Response Patterns in service-common/CLAUDE.md (201 Created with Location header)
-- Dependency injection patterns → Read Dependency Injection section in service-common/CLAUDE.md
+- Setting up architecture layers → Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) Architecture Layers section
+- Creating entities → Review Base Entity Classes in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (AuditableEntity, SoftDeletableEntity)
+- Writing controllers → See HTTP Response Patterns in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (201 Created with Location header)
+- Dependency injection patterns → Read Dependency Injection section in [service-common/CLAUDE.md](../service-common/CLAUDE.md)
 
 **Quick reference**:
 - Controllers: `*Controller` + thin HTTP layer only
@@ -31,7 +31,7 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 - Pure JPA only: **Forbidden** `org.hibernate.*` → **Use** `jakarta.persistence.*`
 - Base entities: Extend `AuditableEntity` or `SoftDeletableEntity`
 
-**For comprehensive patterns:** Read service-common/CLAUDE.md
+**For comprehensive patterns:** Read [service-common/CLAUDE.md](../service-common/CLAUDE.md)
 
 ## Advanced Patterns Used
 
@@ -42,9 +42,9 @@ This service implements ALL advanced patterns from service-common. These are pro
 **Pattern**: Service layer depends on `ExchangeRateProvider` interface, never on concrete FRED implementation. Allows switching providers without service changes.
 
 **When to consult documentation**:
-- Adding new providers (ECB, Bloomberg, etc.) → Read service-common/docs/advanced-patterns.md#provider-abstraction-pattern
+- Adding new providers (ECB, Bloomberg, etc.) → Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md#provider-abstraction-pattern)
 - Understanding dependency rules (Service → Interface only) → See Provider Abstraction Pattern section
-- Modifying provider implementations → Review service-common/docs/advanced-patterns.md#provider-abstraction-pattern
+- Modifying provider implementations → Review [advanced-patterns.md](../service-common/docs/advanced-patterns.md#provider-abstraction-pattern)
 
 **Quick reference**:
 - Service uses `ExchangeRateProvider` interface only
@@ -57,8 +57,8 @@ This service implements ALL advanced patterns from service-common. These are pro
 **Pattern**: Daily scheduled import runs once across all pods using database-backed distributed lock.
 
 **When to consult documentation**:
-- Adjusting lock durations → Read service-common/docs/advanced-patterns.md#distributed-locking-with-shedlock
-- Adding new scheduled tasks → See ShedLock section in service-common/docs/advanced-patterns.md
+- Adjusting lock durations → Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md#distributed-locking-with-shedlock)
+- Adding new scheduled tasks → See ShedLock section in [advanced-patterns.md](../service-common/docs/advanced-patterns.md)
 - Debugging multi-pod coordination → Review Distributed Locking patterns
 
 **Quick reference**:
@@ -72,8 +72,8 @@ This service implements ALL advanced patterns from service-common. These are pro
 **Pattern**: Exchange rate queries cached with 1-hour TTL. Cache hit: 1-3ms. Cache miss: 50-200ms.
 
 **When to consult documentation**:
-- Adjusting cache TTL or key strategy → Read service-common/docs/advanced-patterns.md#redis-distributed-caching
-- Adding caching to other queries → See Redis Caching section in service-common/docs/advanced-patterns.md
+- Adjusting cache TTL or key strategy → Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md#redis-distributed-caching)
+- Adding caching to other queries → See Redis Caching section in [advanced-patterns.md](../service-common/docs/advanced-patterns.md)
 - Troubleshooting cache performance → Review cache configuration patterns
 
 **Quick reference**:
@@ -87,8 +87,8 @@ This service implements ALL advanced patterns from service-common. These are pro
 **Pattern**: Transactional outbox ensures 100% guaranteed message delivery. Events persisted in DB with business data (atomic), then published to RabbitMQ asynchronously.
 
 **When to consult documentation**:
-- Adding new domain events → Read service-common/docs/advanced-patterns.md#event-driven-messaging-with-transactional-outbox
-- Understanding event flow and retry behavior → See Transactional Outbox section in service-common/docs/advanced-patterns.md
+- Adding new domain events → Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md#event-driven-messaging-with-transactional-outbox)
+- Understanding event flow and retry behavior → See Transactional Outbox section in [advanced-patterns.md](../service-common/docs/advanced-patterns.md)
 - Debugging messaging issues → Review event-driven messaging patterns
 
 **Quick reference**:
@@ -97,7 +97,7 @@ This service implements ALL advanced patterns from service-common. These are pro
 - `@ApplicationModuleListener` bridges to RabbitMQ
 - Automatic retries until successful
 
-**For all advanced pattern details:** Read service-common/docs/advanced-patterns.md
+**For all advanced pattern details:** Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md)
 
 ## Service-Specific Patterns
 
@@ -159,7 +159,7 @@ cat src/main/java/org/budgetanalyzer/currency/domain/ExchangeRate.java
 
 ### Package Structure
 
-**Standard Spring Boot layers** - Read service-common/CLAUDE.md for architecture layer details
+**Standard Spring Boot layers** - Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) for architecture layer details
 
 **Service-specific packages:**
 - `client/fred/` - FRED API integration
@@ -280,9 +280,9 @@ cd ../currency-service
 **Pattern**: Unit tests (*Test.java), integration tests (*IntegrationTest.java) with TestContainers. Minimum 80% coverage. Always test correct behavior (fix bugs, don't test around them).
 
 **When to consult documentation**:
-- Writing unit tests → Read Unit Testing Patterns section in service-common/docs/testing-patterns.md
-- Setting up integration tests → Review TestContainers setup in service-common/docs/testing-patterns.md
-- Understanding test philosophy → See Testing Philosophy section in service-common/docs/testing-patterns.md
+- Writing unit tests → Read Unit Testing Patterns section in [testing-patterns.md](../service-common/docs/testing-patterns.md)
+- Setting up integration tests → Review TestContainers setup in [testing-patterns.md](../service-common/docs/testing-patterns.md)
+- Understanding test philosophy → See Testing Philosophy section in [testing-patterns.md](../service-common/docs/testing-patterns.md)
 
 **Quick reference**:
 - Unit tests: No Spring context, fast, mock dependencies
@@ -292,7 +292,7 @@ cd ../currency-service
 
 **Current state**: Limited coverage, opportunity for improvement (provider abstraction, caching, messaging, scheduling)
 
-**For comprehensive testing patterns:** Read service-common/docs/testing-patterns.md
+**For comprehensive testing patterns:** Read [testing-patterns.md](../service-common/docs/testing-patterns.md)
 
 ## Deployment
 
@@ -308,7 +308,7 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 
 ## Notes for Claude Code
 
-**General guidance**: Read service-common/CLAUDE.md for code quality standards and build commands.
+**General guidance**: Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) for code quality standards and build commands.
 
 **Service-specific reminders**:
 - Service layer uses `ExchangeRateProvider` interface, NEVER references FRED directly
@@ -316,3 +316,14 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 - Services publish domain events, listeners bridge to external messages
 - Use `@Cacheable` for queries, `@CacheEvict(allEntries=true)` after imports
 - Use `@SchedulerLock` for scheduled tasks (multi-pod coordination)
+
+---
+
+## External Links (GitHub Web Viewing)
+
+*The relative paths in this document are optimized for Claude Code. When viewing on GitHub, use these links to access other repositories:*
+
+- [Service-Common Repository](https://github.com/budget-analyzer/service-common)
+- [Service-Common CLAUDE.md](https://github.com/budget-analyzer/service-common/blob/main/CLAUDE.md)
+- [Advanced Patterns Documentation](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md)
+- [Testing Patterns Documentation](https://github.com/budget-analyzer/service-common/blob/main/docs/testing-patterns.md)
