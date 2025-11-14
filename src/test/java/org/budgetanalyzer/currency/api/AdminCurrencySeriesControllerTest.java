@@ -44,6 +44,7 @@ import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
  *   <li>Response structure validation (JSON schema, data types, headers)
  * </ul>
  */
+@DisplayName("Admin Currency Series Controller Integration Tests")
 class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository repository;

@@ -5,22 +5,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.Commit;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
-import org.budgetanalyzer.currency.config.TestContainersConfig;
-import org.budgetanalyzer.currency.config.WireMockConfig;
+import org.budgetanalyzer.currency.base.AbstractWireMockTest;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
@@ -69,12 +64,8 @@ import org.budgetanalyzer.service.http.CorrelationIdFilter;
  *
  * @see org.springframework.boot.test.context.SpringBootTest
  */
-@SpringBootTest
-@Testcontainers
-@Import({TestContainersConfig.class, WireMockConfig.class})
-class MessagingIntegrationTest {
-
-  private static final Logger log = LoggerFactory.getLogger(MessagingIntegrationTest.class);
+@DisplayName("RabbitMQ Messaging Integration Tests")
+class MessagingIntegrationTest extends AbstractWireMockTest {
 
   private static final String QUEUE_NAME = "currency.created.exchange-rate-import-service";
   private static final String DLQ_NAME = "currency.created.exchange-rate-import-service.dlq";
@@ -93,22 +84,6 @@ class MessagingIntegrationTest {
   @Autowired private ExchangeRateRepository exchangeRateRepository;
 
   @Autowired private WireMockServer wireMockServer;
-
-  /**
-   * Configures Spring Boot to use WireMock server for FRED API calls.
-   *
-   * <p>Overrides {@code currency-service.fred.base-url} property to point to local WireMock server.
-   *
-   * @param registry Spring dynamic property registry
-   */
-  @org.springframework.test.context.DynamicPropertySource
-  static void configureWireMockProperties(
-      org.springframework.test.context.DynamicPropertyRegistry registry) {
-    var wireMock = WireMockConfig.getWireMockServer();
-    registry.add(
-        "currency-service.exchange-rate-import.fred.base-url",
-        () -> "http://localhost:" + wireMock.port());
-  }
 
   // ===========================================================================================
   // Setup and Cleanup

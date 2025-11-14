@@ -1,5 +1,6 @@
 package org.budgetanalyzer.currency;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
@@ -17,6 +18,7 @@ import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
  *   <li>Application properties are correctly configured
  * </ul>
  */
+@DisplayName("Application Smoketest")
 class CurrencyServiceApplicationTests extends AbstractIntegrationTest {
 
   @Test

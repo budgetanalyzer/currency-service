@@ -11,19 +11,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
-import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
+import org.budgetanalyzer.currency.base.AbstractWireMockTest;
 import org.budgetanalyzer.currency.config.CacheConfig;
-import org.budgetanalyzer.currency.config.WireMockConfig;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.ExchangeRateTestBuilder;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
@@ -55,10 +50,9 @@ import org.budgetanalyzer.service.exception.ServiceException;
  * <p><b>Cache Configuration:</b> This test explicitly enables Redis cache to verify cache eviction
  * behavior.
  */
-@SpringBootTest
+@DisplayName("Exchange Rate Import Service Integration Tests")
 @TestPropertySource(properties = "spring.cache.type=redis")
-@Import(WireMockConfig.class)
-class ExchangeRateImportServiceIntegrationTest extends AbstractIntegrationTest {
+class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
 
   @Autowired private ExchangeRateImportService importService;
 
@@ -71,22 +65,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractIntegrationTest {
   @Autowired private WireMockServer wireMockServer;
 
   @Autowired private JdbcTemplate jdbcTemplate;
-
-  // ===========================================================================================
-  // Dynamic Properties
-  // ===========================================================================================
-
-  /**
-   * Configure FRED API base URL to point to WireMock server.
-   *
-   * <p>This allows us to stub FRED API responses for testing without making real HTTP calls.
-   */
-  @DynamicPropertySource
-  static void configureWireMock(DynamicPropertyRegistry registry) {
-    registry.add(
-        "currency-service.exchange-rate-import.fred.base-url",
-        () -> "http://localhost:" + WireMockConfig.getWireMockServer().port());
-  }
 
   // ===========================================================================================
   // Setup and Cleanup
