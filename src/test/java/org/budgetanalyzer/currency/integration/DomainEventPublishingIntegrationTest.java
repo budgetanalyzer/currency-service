@@ -3,21 +3,16 @@ package org.budgetanalyzer.currency.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.test.EnableScenarios;
 import org.springframework.modulith.test.Scenario;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
-import org.budgetanalyzer.currency.config.TestContainersConfig;
-import org.budgetanalyzer.currency.config.WireMockConfig;
+import org.budgetanalyzer.currency.base.AbstractWireMockTest;
 import org.budgetanalyzer.currency.domain.event.CurrencyCreatedEvent;
 import org.budgetanalyzer.currency.domain.event.CurrencyUpdatedEvent;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
@@ -56,41 +51,19 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  * @see org.springframework.modulith.test.EnableScenarios
  * @see org.springframework.modulith.test.Scenario
  */
-@SpringBootTest
-@Testcontainers
-@Import({TestContainersConfig.class, WireMockConfig.class})
+@DisplayName("Modulith Outbox Domain Events Integration Tests")
 @EnableScenarios
-class DomainEventPublishingIntegrationTest {
+class DomainEventPublishingIntegrationTest extends AbstractWireMockTest {
 
   // ===========================================================================================
   // Dependencies
   // ===========================================================================================
 
-  @Autowired JdbcTemplate jdbcTemplate;
+  @Autowired private JdbcTemplate jdbcTemplate;
 
-  @Autowired CurrencyService currencyService;
+  @Autowired private CurrencyService currencyService;
 
-  @Autowired WireMockServer wireMockServer;
-
-  // ===========================================================================================
-  // Dynamic Properties
-  // ===========================================================================================
-
-  /**
-   * Configure FRED API base URL to point to WireMock server.
-   *
-   * <p>This allows us to stub FRED API responses for testing without making real HTTP calls.
-   */
-  @DynamicPropertySource
-  static void configureWireMock(DynamicPropertyRegistry registry) {
-    registry.add(
-        "currency-service.exchange-rate-import.fred.base-url",
-        () -> "http://localhost:" + WireMockConfig.getWireMockServer().port());
-  }
-
-  // ===========================================================================================
-  // Setup and Cleanup
-  // ===========================================================================================
+  @Autowired private WireMockServer wireMockServer;
 
   /** Cleanup database and reset WireMock stubs before each test. */
   @BeforeEach

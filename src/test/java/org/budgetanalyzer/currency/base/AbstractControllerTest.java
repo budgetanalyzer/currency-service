@@ -5,13 +5,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -60,47 +56,9 @@ import org.budgetanalyzer.currency.config.WireMockConfig;
  * @see WireMockConfig
  */
 @AutoConfigureMockMvc
-@Import(WireMockConfig.class)
-public abstract class AbstractControllerTest extends AbstractIntegrationTest {
-
-  /**
-   * WireMock server for mocking FRED API responses.
-   *
-   * <p>Server instance is provided by {@link WireMockConfig} and shared across all tests that
-   * import the configuration.
-   */
-  @Autowired protected WireMockServer wireMockServer;
+public abstract class AbstractControllerTest extends AbstractWireMockTest {
 
   @Autowired protected MockMvc mockMvc;
-
-  /**
-   * Configures Spring Boot to use WireMock server for FRED API calls.
-   *
-   * <p>Overrides {@code currency-service.fred.base-url} property to point to local WireMock server
-   * instead of real FRED API. Must be at the class level (not in nested @TestConfiguration) for
-   * Spring to properly process it.
-   *
-   * @param registry Spring dynamic property registry
-   */
-  @DynamicPropertySource
-  static void configureWireMockProperties(DynamicPropertyRegistry registry) {
-    var wireMock = WireMockConfig.getWireMockServer();
-    registry.add(
-        "currency-service.exchange-rate-import.fred.base-url",
-        () -> "http://localhost:" + wireMock.port());
-  }
-
-  /**
-   * Resets WireMock stubs before each test to ensure isolation.
-   *
-   * <p>Removes all previously configured stubs and request history.
-   */
-  @BeforeEach
-  void resetWireMock() {
-    if (wireMockServer != null) {
-      wireMockServer.resetAll();
-    }
-  }
 
   // ==================== Helper Methods ====================
 

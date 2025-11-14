@@ -46,6 +46,7 @@ import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
  *   <li>Edge cases (leap years, multiple currencies, empty results)
  * </ul>
  */
+@DisplayName("Exchange Rate Controller Integration Tests")
 class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository seriesRepository;

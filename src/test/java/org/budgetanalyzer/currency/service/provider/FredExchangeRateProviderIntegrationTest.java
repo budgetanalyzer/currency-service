@@ -11,14 +11,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
-import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
-import org.budgetanalyzer.currency.config.WireMockConfig;
+import org.budgetanalyzer.currency.base.AbstractWireMockTest;
 import org.budgetanalyzer.currency.domain.CurrencySeries;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
@@ -54,8 +50,7 @@ import org.budgetanalyzer.service.exception.ClientException;
  * @see ExchangeRateProvider
  */
 @DisplayName("FredExchangeRateProvider Integration Tests")
-@Import(WireMockConfig.class)
-class FredExchangeRateProviderIntegrationTest extends AbstractIntegrationTest {
+class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
 
   @Autowired private FredExchangeRateProvider provider;
 
@@ -63,21 +58,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractIntegrationTest {
 
   private CurrencySeries eurSeries;
   private CurrencySeries thbSeries;
-
-  /**
-   * Configures Spring Boot to use WireMock server for FRED API calls.
-   *
-   * <p>Overrides {@code currency-service.fred.base-url} property to point to local WireMock server.
-   *
-   * @param registry Spring dynamic property registry
-   */
-  @DynamicPropertySource
-  static void configureWireMockProperties(DynamicPropertyRegistry registry) {
-    var wireMock = WireMockConfig.getWireMockServer();
-    registry.add(
-        "currency-service.exchange-rate-import.fred.base-url",
-        () -> "http://localhost:" + wireMock.port());
-  }
 
   @BeforeEach
   void setUp() {
