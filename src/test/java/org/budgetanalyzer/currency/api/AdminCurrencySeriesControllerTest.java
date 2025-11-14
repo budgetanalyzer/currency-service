@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.budgetanalyzer.currency.base.AbstractControllerTest;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
+import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 
@@ -62,7 +63,7 @@ class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   @DisplayName("POST /v1/admin/currencies - should create currency series with all fields")
   void shouldCreateCurrencySeriesSuccessfully() throws Exception {
     // Setup: Mock FRED API to validate series exists
-    stubFredSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
+    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
 
     // Prepare request
     var requestJson =
@@ -97,7 +98,7 @@ class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
       "POST /v1/admin/currencies - should create currency series with enabled=false by default")
   void shouldCreateCurrencySeriesWithEnabledFalse() throws Exception {
     // Setup: Mock FRED API
-    stubFredSeriesExistsSuccess(TestConstants.FRED_SERIES_GBP);
+    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_GBP);
 
     // Prepare request (enabled=false)
     var requestJson =
@@ -279,7 +280,7 @@ class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
     repository.save(existing);
 
     // Mock FRED API (shouldn't be called due to duplicate check)
-    stubFredSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
+    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
 
     // Prepare request with duplicate currency code
     var requestJson =
@@ -323,7 +324,7 @@ class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   @DisplayName("POST /v1/admin/currencies - should return 422 for invalid provider series ID")
   void shouldReturn422ForInvalidProviderSeriesId() throws Exception {
     // Mock FRED API to return series does not exist
-    stubFredSeriesExistsFailure(TestConstants.FRED_SERIES_INVALID);
+    FredApiStubs.stubSeriesExistsNotFound(TestConstants.FRED_SERIES_INVALID);
 
     // Prepare request with invalid FRED series ID
     var requestJson =
@@ -528,7 +529,7 @@ class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
 
     for (int i = 0; i < validCodes.length; i++) {
       // Mock FRED API
-      stubFredSeriesExistsSuccess(validSeriesIds[i]);
+      FredApiStubs.stubSeriesExistsSuccess(validSeriesIds[i]);
 
       var requestJson =
           String.format(
@@ -576,65 +577,5 @@ class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
 
     // Verify none were created
     assert repository.count() == 0;
-  }
-
-  // ===========================================================================================
-  // I. Helper Methods for WireMock Stubs
-  // ===========================================================================================
-
-  /**
-   * Stub FRED API to indicate a series exists.
-   *
-   * @param seriesId The FRED series ID to stub
-   */
-  private void stubFredSeriesExistsSuccess(String seriesId) {
-    // The validation uses GET /series?series_id={seriesId}
-    wireMockServer.stubFor(
-        com.github.tomakehurst.wiremock.client.WireMock.get(
-                com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo("/series"))
-            .withQueryParam(
-                "series_id", com.github.tomakehurst.wiremock.client.WireMock.equalTo(seriesId))
-            .willReturn(
-                com.github.tomakehurst.wiremock.client.WireMock.aResponse()
-                    .withStatus(200)
-                    .withHeader("Content-Type", "application/json")
-                    .withBody(
-                        """
-                        {
-                          "seriess": [
-                            {
-                              "id": "%s",
-                              "title": "Test Series",
-                              "frequency": "Daily"
-                            }
-                          ]
-                        }
-                        """
-                            .formatted(seriesId))));
-  }
-
-  /**
-   * Stub FRED API to indicate a series does not exist (404).
-   *
-   * @param seriesId The FRED series ID to stub
-   */
-  private void stubFredSeriesExistsFailure(String seriesId) {
-    // The validation uses GET /series?series_id={seriesId}
-    wireMockServer.stubFor(
-        com.github.tomakehurst.wiremock.client.WireMock.get(
-                com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo("/series"))
-            .withQueryParam(
-                "series_id", com.github.tomakehurst.wiremock.client.WireMock.equalTo(seriesId))
-            .willReturn(
-                com.github.tomakehurst.wiremock.client.WireMock.aResponse()
-                    .withStatus(404)
-                    .withHeader("Content-Type", "application/json")
-                    .withBody(
-                        """
-                        {
-                          "error_code": 404,
-                          "error_message": "Bad Request. The series does not exist."
-                        }
-                        """)));
   }
 }

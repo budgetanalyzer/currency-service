@@ -26,8 +26,7 @@ import org.testcontainers.utility.DockerImageName;
  * test execution during development.
  *
  * <p><b>Note:</b> This configuration only manages Docker containers via TestContainers. For
- * WireMock server configuration (used for mocking external HTTP APIs), see {@link
- * WireMockConfiguration}.
+ * WireMock server configuration (used for mocking external HTTP APIs), see {@link WireMockConfig}.
  *
  * <p><b>Usage:</b>
  *
@@ -41,10 +40,10 @@ import org.testcontainers.utility.DockerImageName;
  *
  * @see org.springframework.boot.testcontainers.service.connection.ServiceConnection
  * @see org.testcontainers.junit.jupiter.Testcontainers
- * @see WireMockConfiguration
+ * @see WireMockConfig
  */
 @TestConfiguration(proxyBeanMethods = false)
-public class TestContainersConfiguration {
+public class TestContainersConfig {
 
   /**
    * PostgreSQL container for database operations.
