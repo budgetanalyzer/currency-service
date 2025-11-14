@@ -10,7 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.test.context.TestPropertySource;
 
@@ -43,7 +42,7 @@ import org.budgetanalyzer.service.exception.BusinessException;
  * <p><b>Cache Configuration:</b> This test explicitly enables Redis cache to verify caching
  * behavior.
  */
-@SpringBootTest
+@DisplayName("Exchange Rate Service Integration Tests")
 @TestPropertySource(properties = "spring.cache.type=redis")
 class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
 

@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 
 import org.budgetanalyzer.currency.base.AbstractControllerTest;
@@ -41,7 +40,7 @@ import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
  *   <li>Query parameter handling (boolean value variations)
  * </ul>
  */
-@SpringBootTest
+@DisplayName("Currency Series Controller Integration Tests")
 class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository repository;

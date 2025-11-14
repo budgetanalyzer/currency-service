@@ -52,6 +52,7 @@ import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
  * <p><b>Cache Configuration:</b> This test explicitly enables Redis cache to verify cache behavior
  * through the API.
  */
+@DisplayName("Admin Exchange Rate Controller Integration Tests")
 @TestPropertySource(properties = "spring.cache.type=redis")
 class AdminExchangeRateControllerTest extends AbstractControllerTest {
 

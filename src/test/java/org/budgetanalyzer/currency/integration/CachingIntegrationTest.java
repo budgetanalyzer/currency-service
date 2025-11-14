@@ -52,8 +52,8 @@ import org.budgetanalyzer.currency.service.dto.ExchangeRateData;
  * @see org.budgetanalyzer.currency.config.CacheConfig
  * @see org.budgetanalyzer.currency.service.ExchangeRateService#getExchangeRates
  */
-@TestPropertySource(properties = "spring.cache.type=redis")
 @DisplayName("Redis Caching Integration Tests")
+@TestPropertySource(properties = "spring.cache.type=redis")
 class CachingIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private ExchangeRateService exchangeRateService;

@@ -8,17 +8,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
-import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
+import org.budgetanalyzer.currency.base.AbstractWireMockTest;
 import org.budgetanalyzer.currency.config.WireMockConfig;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
@@ -67,33 +63,11 @@ import org.budgetanalyzer.service.exception.ClientException;
  * @see WireMockConfig
  */
 @DisplayName("FredClient Integration Tests")
-@Import(WireMockConfig.class)
-class FredClientIntegrationTest extends AbstractIntegrationTest {
+class FredClientIntegrationTest extends AbstractWireMockTest {
 
   @Autowired private FredClient fredClient;
 
   @Autowired private WireMockServer wireMockServer;
-
-  /**
-   * Configures Spring Boot to use WireMock server for FRED API calls.
-   *
-   * <p>Overrides {@code currency-service.fred.base-url} property to point to local WireMock server.
-   *
-   * @param registry Spring dynamic property registry
-   */
-  @DynamicPropertySource
-  static void configureWireMockProperties(DynamicPropertyRegistry registry) {
-    var wireMock = WireMockConfig.getWireMockServer();
-    registry.add(
-        "currency-service.exchange-rate-import.fred.base-url",
-        () -> "http://localhost:" + wireMock.port());
-  }
-
-  @BeforeEach
-  void setUp() {
-    // Reset WireMock stubs before each test to ensure isolation
-    wireMockServer.resetAll();
-  }
 
   // ===========================================================================================
   // Group 1: getSeriesObservationsData() - Success Scenarios (5 tests)

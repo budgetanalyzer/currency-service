@@ -53,6 +53,8 @@ public class TestContainersConfig {
    */
   static PostgreSQLContainer<?> postgresContainer =
       new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+          .withCommand(
+              "postgres", "-c", "max_connections=50") // prevent tests from overflowing hikari
           .withDatabaseName("currency_test")
           .withUsername("test")
           .withPassword("test")
