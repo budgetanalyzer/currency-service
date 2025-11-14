@@ -72,7 +72,7 @@ spring:
         bindings:
           importExchangeRates-in-0:
             consumer:
-              auto-bind-dlq: true              # Dead letter queue
+              auto-bind-dlq: true               # Dead letter queue
               republish-to-dlq: true            # Preserve original message
               max-attempts: 3                   # Retry 3 times
               initial-interval: 1000            # 1 second initial retry delay
