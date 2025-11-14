@@ -1,8 +1,5 @@
 package org.budgetanalyzer.currency.api;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -10,9 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,12 +18,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.client.WireMock;
 
 import org.budgetanalyzer.currency.base.AbstractControllerTest;
 import org.budgetanalyzer.currency.config.CacheConfig;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.ExchangeRateTestBuilder;
+import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
@@ -94,14 +89,14 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
     currencySeriesRepository.save(eurSeries);
 
     // Mock FRED API to return 5 exchange rates
-    var fredData =
-        Map.of(
-            LocalDate.of(2024, 1, 1), new BigDecimal("0.8500"),
-            LocalDate.of(2024, 1, 2), new BigDecimal("0.8510"),
-            LocalDate.of(2024, 1, 3), new BigDecimal("0.8520"),
-            LocalDate.of(2024, 1, 4), new BigDecimal("0.8530"),
-            LocalDate.of(2024, 1, 5), new BigDecimal("0.8540"));
-    stubFredSeriesObservationsSuccess(TestConstants.FRED_SERIES_EUR, null, fredData);
+    var observations =
+        List.of(
+            new FredApiStubs.Observation("2024-01-01", "0.8500"),
+            new FredApiStubs.Observation("2024-01-02", "0.8510"),
+            new FredApiStubs.Observation("2024-01-03", "0.8520"),
+            new FredApiStubs.Observation("2024-01-04", "0.8530"),
+            new FredApiStubs.Observation("2024-01-05", "0.8540"));
+    FredApiStubs.stubSuccessWithObservations(TestConstants.FRED_SERIES_EUR, observations);
 
     // Act & Assert
     performPost("/v1/admin/exchange-rates/import", "")
@@ -136,22 +131,19 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultThb().build());
 
     // Mock FRED API for EUR
-    stubFredSeriesObservationsSuccess(
+    FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        null,
-        Map.of(TestConstants.DATE_2024_JAN_01, new BigDecimal("0.8500")));
+        List.of(new FredApiStubs.Observation("2024-01-01", "0.8500")));
 
     // Mock FRED API for GBP
-    stubFredSeriesObservationsSuccess(
+    FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_GBP,
-        null,
-        Map.of(TestConstants.DATE_2024_JAN_01, new BigDecimal("0.7800")));
+        List.of(new FredApiStubs.Observation("2024-01-01", "0.7800")));
 
     // Mock FRED API for THB
-    stubFredSeriesObservationsSuccess(
+    FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_THB,
-        null,
-        Map.of(TestConstants.DATE_2024_JAN_01, new BigDecimal("32.6800")));
+        List.of(new FredApiStubs.Observation("2024-01-01", "32.6800")));
 
     // Act & Assert
     performPost("/v1/admin/exchange-rates/import", "")
@@ -182,10 +174,9 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultGbp().enabled(false).build());
 
     // Mock FRED API for EUR only (GBP should not be called)
-    stubFredSeriesObservationsSuccess(
+    FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        null,
-        Map.of(TestConstants.DATE_2024_JAN_01, new BigDecimal("0.8500")));
+        List.of(new FredApiStubs.Observation("2024-01-01", "0.8500")));
 
     // Act & Assert
     performPost("/v1/admin/exchange-rates/import", "")
@@ -245,15 +236,14 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
             .build());
 
     // Mock FRED to return 5 rates (includes 3 duplicates)
-    stubFredSeriesObservationsSuccess(
+    FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        null,
-        Map.of(
-            LocalDate.of(2024, 1, 1), new BigDecimal("0.8500"), // duplicate
-            LocalDate.of(2024, 1, 2), new BigDecimal("0.8510"), // duplicate
-            LocalDate.of(2024, 1, 3), new BigDecimal("0.8520"), // duplicate
-            LocalDate.of(2024, 1, 4), new BigDecimal("0.8530"), // NEW
-            LocalDate.of(2024, 1, 5), new BigDecimal("0.8540") // NEW
+        List.of(
+            new FredApiStubs.Observation("2024-01-01", "0.8500"), // duplicate
+            new FredApiStubs.Observation("2024-01-02", "0.8510"), // duplicate
+            new FredApiStubs.Observation("2024-01-03", "0.8520"), // duplicate
+            new FredApiStubs.Observation("2024-01-04", "0.8530"), // NEW
+            new FredApiStubs.Observation("2024-01-05", "0.8540") // NEW
             ));
 
     // Act & Assert
@@ -284,10 +274,9 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
             .build());
 
     // Mock FRED to return different rate for same date
-    stubFredSeriesObservationsSuccess(
+    FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        null,
-        Map.of(LocalDate.of(2024, 1, 1), new BigDecimal("0.8600"))); // CHANGED
+        List.of(new FredApiStubs.Observation("2024-01-01", "0.8600"))); // CHANGED
 
     // Act & Assert
     performPost("/v1/admin/exchange-rates/import", "")
@@ -314,10 +303,9 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
     cache.put("EUR:2024-01-01:2024-01-05", "some cached data");
 
     // Mock FRED
-    stubFredSeriesObservationsSuccess(
+    FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        null,
-        Map.of(LocalDate.of(2024, 1, 1), new BigDecimal("0.8500")));
+        List.of(new FredApiStubs.Observation("2024-01-01", "0.8500")));
 
     // Act
     performPost("/v1/admin/exchange-rates/import", "").andExpect(status().isOk());
@@ -353,12 +341,12 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     currencySeriesRepository.save(eurSeries);
 
-    var fredData =
-        Map.of(
-            LocalDate.of(2024, 1, 1), new BigDecimal("0.8500"),
-            LocalDate.of(2024, 1, 2), new BigDecimal("0.8510"));
+    var observations =
+        List.of(
+            new FredApiStubs.Observation("2024-01-01", "0.8500"),
+            new FredApiStubs.Observation("2024-01-02", "0.8510"));
 
-    stubFredSeriesObservationsSuccess(TestConstants.FRED_SERIES_EUR, null, fredData);
+    FredApiStubs.stubSuccessWithObservations(TestConstants.FRED_SERIES_EUR, observations);
 
     // Act: First import
     var firstResult =
@@ -390,15 +378,15 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
     currencySeriesRepository.save(eurSeries);
 
     // Generate 1000 exchange rates
-    Map<LocalDate, BigDecimal> largeDataset = new HashMap<>();
+    var observations = new java.util.ArrayList<FredApiStubs.Observation>();
     LocalDate startDate = LocalDate.of(2020, 1, 1);
     for (int i = 0; i < 1000; i++) {
-      largeDataset.put(
-          startDate.plusDays(i),
-          new BigDecimal("0.85").add(new BigDecimal(i).multiply(new BigDecimal("0.0001"))));
+      var rate = new BigDecimal("0.85").add(new BigDecimal(i).multiply(new BigDecimal("0.0001")));
+      observations.add(
+          new FredApiStubs.Observation(startDate.plusDays(i).toString(), rate.toString()));
     }
 
-    stubFredSeriesObservationsSuccess(TestConstants.FRED_SERIES_EUR, null, largeDataset);
+    FredApiStubs.stubSuccessWithObservations(TestConstants.FRED_SERIES_EUR, observations);
 
     // Act & Assert
     performPost("/v1/admin/exchange-rates/import", "")
@@ -418,13 +406,12 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     currencySeriesRepository.save(eurSeries);
 
-    stubFredSeriesObservationsSuccess(
+    FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        null,
-        Map.of(
-            LocalDate.of(2024, 1, 1), new BigDecimal("0.8500"), // earliest
-            LocalDate.of(2024, 3, 15), new BigDecimal("0.8550"),
-            LocalDate.of(2024, 6, 30), new BigDecimal("0.8600") // latest
+        List.of(
+            new FredApiStubs.Observation("2024-01-01", "0.8500"), // earliest
+            new FredApiStubs.Observation("2024-03-15", "0.8550"),
+            new FredApiStubs.Observation("2024-06-30", "0.8600") // latest
             ));
 
     // Act & Assert
@@ -442,113 +429,4 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
   // and is already tested in other controller tests. Skipping here to avoid
   // test execution issues when no WireMock stub is configured.
 
-  // ===========================================================================================
-  // Helper Methods
-  // ===========================================================================================
-
-  /**
-   * Stubs WireMock to return successful FRED series observations response.
-   *
-   * @param seriesId FRED series ID (e.g., "DEXUSEU")
-   * @param startDate observation start date (null for all available data)
-   * @param observations map of date to exchange rate value
-   */
-  private void stubFredSeriesObservationsSuccess(
-      String seriesId, LocalDate startDate, Map<LocalDate, BigDecimal> observations) {
-
-    // Build FRED API response JSON
-    var observationsJson =
-        observations.entrySet().stream()
-            .map(
-                entry ->
-                    String.format(
-                        """
-                        {
-                          "realtime_start": "%s",
-                          "realtime_end": "%s",
-                          "date": "%s",
-                          "value": "%s"
-                        }
-                        """,
-                        entry.getKey(), entry.getKey(), entry.getKey(), entry.getValue()))
-            .collect(Collectors.joining(",\n"));
-
-    var responseBody =
-        String.format(
-            """
-            {
-              "realtime_start": "2024-01-01",
-              "realtime_end": "2024-12-31",
-              "observation_start": "2024-01-01",
-              "observation_end": "2024-12-31",
-              "units": "lin",
-              "output_type": 1,
-              "file_type": "json",
-              "order_by": "observation_date",
-              "sort_order": "asc",
-              "count": %d,
-              "offset": 0,
-              "limit": 100000,
-              "observations": [
-                %s
-              ]
-            }
-            """,
-            observations.size(), observationsJson);
-
-    // Configure WireMock stub
-    var urlPattern =
-        WireMock.get(urlPathEqualTo("/series/observations"))
-            .withQueryParam("series_id", equalTo(seriesId));
-
-    if (startDate != null) {
-      urlPattern.withQueryParam("observation_start", equalTo(startDate.toString()));
-    }
-
-    wireMockServer.stubFor(
-        urlPattern.willReturn(
-            aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(responseBody)));
-  }
-
-  /**
-   * Stubs WireMock to return FRED API error response.
-   *
-   * @param seriesId FRED series ID
-   * @param statusCode HTTP status code to return (e.g., 404, 500)
-   */
-  private void stubFredApiError(String seriesId, int statusCode) {
-    var errorBody =
-        String.format(
-            """
-            {
-              "error_code": %d,
-              "error_message": "FRED API Error"
-            }
-            """,
-            statusCode);
-
-    wireMockServer.stubFor(
-        WireMock.get(urlPathEqualTo("/series/observations"))
-            .withQueryParam("series_id", equalTo(seriesId))
-            .willReturn(
-                aResponse()
-                    .withStatus(statusCode)
-                    .withHeader("Content-Type", "application/json")
-                    .withBody(errorBody)));
-  }
-
-  /**
-   * Stubs WireMock to simulate FRED API timeout.
-   *
-   * @param seriesId FRED series ID
-   */
-  private void stubFredApiTimeout(String seriesId) {
-    wireMockServer.stubFor(
-        WireMock.get(urlPathEqualTo("/series/observations"))
-            .withQueryParam("series_id", equalTo(seriesId))
-            .willReturn(aResponse().withFixedDelay(35000))); // Exceeds 30s client timeout
-  }
 }

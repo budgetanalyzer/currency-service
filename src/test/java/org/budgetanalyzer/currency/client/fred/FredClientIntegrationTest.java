@@ -19,7 +19,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import com.github.tomakehurst.wiremock.WireMockServer;
 
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
-import org.budgetanalyzer.currency.config.WireMockConfiguration;
+import org.budgetanalyzer.currency.config.WireMockConfig;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.service.exception.ClientException;
@@ -64,10 +64,10 @@ import org.budgetanalyzer.service.exception.ClientException;
  *
  * @see FredClient
  * @see FredApiStubs
- * @see WireMockConfiguration
+ * @see WireMockConfig
  */
 @DisplayName("FredClient Integration Tests")
-@Import(WireMockConfiguration.class)
+@Import(WireMockConfig.class)
 class FredClientIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private FredClient fredClient;
@@ -83,7 +83,7 @@ class FredClientIntegrationTest extends AbstractIntegrationTest {
    */
   @DynamicPropertySource
   static void configureWireMockProperties(DynamicPropertyRegistry registry) {
-    var wireMock = WireMockConfiguration.getWireMockServer();
+    var wireMock = WireMockConfig.getWireMockServer();
     registry.add(
         "currency-service.exchange-rate-import.fred.base-url",
         () -> "http://localhost:" + wireMock.port());
@@ -92,9 +92,7 @@ class FredClientIntegrationTest extends AbstractIntegrationTest {
   @BeforeEach
   void setUp() {
     // Reset WireMock stubs before each test to ensure isolation
-    if (wireMockServer != null) {
-      wireMockServer.resetAll();
-    }
+    wireMockServer.resetAll();
   }
 
   // ===========================================================================================

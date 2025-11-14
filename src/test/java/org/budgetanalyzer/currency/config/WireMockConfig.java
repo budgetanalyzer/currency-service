@@ -53,15 +53,15 @@ import com.github.tomakehurst.wiremock.WireMockServer;
  * }
  * }</pre>
  *
- * <p><b>Design Pattern:</b> Follows same pattern as {@link TestContainersConfiguration} - separate
+ * <p><b>Design Pattern:</b> Follows same pattern as {@link TestContainersConfig} - separate
  * configuration class for test infrastructure, opt-in via {@code @Import}, managed lifecycle via
  * Spring beans.
  *
  * @see com.github.tomakehurst.wiremock.WireMockServer
- * @see TestContainersConfiguration
+ * @see TestContainersConfig
  */
 @TestConfiguration(proxyBeanMethods = false)
-public class WireMockConfiguration {
+public class WireMockConfig {
 
   /**
    * WireMock server for mocking external HTTP APIs.

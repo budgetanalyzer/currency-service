@@ -12,7 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.util.StreamUtils;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import org.budgetanalyzer.currency.config.TestContainersConfiguration;
+import org.budgetanalyzer.currency.config.TestContainersConfig;
 
 /**
  * Base class for integration tests with TestContainers infrastructure.
@@ -26,8 +26,8 @@ import org.budgetanalyzer.currency.config.TestContainersConfiguration;
  *   <li>Full Spring Boot application context
  * </ul>
  *
- * <p>All test infrastructure is centralized in {@link TestContainersConfiguration}, which uses
- * Spring Boot 3.1+ {@code @ServiceConnection} for automatic container property binding.
+ * <p>All test infrastructure is centralized in {@link TestContainersConfig}, which uses Spring Boot
+ * 3.1+ {@code @ServiceConnection} for automatic container property binding.
  *
  * <p>Container reuse is enabled via testcontainers.reuse.enable=true system property for faster
  * test execution during development.
@@ -61,13 +61,13 @@ import org.budgetanalyzer.currency.config.TestContainersConfiguration;
  * }
  * }</pre>
  *
- * @see TestContainersConfiguration
+ * @see TestContainersConfig
  * @see org.springframework.boot.testcontainers.service.connection.ServiceConnection
  * @see org.testcontainers.junit.jupiter.Testcontainers
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
-@Import(TestContainersConfiguration.class)
+@Import(TestContainersConfig.class)
 public abstract class AbstractIntegrationTest {
   // All container configuration is in TestContainersConfiguration
 
