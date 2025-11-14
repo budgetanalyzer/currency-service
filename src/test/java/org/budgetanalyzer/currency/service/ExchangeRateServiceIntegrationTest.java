@@ -60,14 +60,12 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
 
   @BeforeEach
   void setUp() {
+    // Clear cache for test isolation
+    cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE).clear();
+
     // Clean database and cache for test isolation
     exchangeRateRepository.deleteAll();
     currencySeriesRepository.deleteAll();
-
-    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
-    if (cache != null) {
-      cache.clear();
-    }
 
     // Create common currency series
     eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
