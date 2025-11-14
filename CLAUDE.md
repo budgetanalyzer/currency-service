@@ -16,28 +16,88 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 
 **This service follows standard Budget Analyzer Spring Boot conventions.**
 
-See [@service-common/CLAUDE.md](https://github.com/budget-analyzer/service-common/blob/main/CLAUDE.md) and [@service-common/docs/](https://github.com/budget-analyzer/service-common/tree/main/docs) for:
-- Architecture layers (Controller → Service → Repository)
-- Naming conventions (`*Controller`, `*Service`, `*ServiceImpl`, `*Repository`)
-- Testing patterns (JUnit 5, TestContainers)
-- Error handling (exception hierarchy, `BusinessException` vs `InvalidRequestException`)
-- Logging conventions (SLF4J structured logging)
-- Dependency management (inherit from service-common parent POM)
-- Code quality standards (Spotless, Checkstyle, var usage, Javadoc)
-- Validation strategy (Bean Validation vs business validation)
+**Pattern**: Clean layered architecture (Controller → Service → Repository) with standardized naming, pure JPA persistence, and base entity classes.
+
+**When to consult @service-common/CLAUDE.md**:
+- Setting up architecture layers → See Architecture Layers section
+- Creating entities → Review Base Entity Classes (AuditableEntity, SoftDeletableEntity)
+- Writing controllers → Check HTTP Response Patterns (201 Created with Location header)
+- Dependency injection patterns → Read Dependency Injection section
+
+**Quick reference**:
+- Controllers: `*Controller` + thin HTTP layer only
+- Services: `*Service` interface + `*ServiceImpl` + `@Transactional`
+- Repositories: `*Repository` extends `JpaRepository<Entity, ID>`
+- Pure JPA only: **Forbidden** `org.hibernate.*` → **Use** `jakarta.persistence.*`
+- Base entities: Extend `AuditableEntity` or `SoftDeletableEntity`
+
+**For comprehensive patterns: @service-common/CLAUDE.md**
 
 ## Advanced Patterns Used
 
-**This service implements ALL advanced patterns documented in service-common.**
+This service implements ALL advanced patterns from service-common. These are production-proven patterns for external integrations, messaging, caching, and distributed systems.
 
-See [@service-common/docs/advanced-patterns.md](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md) for detailed documentation on:
-- **Provider Abstraction Pattern**: FRED API integration via `ExchangeRateProvider` interface
-- **Event-Driven Messaging**: Spring Modulith transactional outbox for guaranteed message delivery
-- **Redis Distributed Caching**: High-performance caching for exchange rate queries
-- **ShedLock Distributed Locking**: Coordinated scheduled imports across multiple pods
-- **Flyway Migrations**: Version-controlled database schema evolution
+### Provider Abstraction Pattern
 
-These patterns are production-proven and reusable across services. Currency service serves as the reference implementation.
+**Pattern**: Service layer depends on `ExchangeRateProvider` interface, never on concrete FRED implementation. Allows switching providers without service changes.
+
+**When to consult @service-common/docs/advanced-patterns.md#provider-abstraction-pattern**:
+- Adding new providers (ECB, Bloomberg, etc.)
+- Understanding dependency rules (Service → Interface only)
+- Modifying provider implementations
+
+**Quick reference**:
+- Service uses `ExchangeRateProvider` interface only
+- `FredExchangeRateProvider` implements interface
+- `FredClient` handles HTTP communication
+- Provider name NEVER appears in service layer code
+
+### ShedLock Distributed Locking
+
+**Pattern**: Daily scheduled import runs once across all pods using database-backed distributed lock.
+
+**When to consult @service-common/docs/advanced-patterns.md#distributed-locking-with-shedlock**:
+- Adjusting lock durations
+- Adding new scheduled tasks
+- Debugging multi-pod coordination
+
+**Quick reference**:
+- `@SchedulerLock` on `@Scheduled` methods
+- `lockAtMostFor: 15m` (safety timeout for 30-second task)
+- `lockAtLeastFor: 1m` (prevents rapid re-execution)
+- Database-backed (PostgreSQL) for service independence
+
+### Redis Distributed Caching
+
+**Pattern**: Exchange rate queries cached with 1-hour TTL. Cache hit: 1-3ms. Cache miss: 50-200ms.
+
+**When to consult @service-common/docs/advanced-patterns.md#redis-distributed-caching**:
+- Adjusting cache TTL or key strategy
+- Adding caching to other queries
+- Troubleshooting cache performance
+
+**Quick reference**:
+- `@Cacheable` on `getExchangeRates()` queries
+- `@CacheEvict(allEntries = true)` after imports
+- Key format: `{targetCurrency}:{startDate}:{endDate}`
+- Expected hit rate: 80-95%
+
+### Event-Driven Messaging
+
+**Pattern**: Transactional outbox ensures 100% guaranteed message delivery. Events persisted in DB with business data (atomic), then published to RabbitMQ asynchronously.
+
+**When to consult @service-common/docs/advanced-patterns.md#event-driven-messaging-with-transactional-outbox**:
+- Adding new domain events
+- Understanding event flow and retry behavior
+- Debugging messaging issues
+
+**Quick reference**:
+- Service publishes domain events (e.g., `CurrencyCreatedEvent`)
+- Spring Modulith persists in `event_publication` table
+- `@ApplicationModuleListener` bridges to RabbitMQ
+- Automatic retries until successful
+
+**For all advanced pattern details: @service-common/docs/advanced-patterns.md**
 
 ## Service-Specific Patterns
 
@@ -65,15 +125,10 @@ currency-service:
     api-key: ${FRED_API_KEY}
 ```
 
-**Important:** Provider-specific logic is encapsulated in `FredExchangeRateProvider`. Service layer only depends on `ExchangeRateProvider` interface, allowing future providers (ECB, Bloomberg) without service changes.
-
-See [@service-common/docs/advanced-patterns.md#provider-abstraction-pattern](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md#provider-abstraction-pattern)
-
 ### Scheduled Exchange Rate Import
 
 **Schedule:** Daily at 11 PM UTC
-
-**Coordination:** ShedLock ensures only one pod executes import in multi-instance deployment
+**Coordination:** ShedLock ensures only one pod executes
 
 **Discovery:**
 ```bash
@@ -84,73 +139,13 @@ cat src/main/java/org/budgetanalyzer/currency/scheduler/ExchangeRateImportSchedu
 cat src/main/resources/application.yml | grep -A 5 "shedlock"
 ```
 
-**Lock Configuration:**
-- `lockAtMostFor: 15m` - Safety timeout (import takes ~30 seconds)
-- `lockAtLeastFor: 1m` - Prevents rapid re-execution
-
-See [@service-common/docs/advanced-patterns.md#distributed-locking-with-shedlock](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md#distributed-locking-with-shedlock)
-
-### Exchange Rate Caching
-
-**Cache:** Redis distributed cache with 1-hour TTL
-
-**Performance:**
-- Cache hit: 1-3ms
-- Cache miss: 50-200ms (database query)
-- Expected hit rate: 80-95%
-
-**Discovery:**
-```bash
-# Find cache configuration
-cat src/main/java/org/budgetanalyzer/currency/config/CacheConfig.java
-
-# View cached service methods
-grep -r "@Cacheable\|@CacheEvict" src/main/java/*/service/
-```
-
-**Cache Strategy:**
-- `@Cacheable` on `getExchangeRates()` - Caches query results
-- `@CacheEvict(allEntries = true)` on import - Clears all cache after new data imported
-- Key format: `{targetCurrency}:{startDate}:{endDate}`
-
-See [@service-common/docs/advanced-patterns.md#redis-distributed-caching](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md#redis-distributed-caching)
-
-### Event-Driven Architecture
-
-**Pattern:** Transactional outbox ensures guaranteed message delivery
-
-**Event Flow:**
-1. Service creates currency series
-2. Domain event persisted in database (same transaction)
-3. Event listener publishes to RabbitMQ asynchronously
-4. Consumer triggers exchange rate import
-
-**Discovery:**
-```bash
-# Find domain events
-cat src/main/java/org/budgetanalyzer/currency/domain/event/CurrencyCreatedEvent.java
-
-# Find event listeners
-cat src/main/java/org/budgetanalyzer/currency/messaging/listener/MessagingEventListener.java
-
-# Find message consumers
-cat src/main/java/org/budgetanalyzer/currency/messaging/consumer/ExchangeRateImportConsumer.java
-```
-
-**Benefits:**
-- 100% guaranteed delivery (event survives crashes, network failures)
-- Async HTTP responses (fast API response times)
-- Automatic retries with Spring Modulith
-
-See [@service-common/docs/advanced-patterns.md#event-driven-messaging-with-transactional-outbox](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md#event-driven-messaging-with-transactional-outbox)
-
 ### Domain Model
 
 See [docs/domain-model.md](docs/domain-model.md) for detailed entity relationships and business rules.
 
 **Key Concepts:**
-- **CurrencySeries**: Represents exchange rate time series from external providers (ISO 4217 codes)
-- **ExchangeRate**: Individual rate observations for a series (date + rate value)
+- **CurrencySeries**: Exchange rate time series from external providers (ISO 4217 codes)
+- **ExchangeRate**: Individual rate observations (date + rate value)
 
 **Discovery:**
 ```bash
@@ -164,7 +159,7 @@ cat src/main/java/org/budgetanalyzer/currency/domain/ExchangeRate.java
 
 ### Package Structure
 
-**Standard Spring Boot layered architecture** - See [@service-common/CLAUDE.md](https://github.com/budget-analyzer/service-common/blob/main/CLAUDE.md)
+**Standard Spring Boot layers** - See @service-common/CLAUDE.md
 
 **Service-specific packages:**
 - `client/fred/` - FRED API integration
@@ -282,9 +277,22 @@ cd ../currency-service
 
 ## Testing
 
-See [@service-common/docs/testing-patterns.md](https://github.com/budget-analyzer/service-common/blob/main/docs/testing-patterns.md) for testing conventions.
+**Pattern**: Unit tests (*Test.java), integration tests (*IntegrationTest.java) with TestContainers. Minimum 80% coverage. Always test correct behavior (fix bugs, don't test around them).
+
+**When to consult @service-common/docs/testing-patterns.md**:
+- Writing unit tests → See Unit Testing Patterns
+- Setting up integration tests → Review TestContainers setup
+- Understanding test philosophy → Read Testing Philosophy section
+
+**Quick reference**:
+- Unit tests: No Spring context, fast, mock dependencies
+- Integration tests: `@SpringBootTest` + TestContainers (PostgreSQL/Redis/RabbitMQ)
+- Minimum coverage: 80% line coverage
+- Use TestConstants for test data (no magic strings/numbers)
 
 **Current state**: Limited coverage, opportunity for improvement (provider abstraction, caching, messaging, scheduling)
+
+**For comprehensive testing patterns: @service-common/docs/testing-patterns.md**
 
 ## Deployment
 
@@ -300,7 +308,7 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 
 ## Notes for Claude Code
 
-**General guidance**: See [@service-common/CLAUDE.md](https://github.com/budget-analyzer/service-common/blob/main/CLAUDE.md) for code quality standards and build commands.
+**General guidance**: See @service-common/CLAUDE.md for code quality standards and build commands.
 
 **Service-specific reminders**:
 - Service layer uses `ExchangeRateProvider` interface, NEVER references FRED directly

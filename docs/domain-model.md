@@ -132,14 +132,17 @@ CurrencySeries 1 ──→ * ExchangeRate
 
 ## External Provider Integration
 
-### FRED Provider
+**Pattern**: Provider abstraction decouples service from specific external data sources.
 
-**Pattern:** Provider abstraction
-- See: [@service-common/docs/advanced-patterns.md](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md#provider-abstraction-pattern)
+**When to consult @service-common/docs/advanced-patterns.md#provider-abstraction-pattern**:
+- Adding new providers (ECB, Bloomberg)
+- Understanding provider interface design
+- Modifying provider implementations
 
-**Interface:** `ExchangeRateProvider`
-
-**Implementation:** `FredExchangeRateProvider`
+**Quick reference**:
+- Interface: `ExchangeRateProvider`
+- Implementation: `FredExchangeRateProvider`
+- Service never imports FRED directly
 
 **Data Flow:**
 ```
@@ -171,36 +174,30 @@ CurrencySeries 1 ──→ * ExchangeRate
 
 ## Caching Strategy
 
-**Pattern:** Cache-aside with Redis
-- See: [@service-common/docs/advanced-patterns.md](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md#redis-distributed-caching)
+**Pattern**: Cache-aside with Redis for high-performance queries.
 
-**Cached Data:**
-- Recent exchange rates (last 90 days)
-- Currency series metadata
+**When to consult @service-common/docs/advanced-patterns.md#redis-distributed-caching**:
+- Adjusting TTL values
+- Adding new cached queries
+- Understanding cache key design
 
-**Cache Keys:**
-- `exchange-rates:{seriesId}:{date}`
-- `currency-series:{id}`
-
-**TTL:**
-- Historical rates: 24 hours (rarely change)
-- Recent rates: 1 hour (may be updated)
-- Series metadata: 6 hours
+**Quick reference**:
+- Cached: Recent exchange rates (last 90 days) + series metadata
+- Keys: `exchange-rates:{seriesId}:{date}`, `currency-series:{id}`
+- TTL: Historical (24h), recent (1h), metadata (6h)
 
 ## Scheduled Operations
 
-**Pattern:** ShedLock for distributed coordination
-- See: [@service-common/docs/advanced-patterns.md](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md#shedlock-distributed-locking)
+**Pattern**: ShedLock ensures scheduled tasks run once across all pods.
 
-**Jobs:**
-1. **Daily Import** - 6:00 AM UTC
-   - Import rates for all active series
-   - Lock: 30 minutes
-   - Idempotent (existing dates skipped)
+**When to consult @service-common/docs/advanced-patterns.md#shedlock-distributed-locking**:
+- Adjusting lock durations
+- Adding new scheduled jobs
+- Debugging multi-pod coordination
 
-2. **Cache Warmup** - Every hour
-   - Pre-load frequently accessed rates
-   - Lock: 5 minutes
+**Quick reference**:
+- **Daily Import** - 6:00 AM UTC (30m lock, idempotent)
+- **Cache Warmup** - Every hour (5m lock)
 
 ## Discovery Commands
 
@@ -240,7 +237,7 @@ grep -r "@Scheduled" src/main/java
 
 ## References
 
-- **Database Schema:** [database-schema.md](database-schema.md)
+- **Database Schema:** [database-schema.md](database-schema.md) (not yet created)
 - **API Spec:** [api/README.md](api/README.md)
-- **Advanced Patterns:** [@service-common/docs/advanced-patterns.md](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md)
+- **Advanced Patterns:** @service-common/docs/advanced-patterns.md
 - **FRED Integration:** [fred-integration.md](fred-integration.md) (future)

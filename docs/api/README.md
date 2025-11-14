@@ -193,18 +193,41 @@ Response: CacheClearResponse
 
 ## Error Handling
 
+**Pattern**: Standardized error response format with HTTP status codes, error types, and field-level validation messages.
+
+**When to consult @service-common/docs/error-handling.md**:
+- Understanding error response format → See ApiErrorResponse Format
+- Choosing correct exception type → Review Exception Hierarchy
+- Implementing business rule violations → Check BusinessException examples
+- Handling validation errors → See Bean Validation Integration
+
 **Standard HTTP Status Codes:**
 - `200 OK` - Successful GET/PUT/PATCH
 - `201 Created` - Successful POST
 - `204 No Content` - Successful DELETE
-- `400 Bad Request` - Validation error
+- `400 Bad Request` - Validation error or invalid request
 - `404 Not Found` - Resource not found
-- `409 Conflict` - Duplicate series code
+- `422 Unprocessable Entity` - Business rule violation (includes error code)
 - `500 Internal Server Error` - Server error
 - `503 Service Unavailable` - External provider unavailable
 
-**Error Response Format:**
-See: [@service-common/docs/error-handling.md](https://github.com/budget-analyzer/service-common/blob/main/docs/error-handling.md)
+**Quick reference**:
+- `ResourceNotFoundException` → 404 (entity not found)
+- `InvalidRequestException` → 400 (bad input)
+- `BusinessException` → 422 (business rule violation with error code)
+- `ServiceUnavailableException` → 503 (FRED API down)
+- All exceptions auto-converted to standardized format by `DefaultApiExceptionHandler`
+
+**Error Response Example:**
+```json
+{
+  "type": "APPLICATION_ERROR",
+  "message": "Currency series not found",
+  "code": "SERIES_NOT_FOUND"
+}
+```
+
+**For complete error handling patterns: @service-common/docs/error-handling.md**
 
 ## Authentication & Authorization
 
@@ -229,7 +252,12 @@ See: [@service-common/docs/error-handling.md](https://github.com/budget-analyzer
 
 ## Caching
 
-**Strategy:** Redis distributed cache (cache-aside pattern)
+**Pattern**: Redis distributed cache (cache-aside) for high-performance queries.
+
+**When to consult @service-common/docs/advanced-patterns.md#redis-distributed-caching**:
+- Understanding cache strategy → See Redis Caching section
+- Adjusting TTL values → Review Configuration
+- Adding new cached endpoints → Check Service Layer Annotations
 
 **Cached Endpoints:**
 - `GET /api/v1/exchange-rates` - 1 hour TTL
@@ -246,6 +274,11 @@ ETag: "{hash}"
 - Automatic on import
 - Manual via admin endpoint
 - TTL expiration
+
+**Quick reference**:
+- `@Cacheable` on GET endpoints
+- `@CacheEvict(allEntries = true)` after imports
+- Expected hit rate: 80-95%
 
 ## Validation Rules
 
@@ -305,5 +338,6 @@ docker exec redis redis-cli KEYS "exchange-rates:*"
 - **Swagger UI:** http://localhost:8084/swagger-ui.html (when service running)
 - **OpenAPI Spec:** http://localhost:8084/v3/api-docs
 - **Domain Model:** [../domain-model.md](../domain-model.md)
-- **Database Schema:** [../database-schema.md](../database-schema.md)
-- **Advanced Patterns:** [@service-common/docs/advanced-patterns.md](https://github.com/budget-analyzer/service-common/blob/main/docs/advanced-patterns.md)
+- **Database Schema:** [../database-schema.md](../database-schema.md) (not yet created)
+- **Error Handling:** @service-common/docs/error-handling.md
+- **Advanced Patterns:** @service-common/docs/advanced-patterns.md
