@@ -28,6 +28,7 @@ spring:
     locations: classpath:db/migration
     validate-on-migrate: false  # Disabled for TestContainers - container reused across tests with modified migrations
     clean-disabled: false  # Allow Flyway clean for tests
+    connect-retries: 0
 
   data:
     redis:
@@ -97,6 +98,8 @@ spring:
       connection-timeout: 1000  # 1 second instead of default 30 seconds
       validation-timeout: 1000  # 1 second validation timeout
       initialization-fail-timeout: 0  # Fail fast if pool can't initialize
+      maximum-pool-size: 2
+      minimum-idle: 1
 
 currency-service:
   exchange-rate-import:
