@@ -15,7 +15,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 
-import org.budgetanalyzer.currency.config.WireMockConfiguration;
+import org.budgetanalyzer.currency.config.WireMockConfig;
 
 /**
  * WireMock stub templates for FRED API responses.
@@ -74,7 +74,7 @@ public final class FredApiStubs {
    */
   private static WireMockServer getWireMockServer() {
     if (wireMockServer == null) {
-      wireMockServer = WireMockConfiguration.getWireMockServer();
+      wireMockServer = WireMockConfig.getWireMockServer();
     }
     return wireMockServer;
   }

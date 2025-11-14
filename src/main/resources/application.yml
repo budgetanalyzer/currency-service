@@ -86,17 +86,6 @@ spring:
           destination: currency.created
           group: exchange-rate-import-service
 
-      rabbit:
-        bindings:
-          importExchangeRates-in-0:
-            consumer:
-              auto-bind-dlq: true              # Dead letter queue
-              republish-to-dlq: true            # Preserve original message
-              max-attempts: 3                   # Retry 3 times
-              initial-interval: 1000            # 1 second initial retry delay
-              max-interval: 10000               # 10 seconds max retry delay
-              multiplier: 2.0                   # Exponential backoff
-
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}

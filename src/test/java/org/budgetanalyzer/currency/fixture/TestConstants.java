@@ -43,6 +43,9 @@ public final class TestConstants {
   /** Valid currency code: South African Rand (used for testing queries with no data). */
   public static final String VALID_CURRENCY_ZAR = "ZAR";
 
+  /** Valid currency code: Hungarian Forint. */
+  public static final String VALID_CURRENCY_HUF = "HUF";
+
   // ===========================================================================================
   // Invalid Currency Codes (for validation testing)
   // ===========================================================================================

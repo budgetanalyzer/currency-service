@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -62,6 +63,7 @@ import org.budgetanalyzer.service.exception.ServiceException;
  */
 @SpringBootTest
 @TestPropertySource(properties = "spring.cache.type=redis")
+@DirtiesContext
 class ExchangeRateImportServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private ExchangeRateImportService importService;

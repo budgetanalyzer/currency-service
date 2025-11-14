@@ -3,7 +3,6 @@ package org.budgetanalyzer.currency.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -14,10 +13,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 
@@ -58,22 +56,8 @@ import org.budgetanalyzer.service.exception.ServiceUnavailableException;
  */
 @SpringBootTest
 @RecordApplicationEvents
+@DirtiesContext
 class CurrencyServiceIntegrationTest extends AbstractIntegrationTest {
-
-  /**
-   * Test configuration to provide a mock ExchangeRateProvider.
-   *
-   * <p>Uses Mockito.mock() to create the mock and marks it as @Primary to override the real
-   * implementation.
-   */
-  @TestConfiguration
-  static class TestConfig {
-    @Bean
-    @Primary
-    ExchangeRateProvider mockExchangeRateProvider() {
-      return mock(ExchangeRateProvider.class);
-    }
-  }
 
   @Autowired private CurrencyService service;
 
@@ -81,7 +65,7 @@ class CurrencyServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private JdbcTemplate jdbcTemplate;
 
-  @Autowired private ExchangeRateProvider provider;
+  @MockitoBean private ExchangeRateProvider mockProvider;
 
   @BeforeEach
   void setUp() {
@@ -89,10 +73,10 @@ class CurrencyServiceIntegrationTest extends AbstractIntegrationTest {
     repository.deleteAll();
 
     // Reset mock state for test isolation
-    reset(provider);
+    reset(mockProvider);
 
     // Default mock: all series IDs are valid
-    when(provider.validateSeriesExists(anyString())).thenReturn(true);
+    when(mockProvider.validateSeriesExists(anyString())).thenReturn(true);
   }
 
   // ===========================================================================================
@@ -177,7 +161,7 @@ class CurrencyServiceIntegrationTest extends AbstractIntegrationTest {
     service.create(series);
 
     // Assert
-    verify(provider, times(1)).validateSeriesExists(TestConstants.FRED_SERIES_EUR);
+    verify(mockProvider, times(1)).validateSeriesExists(TestConstants.FRED_SERIES_EUR);
   }
 
   // ===========================================================================================
@@ -285,7 +269,7 @@ class CurrencyServiceIntegrationTest extends AbstractIntegrationTest {
   void createSucceedsWhenProviderReturnsTrue() {
     // Arrange
     var series = CurrencySeriesTestBuilder.defaultEur().build();
-    when(provider.validateSeriesExists(TestConstants.FRED_SERIES_EUR)).thenReturn(true);
+    when(mockProvider.validateSeriesExists(TestConstants.FRED_SERIES_EUR)).thenReturn(true);
 
     // Act
     var created = service.create(series);
@@ -302,7 +286,7 @@ class CurrencyServiceIntegrationTest extends AbstractIntegrationTest {
         CurrencySeriesTestBuilder.defaultEur()
             .withProviderSeriesId(TestConstants.FRED_SERIES_INVALID)
             .build();
-    when(provider.validateSeriesExists(TestConstants.FRED_SERIES_INVALID)).thenReturn(false);
+    when(mockProvider.validateSeriesExists(TestConstants.FRED_SERIES_INVALID)).thenReturn(false);
 
     // Act & Assert
     assertThatThrownBy(() -> service.create(series))
@@ -315,7 +299,7 @@ class CurrencyServiceIntegrationTest extends AbstractIntegrationTest {
   void createThrowsServiceUnavailableWhenProviderFails() {
     // Arrange
     var series = CurrencySeriesTestBuilder.defaultEur().build();
-    when(provider.validateSeriesExists(anyString()))
+    when(mockProvider.validateSeriesExists(anyString()))
         .thenThrow(new ClientException("API error from provider"));
 
     // Act & Assert

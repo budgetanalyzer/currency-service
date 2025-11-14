@@ -11,11 +11,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
-import org.budgetanalyzer.currency.config.WireMockConfiguration;
+import org.budgetanalyzer.currency.config.WireMockConfig;
 import org.budgetanalyzer.currency.domain.CurrencySeries;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
@@ -51,9 +54,12 @@ import org.budgetanalyzer.service.exception.ClientException;
  * @see ExchangeRateProvider
  */
 @DisplayName("FredExchangeRateProvider Integration Tests")
+@Import(WireMockConfig.class)
 class FredExchangeRateProviderIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private FredExchangeRateProvider provider;
+
+  @Autowired private WireMockServer wireMockServer;
 
   private CurrencySeries eurSeries;
   private CurrencySeries thbSeries;
@@ -67,7 +73,7 @@ class FredExchangeRateProviderIntegrationTest extends AbstractIntegrationTest {
    */
   @DynamicPropertySource
   static void configureWireMockProperties(DynamicPropertyRegistry registry) {
-    var wireMock = WireMockConfiguration.getWireMockServer();
+    var wireMock = WireMockConfig.getWireMockServer();
     registry.add(
         "currency-service.exchange-rate-import.fred.base-url",
         () -> "http://localhost:" + wireMock.port());
@@ -75,6 +81,9 @@ class FredExchangeRateProviderIntegrationTest extends AbstractIntegrationTest {
 
   @BeforeEach
   void setUp() {
+    // Reset WireMock stubs to prevent pollution between tests
+    wireMockServer.resetAll();
+
     // Create test currency series
     eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     thbSeries = CurrencySeriesTestBuilder.defaultThb().build();

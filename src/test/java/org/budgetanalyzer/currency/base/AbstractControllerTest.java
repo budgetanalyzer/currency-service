@@ -17,7 +17,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
-import org.budgetanalyzer.currency.config.WireMockConfiguration;
+import org.budgetanalyzer.currency.config.WireMockConfig;
 
 /**
  * Base class for controller integration tests with MockMvc and WireMock.
@@ -30,9 +30,9 @@ import org.budgetanalyzer.currency.config.WireMockConfiguration;
  *   <li>Helper methods for JSON request/response handling
  * </ul>
  *
- * <p>WireMock server is configured via {@link WireMockConfiguration} which is imported by this
- * class. The server instance is shared across all tests that import the configuration and is reset
- * between tests to ensure isolation.
+ * <p>WireMock server is configured via {@link WireMockConfig} which is imported by this class. The
+ * server instance is shared across all tests that import the configuration and is reset between
+ * tests to ensure isolation.
  *
  * <p><b>Usage:</b>
  *
@@ -57,17 +57,17 @@ import org.budgetanalyzer.currency.config.WireMockConfiguration;
  *
  * @see MockMvc
  * @see WireMockServer
- * @see WireMockConfiguration
+ * @see WireMockConfig
  */
 @AutoConfigureMockMvc
-@Import(WireMockConfiguration.class)
+@Import(WireMockConfig.class)
 public abstract class AbstractControllerTest extends AbstractIntegrationTest {
 
   /**
    * WireMock server for mocking FRED API responses.
    *
-   * <p>Server instance is provided by {@link WireMockConfiguration} and shared across all tests
-   * that import the configuration.
+   * <p>Server instance is provided by {@link WireMockConfig} and shared across all tests that
+   * import the configuration.
    */
   @Autowired protected WireMockServer wireMockServer;
 
@@ -84,7 +84,7 @@ public abstract class AbstractControllerTest extends AbstractIntegrationTest {
    */
   @DynamicPropertySource
   static void configureWireMockProperties(DynamicPropertyRegistry registry) {
-    var wireMock = WireMockConfiguration.getWireMockServer();
+    var wireMock = WireMockConfig.getWireMockServer();
     registry.add(
         "currency-service.exchange-rate-import.fred.base-url",
         () -> "http://localhost:" + wireMock.port());
