@@ -1,13 +1,6 @@
 package org.budgetanalyzer.currency.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.when;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,18 +10,20 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.test.EnableScenarios;
 import org.springframework.modulith.test.Scenario;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+
 import org.budgetanalyzer.currency.config.TestContainersConfig;
-import org.budgetanalyzer.currency.domain.CurrencySeries;
+import org.budgetanalyzer.currency.config.WireMockConfig;
 import org.budgetanalyzer.currency.domain.event.CurrencyCreatedEvent;
 import org.budgetanalyzer.currency.domain.event.CurrencyUpdatedEvent;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
+import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.service.CurrencyService;
-import org.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
 
 /**
  * Integration tests for domain event publishing using Spring Modulith.
@@ -47,7 +42,7 @@ import org.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
  *   <li>Uses @SpringBootTest with full application context
  *   <li>@EnableScenarios for Spring Modulith declarative event testing
  *   <li>Reuses TestContainersConfig for infrastructure (PostgreSQL, Redis, RabbitMQ)
- *   <li>Mock ExchangeRateProvider to prevent real FRED API calls
+ *   <li>WireMock server for stubbing FRED API responses
  *   <li>Simple cleanup strategy with DELETE in @BeforeEach
  * </ul>
  *
@@ -63,9 +58,8 @@ import org.budgetanalyzer.currency.service.provider.ExchangeRateProvider;
  */
 @SpringBootTest
 @Testcontainers
-@Import(TestContainersConfig.class)
+@Import({TestContainersConfig.class, WireMockConfig.class})
 @EnableScenarios
-@DirtiesContext
 class DomainEventPublishingIntegrationTest {
 
   // ===========================================================================================
@@ -76,13 +70,29 @@ class DomainEventPublishingIntegrationTest {
 
   @Autowired CurrencyService currencyService;
 
-  @MockitoBean private ExchangeRateProvider mockProvider;
+  @Autowired WireMockServer wireMockServer;
+
+  // ===========================================================================================
+  // Dynamic Properties
+  // ===========================================================================================
+
+  /**
+   * Configure FRED API base URL to point to WireMock server.
+   *
+   * <p>This allows us to stub FRED API responses for testing without making real HTTP calls.
+   */
+  @DynamicPropertySource
+  static void configureWireMock(DynamicPropertyRegistry registry) {
+    registry.add(
+        "currency-service.exchange-rate-import.fred.base-url",
+        () -> "http://localhost:" + WireMockConfig.getWireMockServer().port());
+  }
 
   // ===========================================================================================
   // Setup and Cleanup
   // ===========================================================================================
 
-  /** Cleanup database before each test. */
+  /** Cleanup database and reset WireMock stubs before each test. */
   @BeforeEach
   void cleanup() {
     // Clear database tables
@@ -90,8 +100,8 @@ class DomainEventPublishingIntegrationTest {
     jdbcTemplate.execute("DELETE FROM currency_series");
     jdbcTemplate.execute("DELETE FROM event_publication");
 
-    // Clear mock invocations
-    clearInvocations(mockProvider);
+    // Reset all WireMock stubs
+    wireMockServer.resetAll();
   }
 
   // ===========================================================================================
@@ -107,8 +117,10 @@ class DomainEventPublishingIntegrationTest {
    */
   @Test
   void shouldPersistCurrencyCreatedEventToDatabase(Scenario scenario) {
-    // Arrange
-    setupMockProvider(TestConstants.VALID_CURRENCY_EUR, TestConstants.FRED_SERIES_EUR);
+    // Arrange - Stub FRED API responses
+    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
+    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
+
     var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
 
     // Act & Assert - Declarative event verification
@@ -129,10 +141,11 @@ class DomainEventPublishingIntegrationTest {
    */
   @Test
   void shouldPersistCurrencyUpdatedEventToDatabase(Scenario scenario) {
-    // Arrange - Create currency first
-    setupMockProvider(TestConstants.VALID_CURRENCY_EUR, TestConstants.FRED_SERIES_EUR);
-    var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
+    // Arrange - Stub FRED API responses and create currency first
+    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
+    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
 
+    var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
     var created = currencyService.create(currencySeries);
 
     // Clear events from creation
@@ -158,8 +171,10 @@ class DomainEventPublishingIntegrationTest {
    */
   @Test
   void shouldPublishEventEvenForDisabledCurrency(Scenario scenario) {
-    // Arrange
-    setupMockProvider(TestConstants.VALID_CURRENCY_EUR, TestConstants.FRED_SERIES_EUR);
+    // Arrange - Stub FRED API responses
+    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
+    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
+
     var currencySeries = CurrencySeriesTestBuilder.defaultEur().enabled(false).build();
 
     // Act & Assert - Event published even though currency is disabled
@@ -174,25 +189,5 @@ class DomainEventPublishingIntegrationTest {
               assertThat(event.currencyCode()).isEqualTo(TestConstants.VALID_CURRENCY_EUR);
               assertThat(event.enabled()).isFalse();
             });
-  }
-
-  // ===========================================================================================
-  // Helper Methods
-  // ===========================================================================================
-
-  /**
-   * Setup mock provider to return test exchange rates.
-   *
-   * @param currencyCode The currency code
-   * @param seriesId The provider series ID
-   */
-  private void setupMockProvider(String currencyCode, String seriesId) {
-    when(mockProvider.validateSeriesExists(seriesId)).thenReturn(true);
-    var rates =
-        Map.of(
-            LocalDate.of(2024, 1, 1), new BigDecimal("1.10"),
-            LocalDate.of(2024, 1, 2), new BigDecimal("1.11"),
-            LocalDate.of(2024, 1, 3), new BigDecimal("1.12"));
-    when(mockProvider.getExchangeRates(any(CurrencySeries.class), any())).thenReturn(rates);
   }
 }
