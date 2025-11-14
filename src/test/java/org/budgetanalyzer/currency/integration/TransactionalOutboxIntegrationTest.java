@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.modulith.test.EnableScenarios;
 import org.springframework.modulith.test.Scenario;
+import org.springframework.test.context.TestPropertySource;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
@@ -55,6 +56,10 @@ import org.budgetanalyzer.service.exception.BusinessException;
  */
 @DisplayName("Transactional Outbox Pattern Integration Tests")
 @EnableScenarios
+@TestPropertySource(
+    properties = {
+      "spring.cloud.stream.bindings.importExchangeRates-in-0.consumer.auto-startup=false"
+    })
 public class TransactionalOutboxIntegrationTest extends AbstractWireMockTest {
 
   // ===========================================================================================
@@ -206,7 +211,8 @@ public class TransactionalOutboxIntegrationTest extends AbstractWireMockTest {
     // Assert - Event data is durable and can be queried (simulates restart scenario)
     var eventData =
         jdbcTemplate.queryForMap(
-            "SELECT event_type, publication_date FROM event_publication WHERE event_type = ? LIMIT 1",
+            "SELECT event_type, publication_date FROM event_publication "
+                + "WHERE event_type = ? LIMIT 1",
             "org.budgetanalyzer.currency.domain.event.CurrencyCreatedEvent");
     assertThat(eventData).containsKey("event_type");
     assertThat(eventData.get("event_type"))
