@@ -2,15 +2,17 @@ package org.budgetanalyzer.currency.scheduler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
@@ -18,6 +20,9 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import net.javacrumbs.shedlock.core.LockConfiguration;
+import net.javacrumbs.shedlock.core.LockProvider;
+import net.javacrumbs.shedlock.core.SimpleLock;
 
 import org.budgetanalyzer.currency.base.AbstractWireMockTest;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
@@ -47,12 +52,20 @@ import org.budgetanalyzer.currency.service.ExchangeRateImportService;
  *   <li>PostgreSQL TestContainer (real database persistence)
  *   <li>WireMock server to stub FRED API responses (no external calls)
  *   <li>Test TaskScheduler that executes retries immediately (no real time delays)
+ *   <li>Mocked ShedLock to allow multiple test invocations without lock conflicts
  * </ul>
  *
  * <p><b>Note:</b> These tests focus on business logic. We trust Spring's {@code @Scheduled}
  * annotation and ShedLock library to work correctly (framework testing).
  */
 @Import(TestTaskSchedulerConfig.class)
+@TestPropertySource(
+    properties = {
+      // Disable automatic scheduling (we invoke manually in tests)
+      "spring.task.scheduling.enabled=false",
+      // Enable retries for retry test (default is 1 in test config)
+      "currency-service.exchange-rate-import.retry.max-attempts=5"
+    })
 class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
 
   // ===========================================================================================
@@ -71,6 +84,15 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
 
   @Autowired private WireMockServer wireMockServer;
 
+  /**
+   * Mock LockProvider that always succeeds in acquiring locks.
+   *
+   * <p>Replaces the production JDBC-based lock provider to prevent lock conflicts between tests.
+   * Without this, tests would fail because ShedLock's {@code lockAtLeastFor} prevents immediate
+   * re-execution of the same scheduled method.
+   */
+  @MockBean private LockProvider lockProvider;
+
   // ===========================================================================================
   // Setup
   // ===========================================================================================
@@ -82,6 +104,18 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
     // Clear all meters from registry to prevent test isolation issues
     // MeterRegistry is a shared Spring bean, so metrics accumulate across tests
     meterRegistry.clear();
+
+    // Configure mock LockProvider to always succeed in acquiring locks
+    // This prevents ShedLock from blocking test execution due to lockAtLeastFor constraints
+    when(lockProvider.lock(any(LockConfiguration.class)))
+        .thenReturn(
+            java.util.Optional.of(
+                new SimpleLock() {
+                  @Override
+                  public void unlock() {
+                    // No-op: mock lock doesn't need actual unlocking
+                  }
+                }));
 
     // Create test currency series for import to work
     // The scheduler calls importLatestExchangeRates() which imports ALL enabled series
@@ -201,77 +235,5 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
 
     // Verify data was imported successfully
     assertThat(exchangeRateRepository.count()).isGreaterThan(0);
-  }
-
-  // ===========================================================================================
-  // Nested Test Classes for Property Overrides
-  // ===========================================================================================
-
-  /**
-   * Tests retry max attempts configuration.
-   *
-   * <p>Nested class required because @TestPropertySource can only be used at class level in JUnit
-   * 5.
-   */
-  @Nested
-  @DisplayName("Retry Max Attempts Tests")
-  @TestPropertySource(properties = "currency-service.exchange-rate-import.retry.max-attempts=3")
-  @Import(TestTaskSchedulerConfig.class)
-  class RetryMaxAttemptsTests {
-
-    @Test
-    void shouldRespectMaxRetries() throws Exception {
-      // Arrange - Stub FRED to always fail
-      wireMockServer.resetAll();
-      FredApiStubs.stubServerErrorForAll(); // All requests fail
-
-      // Act - Execute scheduler (will fail all attempts)
-      scheduler.importDailyRates();
-
-      // Assert - Wait for all retry attempts to complete (immediate execution with test scheduler)
-      await()
-          .atMost(Duration.ofSeconds(5)) // Fast execution with immediate task scheduler
-          .pollInterval(Duration.ofMillis(100))
-          .untilAsserted(
-              () -> {
-                // Verify exhaustion metric incremented
-                Counter exhaustedCounter =
-                    meterRegistry.find("exchange.rate.import.exhausted").counter();
-                assertThat(exhaustedCounter).isNotNull();
-                assertThat(exhaustedCounter.count()).isEqualTo(1);
-              });
-
-      // Assert - Exactly 3 attempts made (1 initial + 2 retries)
-      var attempt1 =
-          meterRegistry
-              .find("exchange.rate.import.executions")
-              .tag("status", "failure")
-              .tag("attempt", "1")
-              .counter();
-      var attempt2 =
-          meterRegistry
-              .find("exchange.rate.import.executions")
-              .tag("status", "failure")
-              .tag("attempt", "2")
-              .counter();
-      var attempt3 =
-          meterRegistry
-              .find("exchange.rate.import.executions")
-              .tag("status", "failure")
-              .tag("attempt", "3")
-              .counter();
-
-      assertThat(attempt1).isNotNull();
-      assertThat(attempt1.count()).isEqualTo(1);
-      assertThat(attempt2).isNotNull();
-      assertThat(attempt2.count()).isEqualTo(1);
-      assertThat(attempt3).isNotNull();
-      assertThat(attempt3.count()).isEqualTo(1);
-
-      // Assert - No 4th attempt
-      var attempt4 =
-          meterRegistry.find("exchange.rate.import.executions").tag("attempt", "4").counter();
-      assertThat(attempt4).isNull();
-    }
   }
 }

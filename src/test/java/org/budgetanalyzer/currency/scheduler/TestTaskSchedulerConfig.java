@@ -1,13 +1,9 @@
 package org.budgetanalyzer.currency.scheduler;
 
-import java.time.Instant;
-
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.TaskScheduler;
-import org.springframework.scheduling.Trigger;
-import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler;
 
 /**
  * Test configuration that replaces TaskScheduler with a version that executes scheduled tasks
@@ -23,7 +19,7 @@ import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler;
  * tasks immediately instead of waiting for the scheduled time. This allows tests to verify retry
  * logic without real time delays.
  *
- * <p><b>Implementation:</b> Wraps {@link SimpleAsyncTaskScheduler} and overrides {@code
+ * <p><b>Implementation:</b> Uses {@link ImmediateTaskScheduler} which overrides {@code
  * schedule(Runnable, Instant)} to execute tasks immediately using {@code run()} instead of
  * scheduling for future execution.
  *
@@ -64,60 +60,5 @@ public class TestTaskSchedulerConfig {
   @Primary
   public TaskScheduler immediateTaskScheduler() {
     return new ImmediateTaskScheduler();
-  }
-
-  /**
-   * TaskScheduler implementation that executes scheduled tasks immediately instead of waiting for
-   * the scheduled time.
-   *
-   * <p>Delegates all other methods to {@link SimpleAsyncTaskScheduler}.
-   */
-  private static class ImmediateTaskScheduler implements TaskScheduler {
-
-    private final SimpleAsyncTaskScheduler delegate = new SimpleAsyncTaskScheduler();
-
-    @Override
-    public java.util.concurrent.ScheduledFuture<?> schedule(Runnable task, Trigger trigger) {
-      // Not used by ExchangeRateImportScheduler - delegate to default impl
-      return delegate.schedule(task, trigger);
-    }
-
-    @Override
-    public java.util.concurrent.ScheduledFuture<?> schedule(Runnable task, Instant startTime) {
-      // THIS IS THE KEY METHOD: Execute immediately instead of waiting for startTime
-      // The production code calls: taskScheduler.schedule(task, Instant.now().plus(delay))
-      // We execute the task immediately to avoid real time delays in tests
-      task.run();
-      // Return null since task already executed (callers don't check return value)
-      return null;
-    }
-
-    @Override
-    public java.util.concurrent.ScheduledFuture<?> scheduleAtFixedRate(
-        Runnable task, Instant startTime, java.time.Duration period) {
-      // Not used by ExchangeRateImportScheduler - delegate to default impl
-      return delegate.scheduleAtFixedRate(task, startTime, period);
-    }
-
-    @Override
-    public java.util.concurrent.ScheduledFuture<?> scheduleAtFixedRate(
-        Runnable task, java.time.Duration period) {
-      // Not used by ExchangeRateImportScheduler - delegate to default impl
-      return delegate.scheduleAtFixedRate(task, period);
-    }
-
-    @Override
-    public java.util.concurrent.ScheduledFuture<?> scheduleWithFixedDelay(
-        Runnable task, Instant startTime, java.time.Duration delay) {
-      // Not used by ExchangeRateImportScheduler - delegate to default impl
-      return delegate.scheduleWithFixedDelay(task, startTime, delay);
-    }
-
-    @Override
-    public java.util.concurrent.ScheduledFuture<?> scheduleWithFixedDelay(
-        Runnable task, java.time.Duration delay) {
-      // Not used by ExchangeRateImportScheduler - delegate to default impl
-      return delegate.scheduleWithFixedDelay(task, delay);
-    }
   }
 }
