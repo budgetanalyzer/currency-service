@@ -3,7 +3,6 @@ package org.budgetanalyzer.currency.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.modulith.test.EnableScenarios;
@@ -54,7 +53,6 @@ import org.budgetanalyzer.service.exception.BusinessException;
  * @see org.springframework.modulith.test.EnableScenarios
  * @see org.springframework.modulith.test.Scenario
  */
-@DisplayName("Transactional Outbox Pattern Integration Tests")
 @EnableScenarios
 @TestPropertySource(
     properties = {

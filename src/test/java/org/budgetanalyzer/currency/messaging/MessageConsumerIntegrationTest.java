@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.MDC;
@@ -50,7 +49,6 @@ import org.budgetanalyzer.service.http.CorrelationIdFilter;
  *   <li>Validates correlation ID propagation through entire flow
  * </ul>
  */
-@DisplayName("ExchangeRateImportConsumer Integration Tests")
 @ExtendWith(OutputCaptureExtension.class)
 public class MessageConsumerIntegrationTest extends AbstractWireMockTest {
 
@@ -82,7 +80,6 @@ public class MessageConsumerIntegrationTest extends AbstractWireMockTest {
    * <p><b>Migrated from:</b> {@code shouldImportExchangeRatesWhenCurrencyCreatedMessageReceived}
    */
   @Test
-  @DisplayName("Should import exchange rates when message received")
   void shouldImportExchangeRatesWhenMessageReceived() {
     // Arrange
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -113,7 +110,6 @@ public class MessageConsumerIntegrationTest extends AbstractWireMockTest {
    * independently. The consumer should handle each message separately.
    */
   @Test
-  @DisplayName("Should handle multiple currencies independently")
   void shouldHandleMultipleCurrenciesIndependently() {
     // Arrange
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -154,7 +150,6 @@ public class MessageConsumerIntegrationTest extends AbstractWireMockTest {
    * assertion ({@code isGreaterThan(0)}).
    */
   @Test
-  @DisplayName("Should only import for enabled currency")
   void shouldOnlyImportForEnabledCurrency() {
     // Arrange - Create enabled currency
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -197,7 +192,6 @@ public class MessageConsumerIntegrationTest extends AbstractWireMockTest {
    * counts.
    */
   @Test
-  @DisplayName("Should log import results")
   void shouldLogImportResults(CapturedOutput output) {
     // Arrange
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -244,7 +238,6 @@ public class MessageConsumerIntegrationTest extends AbstractWireMockTest {
    * <p><b>New test:</b> Validates correlation ID propagation through the entire consumer flow.
    */
   @Test
-  @DisplayName("Should propagate correlation ID to import service")
   void shouldPropagateCorrelationIdToImportService(CapturedOutput output) {
     // Arrange
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);

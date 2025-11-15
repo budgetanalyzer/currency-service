@@ -3,7 +3,6 @@ package org.budgetanalyzer.currency.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -62,7 +61,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Create valid currency series saves entity with all fields populated")
   void createValidCurrencySeriesSavesEntity() {
     // Arrange - Stub FRED API responses
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -81,7 +79,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Create currency publishes CurrencyCreatedEvent with correct data")
   void createCurrencyPublishesEvent(ApplicationEvents events) {
     // Arrange - Stub FRED API responses
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -106,7 +103,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Create currency persists event to Spring Modulith outbox table")
   void createCurrencyPersistsEventToOutbox() {
     // Arrange - Stub FRED API responses
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -137,7 +133,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Create with invalid ISO 4217 code (too short) throws BusinessException")
   void createWithTooShortCurrencyCodeThrowsException() {
     // Arrange
     var series =
@@ -152,7 +147,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Create with invalid ISO 4217 code (too long) throws BusinessException")
   void createWithTooLongCurrencyCodeThrowsException() {
     // Arrange
     var series =
@@ -167,7 +161,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Create with invalid ISO 4217 code (lowercase) throws BusinessException")
   void createWithLowercaseCurrencyCodeThrowsException() {
     // Arrange
     var series =
@@ -182,7 +175,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Create with invalid ISO 4217 code (with numbers) throws BusinessException")
   void createWithNumbersInCurrencyCodeThrowsException() {
     // Arrange
     var series =
@@ -197,7 +189,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Create with non-existent ISO 4217 code (ZZZ) throws BusinessException")
   void createWithNonExistentCurrencyCodeThrowsException() {
     // Arrange
     var series =
@@ -212,7 +203,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Create duplicate currency code throws BusinessException")
   void createDuplicateCurrencyCodeThrowsException() {
     // Arrange - Stub FRED API responses and create first EUR series
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -235,7 +225,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Create succeeds when provider validates series exists")
   void createSucceedsWhenProviderReturnsTrue() {
     // Arrange - Stub FRED API to return series exists
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -249,7 +238,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Create fails when provider returns 404 for invalid series")
   void createFailsWhenProviderReturnsFalse() {
     // Arrange - Stub FRED API to return 404
     FredApiStubs.stubSeriesExistsNotFound(TestConstants.FRED_SERIES_INVALID);
@@ -265,7 +253,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Create throws ServiceUnavailableException when provider returns 500")
   void createThrowsServiceUnavailableWhenProviderFails() {
     // Arrange - Stub FRED API to return 500
     FredApiStubs.stubSeriesExistsServerError(TestConstants.FRED_SERIES_EUR);
@@ -282,7 +269,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Get by ID returns correct currency series with all fields")
   void getByIdReturnsCorrectSeries() {
     // Arrange - Stub FRED API responses and create series
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -300,7 +286,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Get by ID with non-existent ID throws ResourceNotFoundException")
   void getByIdWithNonExistentIdThrowsException() {
     // Act & Assert
     assertThatThrownBy(() -> currencyService.getById(999L))
@@ -309,7 +294,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Get all without filter returns all currency series")
   void getAllWithoutFilterReturnsAllSeries() {
     // Arrange - Stub FRED API responses and create 3 series (2 enabled, 1 disabled)
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -328,7 +312,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Get all with enabled-only filter returns only enabled series")
   void getAllWithEnabledFilterReturnsOnlyEnabledSeries() {
     // Arrange - Stub FRED API responses and create 3 series (2 enabled, 1 disabled)
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -352,7 +335,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Update enabled from true to false updates database correctly")
   void updateEnabledTrueToFalseUpdatesDatabase() {
     // Arrange - Stub FRED API responses and create series
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -372,7 +354,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Update enabled from false to true updates database correctly")
   void updateEnabledFalseToTrueUpdatesDatabase() {
     // Arrange - Stub FRED API responses and create series
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -391,7 +372,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Update publishes CurrencyUpdatedEvent with correct data")
   void updatePublishesCurrencyUpdatedEvent(ApplicationEvents events) {
     // Arrange - Stub FRED API responses and create series
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -421,7 +401,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Update non-existent series throws ResourceNotFoundException")
   void updateNonExistentSeriesThrowsException() {
     // Act & Assert
     assertThatThrownBy(() -> currencyService.update(999L, true))
@@ -430,7 +409,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Update changes updatedAt timestamp")
   void updateChangesUpdatedAtTimestamp() throws InterruptedException {
     // Arrange - Stub FRED API responses and create series
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -453,7 +431,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("CurrencyCreatedEvent contains all required fields")
   void currencyCreatedEventContainsAllRequiredFields(ApplicationEvents events) {
     // Arrange - Stub FRED API responses
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_THB);
@@ -475,7 +452,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Multiple create operations publish multiple distinct events")
   void multipleCreatesPublishMultipleEvents(ApplicationEvents events) {
     // Arrange - Stub FRED API responses
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -493,7 +469,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Update publishes CurrencyUpdatedEvent, not CurrencyCreatedEvent")
   void updatePublishesCorrectEventType(ApplicationEvents events) {
     // Arrange - Stub FRED API responses and create series
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);

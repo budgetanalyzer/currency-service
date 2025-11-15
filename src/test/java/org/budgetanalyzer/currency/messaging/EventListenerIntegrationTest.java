@@ -10,7 +10,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
@@ -53,7 +52,6 @@ import org.budgetanalyzer.service.http.CorrelationIdFilter;
  *   <li>Simulates RabbitMQ failures to test retry behavior
  * </ul>
  */
-@DisplayName("MessagingEventListener Integration Tests")
 public class EventListenerIntegrationTest extends AbstractWireMockTest {
 
   private static final int WAIT_TIME = 1;
@@ -84,7 +82,6 @@ public class EventListenerIntegrationTest extends AbstractWireMockTest {
    * publishing.
    */
   @Test
-  @DisplayName("Should publish message for enabled currency")
   void shouldPublishMessageForEnabledCurrency() {
     // Arrange
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -121,7 +118,6 @@ public class EventListenerIntegrationTest extends AbstractWireMockTest {
    * and skips publishing to RabbitMQ.
    */
   @Test
-  @DisplayName("Should not publish message for disabled currency")
   void shouldNotPublishMessageForDisabledCurrency() {
     // Arrange
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -163,7 +159,6 @@ public class EventListenerIntegrationTest extends AbstractWireMockTest {
    * then used when publishing the message.
    */
   @Test
-  @DisplayName("Should propagate correlation ID to message")
   void shouldPropagateCorrelationIdToMessage() {
     // Arrange
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -208,7 +203,6 @@ public class EventListenerIntegrationTest extends AbstractWireMockTest {
    * not in the publisher.
    */
   @Test
-  @DisplayName("Should filter disabled currencies before publishing")
   void shouldFilterDisabledCurrenciesBeforePublishing() {
     // Arrange
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -257,7 +251,6 @@ public class EventListenerIntegrationTest extends AbstractWireMockTest {
    * refactor plan).
    */
   @Test
-  @DisplayName("Should leave event incomplete on publisher failure")
   void shouldLeaveEventIncompleteOnPublisherFailure() {
     // Arrange
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);

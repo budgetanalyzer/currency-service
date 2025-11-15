@@ -12,7 +12,6 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -49,7 +48,6 @@ import org.budgetanalyzer.currency.service.dto.ExchangeRateImportResult;
  * the core business logic and retry mechanism.
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ExchangeRateImportScheduler Unit Tests")
 class ExchangeRateImportSchedulerTest {
 
   // ===========================================================================================
@@ -94,8 +92,7 @@ class ExchangeRateImportSchedulerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - when successful - records metrics and does not retry")
-  void importDailyRates_WhenSuccessful_RecordsMetricsAndDoesNotRetry() {
+  void shouldRecordMetricsAndNotRetryWhenSuccessful() {
     // Arrange
     var expectedResults =
         List.of(
@@ -143,8 +140,7 @@ class ExchangeRateImportSchedulerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - when fails - schedules retry")
-  void importDailyRates_WhenFails_SchedulesRetry() {
+  void shouldScheduleRetryWhenFails() {
     // Arrange
     var exception = new RuntimeException("FRED API unavailable");
     when(importService.importLatestExchangeRates()).thenThrow(exception);
@@ -194,8 +190,7 @@ class ExchangeRateImportSchedulerTest {
   }
 
   @Test
-  @DisplayName("importDailyRates - when fails with different exception - records correct error tag")
-  void importDailyRates_WhenFailsWithDifferentException_RecordsCorrectErrorTag() {
+  void shouldRecordCorrectErrorTagWhenFailsWithDifferentException() {
     // Arrange
     var exception = new IllegalStateException("Invalid state");
     when(importService.importLatestExchangeRates()).thenThrow(exception);
@@ -230,8 +225,7 @@ class ExchangeRateImportSchedulerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("retry - when successful on second attempt - records metrics with attempt 2")
-  void retry_WhenSuccessfulOnSecondAttempt_RecordsMetricsWithAttempt2() {
+  void shouldRecordMetricsWithAttempt2WhenSuccessfulOnSecondAttempt() {
     // Arrange - first attempt fails, second succeeds
     var exception = new RuntimeException("Temporary failure");
     var expectedResults =
@@ -282,8 +276,7 @@ class ExchangeRateImportSchedulerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - when all attempts fail - records exhaustion and stops retrying")
-  void importDailyRates_WhenAllAttemptsFail_RecordsExhaustionAndStopsRetrying() {
+  void shouldRecordExhaustionAndStopRetryingWhenAllAttemptsFail() {
     // Arrange
     var exception = new RuntimeException("Persistent failure");
     when(importService.importLatestExchangeRates()).thenThrow(exception);
@@ -346,8 +339,7 @@ class ExchangeRateImportSchedulerTest {
   }
 
   @Test
-  @DisplayName("importDailyRates - with custom max attempts - respects configuration")
-  void importDailyRates_WithCustomMaxAttempts_RespectsConfiguration() {
+  void shouldRespectConfigurationWithCustomMaxAttempts() {
     // Arrange - set max attempts to 2
     var retry = new CurrencyServiceProperties.ExchangeRateImport.Retry();
     retry.setMaxAttempts(2);
@@ -382,8 +374,7 @@ class ExchangeRateImportSchedulerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - records all required metrics")
-  void importDailyRates_RecordsAllRequiredMetrics() {
+  void shouldRecordAllRequiredMetrics() {
     // Arrange
     var expectedResults =
         List.of(new ExchangeRateImportResult("EUR", "DEXUSEU", 100, 0, 0, null, null));
@@ -415,8 +406,7 @@ class ExchangeRateImportSchedulerTest {
   }
 
   @Test
-  @DisplayName("importDailyRates - when fails - records metrics with error tag")
-  void importDailyRates_WhenFails_RecordsMetricsWithErrorTag() {
+  void shouldRecordMetricsWithErrorTagWhenFails() {
     // Arrange
     var exception = new RuntimeException("Test failure");
     when(importService.importLatestExchangeRates()).thenThrow(exception);
@@ -458,8 +448,7 @@ class ExchangeRateImportSchedulerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - when RuntimeException - handles gracefully")
-  void importDailyRates_WhenRuntimeException_HandlesGracefully() {
+  void shouldHandleGracefullyWhenRuntimeException() {
     // Arrange
     var exception = new RuntimeException("Unexpected error");
     doThrow(exception).when(importService).importLatestExchangeRates();
@@ -481,8 +470,7 @@ class ExchangeRateImportSchedulerTest {
   }
 
   @Test
-  @DisplayName("importDailyRates - when NullPointerException - handles gracefully")
-  void importDailyRates_WhenNullPointerException_HandlesGracefully() {
+  void shouldHandleGracefullyWhenNullPointerException() {
     // Arrange
     var exception = new NullPointerException("Null value encountered");
     doThrow(exception).when(importService).importLatestExchangeRates();
@@ -509,8 +497,7 @@ class ExchangeRateImportSchedulerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - uses configured delay minutes")
-  void importDailyRates_UsesConfiguredDelayMinutes() {
+  void shouldUseConfiguredDelayMinutes() {
     // Arrange - set custom delay
     var retry = new CurrencyServiceProperties.ExchangeRateImport.Retry();
     retry.setMaxAttempts(3);

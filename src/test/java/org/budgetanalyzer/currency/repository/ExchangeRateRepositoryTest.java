@@ -7,7 +7,6 @@ import java.time.LocalDate;
 import java.util.Currency;
 import java.util.List;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.domain.Specification;
@@ -41,7 +40,6 @@ import org.budgetanalyzer.currency.repository.spec.ExchangeRateSpecifications;
  *
  * @see ExchangeRateRepositoryIntegrationTest for integration tests with PostgreSQL
  */
-@DisplayName("ExchangeRateRepository Unit Tests")
 class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
 
   @Autowired private ExchangeRateRepository exchangeRateRepository;
@@ -53,8 +51,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName(
-      "findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc() should return most recent rate")
   void findTopByBaseCurrencyAndTargetCurrencyOrderByDateDescReturnsMostRecent() {
     // Arrange: Create parent currency series
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -83,8 +79,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName(
-      "findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc() should return empty when no data")
   void findTopByBaseCurrencyAndTargetCurrencyOrderByDateDescNoDataReturnsEmpty() {
     // Act: Query for non-existent currency pair
     var result =
@@ -96,8 +90,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName(
-      "findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc() should isolate by currency pair")
   void findTopByBaseCurrencyAndTargetCurrencyOrderByDateDescIsolatesByCurrencyPair() {
     // Arrange: Create two currency series
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -130,7 +122,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("findByBaseCurrencyAndTargetCurrencyAndDate() should return exact match")
   void findByBaseCurrencyAndTargetCurrencyAndDateExactMatch() {
     // Arrange: Create currency series and exchange rate
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -154,7 +145,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("findByBaseCurrencyAndTargetCurrencyAndDate() should return empty when no match")
   void findByBaseCurrencyAndTargetCurrencyAndDateNoMatch() {
     // Arrange: Create currency series and exchange rate
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -171,8 +161,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName(
-      "findByBaseCurrencyAndTargetCurrencyAndDate() should isolate by multiple currency pairs")
   void findByBaseCurrencyAndTargetCurrencyAndDateIsolatesByPairs() {
     // Arrange: Create two currency series with same date
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -204,9 +192,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName(
-      "findTopByTargetCurrencyAndDateLessThanOrderByDateDesc() should return rate before specified"
-          + " date")
   void findTopByTargetCurrencyAndDateLessThanOrderByDateDescReturnsBeforeDate() {
     // Arrange: Create currency series with multiple rates
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -234,9 +219,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName(
-      "findTopByTargetCurrencyAndDateLessThanOrderByDateDesc() should return empty when no data"
-          + " before date")
   void findTopByTargetCurrencyAndDateLessThanOrderByDateDescNoDataBeforeDate() {
     // Arrange: Create currency series with rate on January 15
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -253,8 +235,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName(
-      "findTopByTargetCurrencyAndDateLessThanOrderByDateDesc() should handle boundary conditions")
   void findTopByTargetCurrencyAndDateLessThanOrderByDateDescBoundaryConditions() {
     // Arrange: Create currency series with rate on January 15
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -275,7 +255,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("findEarliestDateByTargetCurrency() should return earliest date")
   void findEarliestDateByTargetCurrencyReturnsEarliestDate() {
     // Arrange: Create currency series with multiple dates
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -295,7 +274,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("findEarliestDateByTargetCurrency() should return empty when no data")
   void findEarliestDateByTargetCurrencyNoDataReturnsEmpty() {
     // Act: Query for non-existent currency
     var result =
@@ -306,7 +284,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("findEarliestDateByTargetCurrency() should isolate by target currency")
   void findEarliestDateByTargetCurrencyIsolatesByTargetCurrency() {
     // Arrange: Create two currency series with different earliest dates
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -330,7 +307,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("countByCurrencySeries() should return zero for new series")
   void countByCurrencySeriesNewSeriesReturnsZero() {
     // Arrange: Create currency series without exchange rates
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -343,7 +319,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("countByCurrencySeries() should return correct count for series with rates")
   void countByCurrencySeriesWithRatesReturnsCorrectCount() {
     // Arrange: Create currency series with multiple rates
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -362,7 +337,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("countByCurrencySeries() should isolate by series")
   void countByCurrencySeriesIsolatesBySeries() {
     // Arrange: Create two currency series with different counts
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -392,7 +366,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("JpaSpecificationExecutor should filter by date range")
   void jpaSpecificationExecutorFilterByDateRange() {
     // Arrange: Create currency series with multiple dates
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -418,7 +391,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("JpaSpecificationExecutor should filter by multiple target currencies")
   void jpaSpecificationExecutorFilterByMultipleTargetCurrencies() {
     // Arrange: Create three currency series
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");
@@ -446,7 +418,6 @@ class ExchangeRateRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("JpaSpecificationExecutor should combine multiple filters")
   void jpaSpecificationExecutorCombineMultipleFilters() {
     // Arrange: Create two currency series with multiple dates
     var eurSeries = createCurrencySeries("EUR", "DEXUSEU");

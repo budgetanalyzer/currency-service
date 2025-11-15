@@ -2,7 +2,6 @@ package org.budgetanalyzer.currency.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -50,7 +49,6 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  * @see org.springframework.modulith.test.EnableScenarios
  * @see org.springframework.modulith.test.Scenario
  */
-@DisplayName("Modulith Outbox Domain Events Integration Tests")
 @EnableScenarios
 public class DomainEventPublishingIntegrationTest extends AbstractWireMockTest {
 

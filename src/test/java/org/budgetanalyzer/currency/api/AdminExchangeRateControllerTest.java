@@ -10,7 +10,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
@@ -52,7 +51,6 @@ import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
  * <p><b>Cache Configuration:</b> This test explicitly enables Redis cache to verify cache behavior
  * through the API.
  */
-@DisplayName("Admin Exchange Rate Controller Integration Tests")
 @TestPropertySource(properties = "spring.cache.type=redis")
 public class AdminExchangeRateControllerTest extends AbstractControllerTest {
 
@@ -81,9 +79,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should import single enabled currency"
-          + " successfully")
   void shouldImportSingleEnabledCurrencySuccessfully() throws Exception {
     // Arrange: Create enabled EUR currency series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -122,9 +117,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should import multiple enabled currencies"
-          + " successfully")
   void shouldImportMultipleEnabledCurrenciesSuccessfully() throws Exception {
     // Arrange: Create 3 enabled currency series
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().build());
@@ -166,9 +158,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should skip disabled currencies and import only"
-          + " enabled")
   void shouldSkipDisabledCurrenciesAndImportOnlyEnabled() throws Exception {
     // Arrange: Create enabled EUR series and disabled GBP series
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().enabled(true).build());
@@ -193,9 +182,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should return empty list when no enabled currencies"
-          + " exist")
   void shouldReturnEmptyListWhenNoEnabledCurrenciesExist() throws Exception {
     // Arrange: Create DISABLED currency series
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().enabled(false).build());
@@ -212,8 +198,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should skip duplicates and create only new rates")
   void shouldSkipDuplicatesAndCreateOnlyNewRates() throws Exception {
     // Arrange: Create enabled EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -260,8 +244,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should update existing rates when values differ")
   void shouldUpdateExistingRatesWhenValuesDiffer() throws Exception {
     // Arrange: Create enabled EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -293,7 +275,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/exchange-rates/import - should evict cache after import")
   void shouldEvictCacheAfterImport() throws Exception {
     // Arrange: Create enabled EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -320,9 +301,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should return empty list when no currency series"
-          + " exist")
   void shouldReturnEmptyListWhenNoCurrencySeriesExist() throws Exception {
     // Arrange: Empty database
 
@@ -334,9 +312,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should be idempotent when importing same data"
-          + " twice")
   void shouldBeIdempotentWhenImportingSameDataTwice() throws Exception {
     // Arrange: Create enabled EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -371,8 +346,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should handle large dataset import successfully")
   void shouldHandleLargeDatasetImportSuccessfully() throws Exception {
     // Arrange: Create enabled EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -399,9 +372,6 @@ public class AdminExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/exchange-rates/import - should correctly report earliest and latest date"
-          + " range")
   void shouldCorrectlyReportEarliestAndLatestDateRange() throws Exception {
     // Arrange: Create enabled EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();

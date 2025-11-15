@@ -12,7 +12,6 @@ import java.time.Duration;
 import java.time.Instant;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +56,6 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  *   <li>Multiplier: 2.0 (exponential backoff)
  * </ul>
  */
-@DisplayName("Retry and Error Handling Integration Tests")
 public class RetryAndErrorHandlingIntegrationTest extends AbstractWireMockTest {
 
   private static final int WAIT_TIME_SECONDS = 15;

@@ -8,7 +8,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
@@ -50,7 +49,6 @@ import org.budgetanalyzer.service.exception.ServiceException;
  * <p><b>Cache Configuration:</b> This test explicitly enables Redis cache to verify cache eviction
  * behavior.
  */
-@DisplayName("Exchange Rate Import Service Integration Tests")
 @TestPropertySource(properties = "spring.cache.type=redis")
 class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
 
@@ -89,9 +87,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * full historical data for all enabled currencies.
    */
   @Test
-  @DisplayName(
-      "importMissingExchangeRates with empty database imports all enabled series with full"
-          + " history")
   void importMissingExchangeRatesWithEmptyDatabaseImportsAllSeries() {
     // Arrange - Create 3 enabled currency series with NO exchange rates
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -144,7 +139,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * only import for series with zero records.
    */
   @Test
-  @DisplayName("importMissingExchangeRates only imports series with no data")
   void importMissingExchangeRatesOnlyImportsSeriesWithNoData() {
     // Arrange - Create 3 enabled series: EUR (has 10 rates), THB (0 rates), GBP (0 rates)
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -191,7 +185,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>When all enabled currency series already have exchange rate data, no import should occur.
    */
   @Test
-  @DisplayName("importMissingExchangeRates returns empty list when all series have data")
   void importMissingExchangeRatesReturnsEmptyWhenAllSeriesHaveData() {
     // Arrange - Create 3 enabled series, all with existing rates
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -235,7 +228,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * of existing data.
    */
   @Test
-  @DisplayName("importLatestExchangeRates imports for all enabled series")
   void importLatestExchangeRatesImportsForAllEnabledSeries() {
     // Arrange - Create 3 enabled series with existing rates ending Jan 15
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -313,7 +305,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>Disabled currency series should be excluded from scheduled imports.
    */
   @Test
-  @DisplayName("importLatestExchangeRates excludes disabled series")
   void importLatestExchangeRatesExcludesDisabledSeries() {
     // Arrange - Create 2 enabled (EUR, THB) and 1 disabled (GBP) series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -370,7 +361,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * last stored date.
    */
   @Test
-  @DisplayName("importExchangeRatesForSeries imports specific series with incremental data")
   void importExchangeRatesForSeriesImportsSpecificSeries() {
     // Arrange - Create EUR series with existing rates ending Jan 15
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -412,7 +402,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * data (startDate = null).
    */
   @Test
-  @DisplayName("importExchangeRatesForSeries with no data uses null start date for full history")
   void importExchangeRatesForSeriesWithNoDataUsesNullStartDate() {
     // Arrange - Create EUR series with NO existing rates
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -442,7 +431,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>Requesting import for an invalid series ID should throw ResourceNotFoundException.
    */
   @Test
-  @DisplayName("importExchangeRatesForSeries throws ResourceNotFoundException for invalid ID")
   void importExchangeRatesForSeriesThrowsResourceNotFoundExceptionForInvalidId() {
     // Act & Assert
     assertThatThrownBy(() -> exchangeRateImportService.importExchangeRatesForSeries(999L))
@@ -461,7 +449,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * than checking each rate individually.
    */
   @Test
-  @DisplayName("Initial import uses batch save for performance without deduplication")
   void initialImportUsesBatchSaveForPerformance() {
     // Arrange - Create EUR series with NO existing rates
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -494,7 +481,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * updates or skips.
    */
   @Test
-  @DisplayName("Incremental import with all new records adds all rates")
   void incrementalImportWithAllNewRecordsAddsAllRates() {
     // Arrange - EUR series with rates ending Jan 15
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -534,7 +520,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * without database writes.
    */
   @Test
-  @DisplayName("Incremental import skips unchanged records")
   void incrementalImportSkipsUnchangedRecords() {
     // Arrange - EUR series with rates for Jan 15-20
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -584,7 +569,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * record should be updated with a warning log.
    */
   @Test
-  @DisplayName("Incremental import updates changed rates with warning log")
   void incrementalImportUpdatesChangedRates() {
     // Arrange - EUR series with rate for Jan 15 = 0.8500
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -628,7 +612,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * together.
    */
   @Test
-  @DisplayName("Deduplication handles mix of new, updated, and skipped records")
   void deduplicationHandlesMixedScenarios() {
     // Arrange - EUR series with rates: Jan 10 (0.8500), Jan 11 (0.8600)
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -673,7 +656,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * data.
    */
   @Test
-  @DisplayName("Import result contains correct earliest and latest dates")
   void importResultContainsCorrectEarliestAndLatestDates() {
     // Arrange - EUR series with no data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -711,7 +693,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>After importing missing data, the entire cache should be cleared to prevent stale data.
    */
   @Test
-  @DisplayName("importMissingExchangeRates evicts all cache entries")
   void importMissingExchangeRatesEvictsAllCacheEntries() {
     // Arrange - Create EUR series with no data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -741,7 +722,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>After the scheduled import, the entire cache should be cleared to prevent stale data.
    */
   @Test
-  @DisplayName("importLatestExchangeRates evicts all cache entries")
   void importLatestExchangeRatesEvictsAllCacheEntries() {
     // Arrange - Create EUR series with existing data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -778,7 +758,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>After importing for a specific series, the entire cache should be cleared.
    */
   @Test
-  @DisplayName("importExchangeRatesForSeries evicts all cache entries")
   void importExchangeRatesForSeriesEvictsAllCacheEntries() {
     // Arrange - EUR series with existing data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -815,7 +794,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>Even if provider returns no new data, the cache should still be cleared for consistency.
    */
   @Test
-  @DisplayName("Cache eviction occurs even with empty import results")
   void cacheEvictionOccursEvenWithEmptyImportResults() {
     // Arrange - EUR series with existing data up to today
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -862,7 +840,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * further deferred to the transaction's after-commit phase, which never executes on rollback.
    */
   @Test
-  @DisplayName("Cache is NOT cleared on transaction rollback (maintains consistency)")
   void cacheIsNotClearedOnTransactionRollback() {
     // Arrange - EUR series with existing data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -907,7 +884,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>Verify that the provider is invoked with the currency series and correct start date.
    */
   @Test
-  @DisplayName("Provider called with correct parameters for incremental import")
   void providerCalledWithCorrectParametersForIncrementalImport() {
     // Arrange - EUR series with rates ending Jan 15
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -939,7 +915,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>When no data exists, provider should be called with null to fetch full history.
    */
   @Test
-  @DisplayName("Provider called with null start date for initial import")
   void providerCalledWithNullStartDateForInitialImport() {
     // Arrange - EUR series with NO existing rates
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -965,7 +940,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>When provider has no new data, the import should complete gracefully with zero counts.
    */
   @Test
-  @DisplayName("Provider returns empty map results in zero counts")
   void providerReturnsEmptyMapResultsInZeroCounts() {
     // Arrange - EUR series with existing data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1000,7 +974,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * IDs, not our currency codes.
    */
   @Test
-  @DisplayName("Provider exception bubbles up from FRED client as ClientException")
   void providerExceptionBubblesUpFromFredClient() {
     // Arrange - EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1023,7 +996,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * FredExchangeRateProvider directly.
    */
   @Test
-  @DisplayName("Service uses provider abstraction not FRED directly")
   void serviceUsesProviderAbstractionNotFredDirectly() {
     // Arrange - EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1049,7 +1021,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * currency.
    */
   @Test
-  @DisplayName("importLatestRates calls provider once per currency")
   void importLatestRatesCallsProviderOncePerCurrency() {
     // Arrange - Create 3 enabled series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1110,7 +1081,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * persisted.
    */
   @Test
-  @DisplayName("Transaction rollback on provider failure persists no data")
   void transactionRollbackOnProviderFailure() {
     // Arrange - EUR series with existing data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1146,7 +1116,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * persisted.
    */
   @Test
-  @DisplayName("Transaction rollback on repository save failure persists no data")
   void transactionRollbackOnRepositorySaveFailure() {
     // Arrange - EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1178,7 +1147,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * (atomicity).
    */
   @Test
-  @DisplayName("Partial import rollback for multiple series batch ensures atomicity")
   void partialImportRollbackForMultipleSeriesBatch() {
     // Arrange - Create 3 enabled series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1222,7 +1190,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * results.
    */
   @Test
-  @DisplayName("importLatestRates with no enabled series returns empty list")
   void importLatestRatesWithNoEnabledSeriesReturnsEmptyList() {
     // Arrange - Create only disabled currency series
     var disabledSeries = CurrencySeriesTestBuilder.defaultEur().enabled(false).build();
@@ -1241,7 +1208,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>Zero is not a valid entity ID and should throw ResourceNotFoundException.
    */
   @Test
-  @DisplayName("importExchangeRatesForSeries with zero ID throws ResourceNotFoundException")
   void importExchangeRatesForSeriesWithZeroIdThrowsResourceNotFoundException() {
     // Act & Assert
     assertThatThrownBy(() -> exchangeRateImportService.importExchangeRatesForSeries(0L))
@@ -1255,7 +1221,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>Negative IDs are invalid and should throw ResourceNotFoundException.
    */
   @Test
-  @DisplayName("importExchangeRatesForSeries with negative ID throws ResourceNotFoundException")
   void importExchangeRatesForSeriesWithNegativeIdThrowsResourceNotFoundException() {
     // Act & Assert
     assertThatThrownBy(() -> exchangeRateImportService.importExchangeRatesForSeries(-1L))
@@ -1270,7 +1235,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * (targetCurrency) are set correctly.
    */
   @Test
-  @DisplayName("Import sets both currencySeries and targetCurrency fields (denormalization)")
   void importSetsBothCurrencySeriesAndTargetCurrencyFields() {
     // Arrange - EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1313,7 +1277,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * about FRED series IDs like "DEXUSEU", not our currency codes like "EUR".
    */
   @Test
-  @DisplayName("FRED API errors bubble up from client")
   void fredApiErrorsBubbleUpFromClient() {
     // Arrange - EUR series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1336,7 +1299,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * (all-or-nothing).
    */
   @Test
-  @DisplayName("importLatestRates handles multiple currencies in single transaction with atomicity")
   void importLatestRatesHandlesMultipleCurrenciesInSingleTransaction() {
     // Arrange - Create 5 enabled series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1415,7 +1377,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * <p>The ImportResult should include a timestamp reflecting when the import occurred.
    */
   @Test
-  @DisplayName("Import result timestamp is set to current time in UTC")
   void importResultTimestampIsSetToCurrentTime() {
     // Arrange - EUR series with no data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -1444,7 +1405,6 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
    * for debugging.
    */
   @Test
-  @DisplayName("Import logs summary information including counts and date ranges")
   void importLogsSummaryInformation() {
     // Arrange - EUR series with some existing data
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();

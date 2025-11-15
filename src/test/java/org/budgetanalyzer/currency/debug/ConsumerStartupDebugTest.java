@@ -46,7 +46,6 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  * </ol>
  */
 @SpringBootTest
-@DisplayName("Consumer Startup Debug Tests")
 public class ConsumerStartupDebugTest extends AbstractWireMockTest {
 
   private static final Logger logger = LoggerFactory.getLogger(ConsumerStartupDebugTest.class);
@@ -70,7 +69,7 @@ public class ConsumerStartupDebugTest extends AbstractWireMockTest {
 
   @Test
   @DisplayName("Consumer ENABLED by default - should process messages")
-  void testConsumerEnabledByDefault() {
+  void shouldProcessMessagesWhenConsumerEnabledByDefault() {
     logger.info("DEBUG TEST: Starting test with consumer ENABLED");
 
     // Arrange - Create an enabled currency via service (triggers domain event → listener → message
@@ -91,8 +90,9 @@ public class ConsumerStartupDebugTest extends AbstractWireMockTest {
               logger.info("DEBUG TEST: Exchange rates count: {}", count);
               assertThat(count)
                   .as(
-                      "Consumer should be ENABLED and process the message, creating exchange rates from FRED")
-                  .isEqualTo(8); // FredApiStubs.stubSuccessWithSampleData provides exactly 8 rates
+                      "Consumer should be ENABLED and process the message, "
+                          + "creating exchange rates from FRED")
+                  .isEqualTo(8); // FredApiStubs.stubSuccessWithSampleData = 8 rates
             });
   }
 
@@ -107,7 +107,6 @@ public class ConsumerStartupDebugTest extends AbstractWireMockTest {
    * consumer should NOT start and messages should NOT be processed.
    */
   @Nested
-  @DisplayName("Consumer Disabled Tests")
   @TestPropertySource(
       properties = {
         "spring.cloud.stream.bindings.importExchangeRates-in-0.consumer.auto-startup=false"
@@ -116,7 +115,7 @@ public class ConsumerStartupDebugTest extends AbstractWireMockTest {
 
     @Test
     @DisplayName("Consumer DISABLED via @TestPropertySource - should NOT process messages")
-    void testConsumerDisabled() {
+    void shouldNotProcessMessagesWhenConsumerDisabled() {
       logger.info("DEBUG TEST: Starting test with consumer DISABLED");
 
       // Arrange - Create an enabled currency via service
@@ -139,7 +138,8 @@ public class ConsumerStartupDebugTest extends AbstractWireMockTest {
 
       assertThat(exchangeRateCount)
           .as(
-              "Consumer should be DISABLED via @TestPropertySource, so no exchange rates should be created")
+              "Consumer should be DISABLED via @TestPropertySource, "
+                  + "so no exchange rates should be created")
           .isEqualTo(0);
     }
   }

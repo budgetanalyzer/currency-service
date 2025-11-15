@@ -11,7 +11,6 @@ import java.time.LocalDate;
 import java.util.Currency;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -46,7 +45,6 @@ import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
  *   <li>Edge cases (leap years, multiple currencies, empty results)
  * </ul>
  */
-@DisplayName("Exchange Rate Controller Integration Tests")
 public class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
@@ -63,7 +61,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return exchange rates for valid date range")
   void shouldReturnExchangeRatesForValidDateRange() throws Exception {
     // Setup: Save EUR series + 10 exchange rates for Jan 1-10
     saveExchangeRatesForSeries(
@@ -85,9 +82,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/exchange-rates - should return exchange rates with optional startDate (endDate"
-          + " only)")
   void shouldReturnExchangeRatesWithOptionalStartDate() throws Exception {
     // Setup: Save EUR series + rates from Jan 1-31
     saveExchangeRatesForSeries(
@@ -107,9 +101,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/exchange-rates - should return exchange rates with optional endDate (startDate"
-          + " only)")
   void shouldReturnExchangeRatesWithOptionalEndDate() throws Exception {
     // Setup: Save EUR series + rates from Jan 1-31
     saveExchangeRatesForSeries(
@@ -129,7 +120,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return all exchange rates without date parameters")
   void shouldReturnExchangeRatesWithoutDateParameters() throws Exception {
     // Setup: Save EUR series + 10 rates
     saveExchangeRatesForSeries(
@@ -148,7 +138,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return gap-filled exchange rates for weekends")
   void shouldReturnGapFilledExchangeRates() throws Exception {
     // Setup: Save EUR series + rates for weekdays only (Jan 1-5 are Mon-Fri)
     // Note: Jan 1, 2024 is Monday
@@ -178,7 +167,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return 400 when targetCurrency is missing")
   void shouldReturn400WhenTargetCurrencyIsMissing() throws Exception {
     // Execute: Query without targetCurrency
     performGet("/v1/exchange-rates?startDate=2024-01-01&endDate=2024-12-31")
@@ -187,7 +175,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return 400 when targetCurrency is invalid")
   void shouldReturn400WhenTargetCurrencyIsInvalid() throws Exception {
     // Execute: Query with invalid currency code
     performGet("/v1/exchange-rates?targetCurrency=INVALID&startDate=2024-01-01")
@@ -196,7 +183,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return 400 when startDate is after endDate")
   void shouldReturn400WhenStartDateIsAfterEndDate() throws Exception {
     // Execute: Query with startDate after endDate
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-12-31&endDate=2024-01-01")
@@ -205,7 +191,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return 400 for invalid date format")
   void shouldReturn400ForInvalidDateFormat() throws Exception {
     // Execute: Query with invalid month (13)
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-13-01")
@@ -214,7 +199,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return 400 for malformed date format")
   void shouldReturn400ForMalformedDateFormat() throws Exception {
     // Execute: Query with non-date string
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=not-a-date")
@@ -227,7 +211,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return 422 when no currency series exists")
   void shouldReturn422WhenNoCurrencySeriesExists() throws Exception {
     // Setup: Empty database (no series for ZAR)
 
@@ -239,7 +222,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return 422 when startDate is out of range")
   void shouldReturn422WhenStartDateOutOfRange() throws Exception {
     // Setup: Save EUR series + rates starting from Jan 3, 2024
     saveExchangeRatesForSeries(
@@ -256,8 +238,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/exchange-rates - should return empty array when no data available for date range")
   void shouldReturnEmptyArrayWhenNoDataAvailableForDateRange() throws Exception {
     // Setup: Save EUR series + rates only up to 2024
     saveExchangeRatesForSeries(
@@ -279,7 +259,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return correct JSON structure with all fields")
   void shouldReturnCorrectJsonStructureWithAllFields() throws Exception {
     // Setup: Save single EUR rate for Jan 2, 2024 with rate 0.8500
     saveExchangeRatesForSeries(
@@ -309,7 +288,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should return empty array when no rates in range")
   void shouldReturnEmptyArrayWhenNoRatesInRange() throws Exception {
     // Setup: Save EUR series + rates for 2024 only
     saveExchangeRatesForSeries(
@@ -327,7 +305,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should handle multiple currencies correctly")
   void shouldHandleMultipleCurrencies() throws Exception {
     // Setup: Save both EUR and THB series with rates
     saveExchangeRatesForSeries(
@@ -361,7 +338,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should handle leap year date")
   void shouldHandleLeapYearDate() throws Exception {
     // Setup: Save EUR rate for Feb 29, 2024 (leap year)
     saveExchangeRatesForSeries(
@@ -380,7 +356,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should handle same date for start and end")
   void shouldHandleSameDateForStartAndEnd() throws Exception {
     // Setup: Save EUR rate for Jan 2
     saveExchangeRatesForSeries(
@@ -399,7 +374,6 @@ public class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/exchange-rates - should handle large date ranges")
   void shouldHandleLargeDateRanges() throws Exception {
     // Setup: Save EUR series + rates for full year 2024 (365 days)
     saveExchangeRatesForSeries(

@@ -1,7 +1,6 @@
 package org.budgetanalyzer.currency.scheduler;
 
 import java.time.Instant;
-import java.util.concurrent.Executor;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;

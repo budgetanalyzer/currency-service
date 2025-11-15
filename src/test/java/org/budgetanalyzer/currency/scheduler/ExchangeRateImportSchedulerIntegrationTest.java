@@ -58,7 +58,6 @@ import org.budgetanalyzer.currency.service.ExchangeRateImportService;
  * <p><b>Note:</b> Retry mechanism and metrics are tested in unit tests. These integration tests
  * focus on ShedLock distributed coordination behavior and end-to-end flow.
  */
-@DisplayName("ExchangeRateImportScheduler Integration Tests")
 @Import(TestTaskSchedulerConfig.class)
 class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
 
@@ -90,6 +89,10 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
     lockHelper = new SchedulerTestHelper(jdbcTemplate);
     lockHelper.clearShedLock();
 
+    // Clear all meters from registry to prevent test isolation issues
+    // MeterRegistry is a shared Spring bean, so metrics accumulate across tests
+    meterRegistry.clear();
+
     // Create test currency series for import to work
     // The scheduler calls importLatestExchangeRates() which imports ALL enabled series
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
@@ -108,8 +111,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - executes successfully with database persistence")
-  void importDailyRates_ExecutesSuccessfully() {
+  void shouldExecuteSuccessfully() {
     // Arrange - WireMock already stubbed in setUp() with success response
     // Get initial total count of all exchange rates
     long initialCount = exchangeRateRepository.count();
@@ -146,8 +148,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - acquires ShedLock during execution")
-  void importDailyRates_AcquiresShedLock() throws Exception {
+  void shouldAcquireShedLock() throws Exception {
     // Arrange - Stub FRED with delayed response to ensure lock is held during execution
     wireMockServer.resetAll();
     FredApiStubs.stubTimeout(TestConstants.FRED_SERIES_EUR); // 5 second delay
@@ -191,8 +192,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - releases lock after completion")
-  void importDailyRates_ReleasesLockAfterCompletion() {
+  void shouldReleaseLockAfterCompletion() {
     // Arrange - WireMock already stubbed in setUp() with success response
 
     // Act - Execute scheduler
@@ -210,8 +210,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - prevents concurrent execution via ShedLock")
-  void importDailyRates_PreventsConcurrentExecution() throws Exception {
+  void shouldPreventConcurrentExecution() throws Exception {
     // Arrange - Stub FRED with delay to ensure threads overlap
     wireMockServer.resetAll();
     FredApiStubs.stubTimeout(TestConstants.FRED_SERIES_EUR); // 5 second delay
@@ -271,8 +270,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - releases lock on exception")
-  void importDailyRates_ReleasesLockOnException() {
+  void shouldReleaseLockOnException() {
     // Arrange - Stub FRED to return server error
     wireMockServer.resetAll();
     FredApiStubs.stubServerError(TestConstants.FRED_SERIES_EUR);
@@ -310,8 +308,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - acquires expired lock")
-  void importDailyRates_AcquiresExpiredLock() {
+  void shouldAcquireExpiredLock() {
     // Arrange - Insert expired lock from previous "instance"
     lockHelper.insertExpiredLock("exchangeRateImport", "previous-instance-12345");
 
@@ -355,8 +352,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - recovers from service exception on subsequent execution")
-  void importDailyRates_RecoversFromServiceException() {
+  void shouldRecoverFromServiceException() {
     // Arrange - First call fails with server error
     wireMockServer.resetAll();
     FredApiStubs.stubServerError(TestConstants.FRED_SERIES_EUR);
@@ -374,14 +370,14 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
     assertThat(failureCounter).isNotNull();
     assertThat(failureCounter.count()).isEqualTo(1);
 
-    // Get exchange rate count before successful import
-    long countBeforeSuccess = exchangeRateRepository.count();
-
     // Arrange - Second call succeeds
     wireMockServer.resetAll();
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
         List.of(new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
+
+    // Get exchange rate count before successful import
+    long countBeforeSuccess = exchangeRateRepository.count();
 
     // Act - Execute scheduler again (will succeed)
     scheduler.importDailyRates();
@@ -406,8 +402,8 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - lock duration approximately 15 minutes (lockAtMostFor)")
-  void importDailyRates_LockDurationIs15Minutes() throws Exception {
+  @DisplayName("ImportDailyRates - lock duration approximately 15 minutes (lockAtMostFor)")
+  void shouldHaveLockDurationOf15Minutes() throws Exception {
     // Arrange - Stub FRED with delay to ensure we can inspect lock during execution
     wireMockServer.resetAll();
     FredApiStubs.stubTimeout(TestConstants.FRED_SERIES_EUR); // 5 second delay
@@ -455,8 +451,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - simulates multiple pods, only one executes")
-  void importDailyRates_MultipleInstances_OnlyOneExecutes() throws Exception {
+  void shouldAllowOnlyOneExecutionWhenMultipleInstances() throws Exception {
     // Arrange - Stub FRED with delay to ensure instances overlap
     wireMockServer.resetAll();
     FredApiStubs.stubTimeout(TestConstants.FRED_SERIES_EUR); // 5 second delay
@@ -517,8 +512,8 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("importDailyRates - retries automatically on failure and eventually succeeds")
-  void importDailyRates_RetriesOnFailureAndSucceeds() throws Exception {
+  @DisplayName("ImportDailyRates - retries automatically on failure and eventually succeeds")
+  void shouldRetryOnFailureAndEventuallySucceed() throws Exception {
     // Arrange - Stub FRED to fail first, then succeed on retry
     // Use WireMock scenario for stateful behavior
     wireMockServer.resetAll();
@@ -604,8 +599,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   class RetryMaxAttemptsTests {
 
     @Test
-    @DisplayName("importDailyRates - respects max retry attempts and records exhaustion")
-    void importDailyRates_RespectsMaxRetries() throws Exception {
+    void shouldRespectMaxRetries() throws Exception {
       // Arrange - Stub FRED to always fail
       wireMockServer.resetAll();
       FredApiStubs.stubServerErrorForAll(); // All requests fail
@@ -681,8 +675,7 @@ class ExchangeRateImportSchedulerIntegrationTest extends AbstractWireMockTest {
   class ConfigurableRetryDelayTests {
 
     @Test
-    @DisplayName("importDailyRates - respects retry configuration")
-    void importDailyRates_RespectsRetryConfiguration() throws Exception {
+    void shouldRespectRetryConfiguration() throws Exception {
       // Arrange - Stub FRED to always fail
       wireMockServer.resetAll();
       FredApiStubs.stubServerErrorForAll();

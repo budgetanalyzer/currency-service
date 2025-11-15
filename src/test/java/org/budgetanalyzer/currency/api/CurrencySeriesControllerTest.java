@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -40,7 +39,6 @@ import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
  *   <li>Query parameter handling (boolean value variations)
  * </ul>
  */
-@DisplayName("Currency Series Controller Integration Tests")
 public class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
@@ -55,7 +53,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("GET /v1/currencies - should return empty list when no currencies exist")
   void shouldReturnEmptyListWhenNoCurrencies() throws Exception {
     // Execute
     performGet("/v1/currencies")
@@ -66,7 +63,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/currencies - should return all currencies when enabledOnly=false")
   void shouldReturnAllCurrencies() throws Exception {
     // Setup: Save 3 currencies (2 enabled, 1 disabled)
     var eur = CurrencySeriesTestBuilder.defaultEur().build();
@@ -88,7 +84,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/currencies - should return only enabled currencies when enabledOnly=true")
   void shouldReturnOnlyEnabledCurrencies() throws Exception {
     // Setup: Save 3 currencies (2 enabled, 1 disabled)
     var eur = CurrencySeriesTestBuilder.defaultEur().build();
@@ -107,9 +102,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/currencies - should return all currencies when enabledOnly parameter is not"
-          + " provided")
   void shouldReturnAllCurrenciesWhenEnabledOnlyIsNotProvided() throws Exception {
     // Setup: Save 3 currencies (2 enabled, 1 disabled)
     var eur = CurrencySeriesTestBuilder.defaultEur().build();
@@ -127,8 +119,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/currencies - should return all currencies when enabledOnly=false is explicitly set")
   void shouldReturnAllCurrenciesWhenEnabledOnlyIsFalse() throws Exception {
     // Setup: Save 3 currencies (2 enabled, 1 disabled)
     var eur = CurrencySeriesTestBuilder.defaultEur().build();
@@ -149,9 +139,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName(
-      "GET /v1/currencies - should return empty list when no enabled currencies exist and"
-          + " enabledOnly=true")
   void shouldReturnEmptyListWhenNoEnabledCurrencies() throws Exception {
     // Setup: Save 2 disabled currencies only
     var gbp = CurrencySeriesTestBuilder.defaultGbp().enabled(false).build();
@@ -167,7 +154,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/currencies - should handle large dataset correctly")
   void shouldHandleLargeDataset() throws Exception {
     // Setup: Save 5 currencies
     var eur = CurrencySeriesTestBuilder.defaultEur().build();
@@ -192,7 +178,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("GET /v1/currencies - should return correct response structure with all fields")
   void shouldReturnCorrectResponseStructure() throws Exception {
     // Setup: Save 1 currency
     var eur = CurrencySeriesTestBuilder.defaultEur().build();
@@ -222,8 +207,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName(
-      "GET /v1/currencies - should accept various boolean true values for enabledOnly parameter")
   void shouldAcceptBooleanTrueValues() throws Exception {
     // Setup: Save 3 currencies (2 enabled, 1 disabled)
     var eur = CurrencySeriesTestBuilder.defaultEur().build();
@@ -244,8 +227,6 @@ public class CurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "GET /v1/currencies - should accept various boolean false values for enabledOnly parameter")
   void shouldAcceptBooleanFalseValues() throws Exception {
     // Setup: Save 3 currencies (2 enabled, 1 disabled)
     var eur = CurrencySeriesTestBuilder.defaultEur().build();

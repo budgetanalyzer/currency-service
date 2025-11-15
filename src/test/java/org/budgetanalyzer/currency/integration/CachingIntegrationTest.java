@@ -12,7 +12,6 @@ import java.util.Currency;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
@@ -52,7 +51,6 @@ import org.budgetanalyzer.currency.service.dto.ExchangeRateData;
  * @see org.budgetanalyzer.currency.config.CacheConfig
  * @see org.budgetanalyzer.currency.service.ExchangeRateService#getExchangeRates
  */
-@DisplayName("Redis Caching Integration Tests")
 @TestPropertySource(properties = "spring.cache.type=redis")
 public class CachingIntegrationTest extends AbstractIntegrationTest {
 
@@ -120,8 +118,7 @@ public class CachingIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("First query should populate cache with exchange rate data")
-  void testCachePopulation() {
+  void shouldPopulateCacheOnFirstQuery() {
     // Given: Empty cache
     var thbCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_THB);
     var startDate = LocalDate.of(2024, 1, 1);
@@ -150,8 +147,7 @@ public class CachingIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Subsequent queries should return cached data without database access")
-  void testCacheHit() {
+  void shouldReturnCachedDataOnSubsequentQueries() {
     // Given: Cache populated by first query
     var thbCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_THB);
     var startDate = LocalDate.of(2024, 1, 1);
@@ -177,8 +173,7 @@ public class CachingIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Cache keys should follow format: {currency}:{startDate}:{endDate}")
-  void testCacheKeyFormat() {
+  void shouldFollowCacheKeyFormat() {
     // Given: Multiple queries with different parameters
     var thbCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_THB);
     var startDate1 = LocalDate.of(2024, 1, 1);
@@ -213,8 +208,7 @@ public class CachingIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Import operation should clear entire cache (all currencies)")
-  void testCacheEvictionOnImport() {
+  void shouldClearEntireCacheOnImport() {
     // Given: Cache populated with data for multiple currencies
     var thbCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_THB);
     var eurCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_EUR);
@@ -255,9 +249,8 @@ public class CachingIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Cache should isolate data between different currencies")
   @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
-  void testMultiCurrencyCacheIsolation() {
+  void shouldIsolateCacheDataBetweenDifferentCurrencies() {
     // Given: Same date range for different currencies
     var thbCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_THB);
     var eurCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_EUR);
@@ -309,8 +302,7 @@ public class CachingIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Cache should correctly serialize/deserialize ExchangeRateData DTOs")
-  void testCacheSerialization() {
+  void shouldCorrectlySerializeAndDeserializeExchangeRateData() {
     // Given: Complex exchange rate data with various field types
     var thbCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_THB);
     var startDate = LocalDate.of(2024, 1, 1);
@@ -350,8 +342,7 @@ public class CachingIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Cache should handle null date parameters in cache keys")
-  void testCacheKeyWithNullDates() {
+  void shouldHandleNullDatesInCacheKey() {
     // Given: Query with null start and end dates
     var thbCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_THB);
 
@@ -369,8 +360,7 @@ public class CachingIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Cache should handle partial null date parameters")
-  void testCacheKeyWithPartialNullDates() {
+  void shouldHandlePartialNullDatesInCacheKey() {
     // Given: Queries with partially null dates
     var thbCurrency = Currency.getInstance(TestConstants.VALID_CURRENCY_THB);
     var startDate = LocalDate.of(2024, 1, 1);

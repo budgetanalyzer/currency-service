@@ -8,7 +8,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -49,7 +48,6 @@ import org.budgetanalyzer.service.exception.ClientException;
  * @see org.budgetanalyzer.currency.client.fred.FredClient
  * @see ExchangeRateProvider
  */
-@DisplayName("FredExchangeRateProvider Integration Tests")
 class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
 
   @Autowired private FredExchangeRateProvider fredExchangeRateProvider;
@@ -77,7 +75,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   // ========================================
 
   @Test
-  @DisplayName("Should fetch full history when startDate is null")
   void shouldFetchFullHistoryWhenStartDateIsNull() {
     // Given
     FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
@@ -111,7 +108,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should fetch incremental data when startDate is provided")
   void shouldFetchIncrementalDataWhenStartDateProvided() {
     // Given
     var startDate = LocalDate.of(2024, 6, 1);
@@ -127,7 +123,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should filter out observations with missing data indicator '.'")
   void shouldFilterMissingDataObservations() {
     // Given - FRED returns mix of valid values and "." for weekends
     var observations =
@@ -155,7 +150,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should correctly parse various BigDecimal formats from FRED")
   void shouldParseVariousBigDecimalFormats() {
     // Given - Custom observations with different numeric formats
     var observations =
@@ -183,7 +177,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should efficiently handle large dataset with 365 observations")
   void shouldHandleLargeDatasetEfficiently() {
     // Given
     FredApiStubs.stubSuccessWithLargeDataset(TestConstants.FRED_SERIES_EUR);
@@ -203,7 +196,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should work with different currency series (THB)")
   void shouldWorkWithDifferentCurrencySeries() {
     // Given
     FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_THB);
@@ -227,7 +219,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   // ========================================
 
   @Test
-  @DisplayName("Should throw ClientException when FRED returns 404 Not Found")
   void shouldThrowClientExceptionOn404NotFound() {
     // Given
     FredApiStubs.stubNotFound(TestConstants.FRED_SERIES_EUR);
@@ -239,7 +230,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException when FRED returns 400 Bad Request")
   void shouldThrowClientExceptionOn400BadRequest() {
     // Given
     FredApiStubs.stubBadRequest(TestConstants.FRED_SERIES_EUR);
@@ -251,7 +241,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException when FRED returns 500 Server Error")
   void shouldThrowClientExceptionOn500ServerError() {
     // Given
     FredApiStubs.stubServerError(TestConstants.FRED_SERIES_EUR);
@@ -263,7 +252,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on timeout")
   void shouldThrowClientExceptionOnTimeout() {
     // Given
     FredApiStubs.stubTimeout(TestConstants.FRED_SERIES_EUR); // 35 second delay
@@ -275,7 +263,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on malformed JSON response")
   void shouldThrowClientExceptionOnMalformedJson() {
     // Given
     FredApiStubs.stubMalformedJson(TestConstants.FRED_SERIES_EUR);
@@ -286,7 +273,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException when rate limited (429)")
   void shouldThrowClientExceptionOnRateLimit() {
     // Given
     FredApiStubs.stubRateLimited(TestConstants.FRED_SERIES_EUR);
@@ -302,7 +288,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   // ========================================
 
   @Test
-  @DisplayName("Should return true when series exists in FRED")
   void shouldReturnTrueWhenSeriesExists() {
     // Given
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -315,7 +300,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should return false when series not found (404) - not throw exception")
   void shouldReturnFalseWhenSeriesNotFound() {
     // Given
     FredApiStubs.stubSeriesExistsNotFound("NONEXISTENT");
@@ -328,7 +312,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should return false when series ID invalid (400) - not throw exception")
   void shouldReturnFalseWhenSeriesIdInvalid() {
     // Given
     FredApiStubs.stubSeriesExistsBadRequest("INVALID@@@");
@@ -341,7 +324,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException when series validation encounters server error")
   void shouldThrowClientExceptionOnValidationServerError() {
     // Given
     FredApiStubs.stubSeriesExistsServerError(TestConstants.FRED_SERIES_EUR);
@@ -358,7 +340,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   // ========================================
 
   @Test
-  @DisplayName("Should return empty map when FRED returns no observations")
   void shouldReturnEmptyMapWhenNoObservations() {
     // Given
     FredApiStubs.stubSuccessEmpty(TestConstants.FRED_SERIES_EUR);
@@ -371,7 +352,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should return empty map when all observations have missing data '.'")
   void shouldReturnEmptyMapWhenAllObservationsMissing() {
     // Given - All observations have value = "."
     var observations =
@@ -390,7 +370,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should handle mix of valid values and missing data correctly")
   void shouldHandleMixOfValidAndMissingData() {
     // Given - Realistic week with weekdays (data) and weekends (missing)
     var observations =
@@ -421,7 +400,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should handle very old historical dates (1971)")
   void shouldHandleVeryOldHistoricalDates() {
     // Given - FRED has data back to 1971
     var observations =
@@ -438,7 +416,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should preserve high precision decimal values")
   void shouldPreserveHighPrecisionValues() {
     // Given - Values with many decimal places
     var observations = List.of(Observation.of(TestConstants.DATE_2024_JAN_02, "1.08501234567890"));
@@ -455,7 +432,6 @@ class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw exception on duplicate dates (invalid FRED data)")
   void shouldThrowExceptionOnDuplicateDates() {
     // Given - Duplicate dates (should not happen in FRED, this tests error handling)
     var observations =

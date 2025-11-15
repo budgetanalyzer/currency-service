@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -44,7 +43,6 @@ import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
  *   <li>Response structure validation (JSON schema, data types, headers)
  * </ul>
  */
-@DisplayName("Admin Currency Series Controller Integration Tests")
 public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
@@ -61,7 +59,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should create currency series with all fields")
   void shouldCreateCurrencySeriesSuccessfully() throws Exception {
     // Setup: Mock FRED API to validate series exists
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
@@ -95,8 +92,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName(
-      "POST /v1/admin/currencies - should create currency series with enabled=false by default")
   void shouldCreateCurrencySeriesWithEnabledFalse() throws Exception {
     // Setup: Mock FRED API
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_GBP);
@@ -128,7 +123,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 400 when currencyCode is missing")
   void shouldReturn400WhenCurrencyCodeIsMissing() throws Exception {
     var requestJson =
         """
@@ -145,7 +139,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 400 when currencyCode is blank")
   void shouldReturn400WhenCurrencyCodeIsBlank() throws Exception {
     var requestJson =
         """
@@ -163,7 +156,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 400 when currencyCode is too short")
   void shouldReturn400WhenCurrencyCodeIsTooShort() throws Exception {
     var requestJson =
         """
@@ -181,7 +173,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 400 when currencyCode is too long")
   void shouldReturn400WhenCurrencyCodeIsTooLong() throws Exception {
     var requestJson =
         """
@@ -199,7 +190,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 400 when currencyCode is lowercase")
   void shouldReturn400WhenCurrencyCodeIsLowercase() throws Exception {
     var requestJson =
         """
@@ -217,7 +207,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 400 when currencyCode contains numbers")
   void shouldReturn400WhenCurrencyCodeContainsNumbers() throws Exception {
     var requestJson =
         """
@@ -235,7 +224,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 400 when providerSeriesId is missing")
   void shouldReturn400WhenProviderSeriesIdIsMissing() throws Exception {
     var requestJson =
         """
@@ -252,7 +240,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 400 when providerSeriesId is blank")
   void shouldReturn400WhenProviderSeriesIdIsBlank() throws Exception {
     var requestJson =
         """
@@ -274,7 +261,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 422 when currency code already exists")
   void shouldReturn422WhenCurrencyCodeAlreadyExists() throws Exception {
     // Setup: Create existing currency
     var existing = CurrencySeriesTestBuilder.defaultEur().build();
@@ -301,7 +287,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 422 for invalid ISO 4217 code")
   void shouldReturn422ForInvalidIso4217Code() throws Exception {
     // Prepare request with non-existent ISO 4217 code
     // Note: QQQ is not a valid ISO 4217 code
@@ -322,7 +307,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should return 422 for invalid provider series ID")
   void shouldReturn422ForInvalidProviderSeriesId() throws Exception {
     // Mock FRED API to return series does not exist
     FredApiStubs.stubSeriesExistsNotFound(TestConstants.FRED_SERIES_INVALID);
@@ -349,7 +333,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("GET /v1/admin/currencies/{id} - should return currency series by ID")
   void shouldReturnCurrencySeriesById() throws Exception {
     // Setup: Save currency series
     var saved = currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().build());
@@ -367,7 +350,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/admin/currencies/{id} - should return disabled currency series")
   void shouldReturnDisabledCurrencySeries() throws Exception {
     // Setup: Save disabled currency series
     var saved =
@@ -387,7 +369,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("GET /v1/admin/currencies/{id} - should return 404 for non-existent ID")
   void shouldReturn404ForNonExistentId() throws Exception {
     performGet("/v1/admin/currencies/{id}", 999L)
         .andExpect(status().isNotFound())
@@ -395,7 +376,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("GET /v1/admin/currencies/{id} - should return 404 when database is empty")
   void shouldReturn404WhenDatabaseIsEmpty() throws Exception {
     performGet("/v1/admin/currencies/{id}", 1L)
         .andExpect(status().isNotFound())
@@ -407,7 +387,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("PUT /v1/admin/currencies/{id} - should enable currency series")
   void shouldEnableCurrencySeries() throws Exception {
     // Setup: Save disabled currency series
     var saved =
@@ -441,7 +420,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("PUT /v1/admin/currencies/{id} - should disable currency series")
   void shouldDisableCurrencySeries() throws Exception {
     // Setup: Save enabled currency series
     var saved =
@@ -468,7 +446,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("PUT /v1/admin/currencies/{id} - should preserve immutable fields")
   void shouldPreserveImmutableFields() throws Exception {
     // Setup: Save currency series
     var saved = currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultGbp().build());
@@ -508,7 +485,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("PUT /v1/admin/currencies/{id} - should return 404 for non-existent ID")
   void shouldReturn404WhenUpdatingNonExistentId() throws Exception {
     var requestJson =
         """
@@ -527,7 +503,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should accept valid ISO 4217 currency codes")
   void shouldAcceptValidIso4217Codes() throws Exception {
     // Test multiple valid ISO 4217 codes
     String[] validCodes = {"EUR", "GBP", "JPY", "CHF", "CAD", "AUD"};
@@ -557,7 +532,6 @@ public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   @Test
-  @DisplayName("POST /v1/admin/currencies - should reject invalid ISO 4217 currency codes")
   void shouldRejectInvalidIso4217Codes() throws Exception {
     // Test invalid ISO 4217 codes - these are not recognized by Currency.getInstance()
     String[] invalidCodes = {"QQQ", "ZZZ", "ABC"};

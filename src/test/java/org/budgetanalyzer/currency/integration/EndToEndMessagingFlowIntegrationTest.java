@@ -14,7 +14,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,7 +70,6 @@ import org.budgetanalyzer.service.http.CorrelationIdFilter;
  *   <li>{@link TransactionalOutboxIntegrationTest} - Tests transactional outbox pattern
  * </ul>
  */
-@DisplayName("End-to-End Messaging Flow Integration Tests")
 public class EndToEndMessagingFlowIntegrationTest extends AbstractWireMockTest {
 
   private static final int EXPECTED_EXCHANGE_RATES_COUNT = 8;

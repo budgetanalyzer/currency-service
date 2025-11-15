@@ -8,7 +8,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -62,7 +61,6 @@ import org.budgetanalyzer.service.exception.ClientException;
  * @see FredApiStubs
  * @see WireMockConfig
  */
-@DisplayName("FredClient Integration Tests")
 public class FredClientIntegrationTest extends AbstractWireMockTest {
 
   @Autowired private FredClient fredClient;
@@ -74,7 +72,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Should successfully fetch series observations with sample data")
   void shouldFetchSeriesObservationsSuccessfully() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -101,7 +98,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should handle empty observations array without error")
   void shouldHandleEmptyObservationsArray() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -116,7 +112,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should handle observations with missing data indicator '.'")
   void shouldHandleMissingDataIndicator() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -138,7 +133,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should handle large dataset with 365 observations efficiently")
   void shouldHandleLargeDataset() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -155,7 +149,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should include startDate in query parameters when provided")
   void shouldIncludeStartDateInRequest() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -176,7 +169,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Should throw ClientException on 400 Bad Request with parsed error message")
   void shouldThrowClientExceptionOn400BadRequest() {
     // Given
     var seriesId = "INVALID_SERIES";
@@ -189,7 +181,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on 404 Not Found")
   void shouldThrowClientExceptionOn404NotFound() {
     // Given
     var seriesId = "NONEXISTENT";
@@ -202,7 +193,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on 500 Server Error")
   void shouldThrowClientExceptionOn500ServerError() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -215,7 +205,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on 429 Rate Limited")
   void shouldThrowClientExceptionOn429RateLimit() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -228,7 +217,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on timeout after 2 seconds")
   void shouldThrowClientExceptionOnTimeout() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -252,7 +240,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on malformed JSON response")
   void shouldThrowClientExceptionOnMalformedJson() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -264,7 +251,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should handle non-JSON error response gracefully")
   void shouldHandleNonJsonErrorResponse() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -289,7 +275,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Should return true when series exists (200 OK)")
   void shouldReturnTrueWhenSeriesExists() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -303,7 +288,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should return false when series not found (404) - not throw exception")
   void shouldReturnFalseWhenSeriesNotFound() {
     // Given
     var seriesId = "NONEXISTENT";
@@ -317,7 +301,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should return false when series ID invalid (400) - not throw exception")
   void shouldReturnFalseWhenSeriesIdInvalid() {
     // Given
     var seriesId = "INVALID@@@";
@@ -335,7 +318,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Should throw ClientException on 500 Server Error (not return false)")
   void shouldThrowClientExceptionOnServerError() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -348,7 +330,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on 429 Rate Limited")
   void shouldThrowClientExceptionOnRateLimitForSeriesExists() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -375,7 +356,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should throw ClientException on timeout after 3 seconds for seriesExists")
   void shouldThrowClientExceptionOnTimeoutForSeriesExists() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;
@@ -402,7 +382,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Should properly URL encode special characters in series ID")
   void shouldUrlEncodeSpecialCharacters() {
     // Given
     var seriesId = "TEST/SERIES:123";
@@ -444,7 +423,6 @@ public class FredClientIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  @DisplayName("Should truncate very long error messages to 500 characters")
   void shouldTruncateLongErrorMessages() {
     // Given
     var seriesId = TestConstants.FRED_SERIES_EUR;

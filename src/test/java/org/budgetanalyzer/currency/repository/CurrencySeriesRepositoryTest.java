@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -33,7 +32,6 @@ import org.budgetanalyzer.currency.domain.CurrencySeries;
  *
  * @see CurrencySeriesRepositoryIntegrationTest for integration tests with PostgreSQL
  */
-@DisplayName("CurrencySeriesRepository Unit Tests")
 class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
@@ -43,7 +41,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("findByEnabledTrue() should return only enabled series when mixed data exists")
   void findByEnabledTrueWithMixedDataReturnsOnlyEnabled() {
     // Arrange: Create mixed enabled/disabled test data
     var enabled1 = new CurrencySeries();
@@ -79,7 +76,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("findByEnabledTrue() should return empty list when all series are disabled")
   void findByEnabledTrueAllDisabledReturnsEmpty() {
     // Arrange: Create only disabled series
     var disabled1 = new CurrencySeries();
@@ -102,7 +98,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("findByEnabledTrue() should return all series when all are enabled")
   void findByEnabledTrueAllEnabledReturnsAll() {
     // Arrange: Create only enabled series
     var enabled1 = new CurrencySeries();
@@ -137,7 +132,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("findByCurrencyCodeAndEnabledTrue() should find enabled currency by code")
   void findByCurrencyCodeAndEnabledTrueEnabledCurrencyFound() {
     // Arrange: Create enabled EUR series
     var eurSeries = new CurrencySeries();
@@ -158,7 +152,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("findByCurrencyCodeAndEnabledTrue() should return empty when currency is disabled")
   void findByCurrencyCodeAndEnabledTrueDisabledCurrencyReturnsEmpty() {
     // Arrange: Create disabled EUR series
     var eurSeries = new CurrencySeries();
@@ -175,7 +168,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("findByCurrencyCodeAndEnabledTrue() should return empty when currency doesn't exist")
   void findByCurrencyCodeAndEnabledTrueNonExistentReturnsEmpty() {
     // Act: Query for non-existent currency
     var result = currencySeriesRepository.findByCurrencyCodeAndEnabledTrue("XXX");
@@ -185,7 +177,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("findByCurrencyCodeAndEnabledTrue() should be case-sensitive")
   void findByCurrencyCodeAndEnabledTrueIsCaseSensitive() {
     // Arrange: Create enabled EUR series (uppercase)
     var eurSeries = new CurrencySeries();
@@ -206,7 +197,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("findByCurrencyCode() should find currency regardless of enabled status")
   void findByCurrencyCodeRegardlessOfEnabledStatus() {
     // Arrange: Create disabled EUR series
     var eurSeries = new CurrencySeries();
@@ -230,7 +220,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("findByCurrencyCode() should return empty when currency doesn't exist")
   void findByCurrencyCodeNonExistentReturnsEmpty() {
     // Act: Query for non-existent currency
     var result = currencySeriesRepository.findByCurrencyCode("ZZZ");
@@ -244,7 +233,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Should save and retrieve currency series")
   void saveAndRetrieve() {
     // Arrange: Create new currency series
     var newSeries = new CurrencySeries();
@@ -276,7 +264,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("Should update existing currency series")
   void updateExisting() {
     // Arrange: Create and save currency series
     var series = new CurrencySeries();
@@ -295,7 +282,6 @@ class CurrencySeriesRepositoryTest extends AbstractRepositoryUnitTest {
   }
 
   @Test
-  @DisplayName("Should delete currency series")
   void delete() {
     // Arrange: Create and save currency series
     var series = new CurrencySeries();

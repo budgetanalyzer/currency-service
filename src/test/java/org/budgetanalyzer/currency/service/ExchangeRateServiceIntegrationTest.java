@@ -7,7 +7,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
@@ -42,7 +41,6 @@ import org.budgetanalyzer.service.exception.BusinessException;
  * <p><b>Cache Configuration:</b> This test explicitly enables Redis cache to verify caching
  * behavior.
  */
-@DisplayName("Exchange Rate Service Integration Tests")
 @TestPropertySource(properties = "spring.cache.type=redis")
 class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
 
@@ -83,7 +81,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Query with all parameters provided returns data within date range")
   void queryWithAllParametersReturnsDataWithinRange() {
     // Arrange - Create EUR rates for Jan 1-10, 2024
     var startDate = TestConstants.DATE_2024_JAN_01;
@@ -105,7 +102,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query with only currency (both dates null) returns all available data")
   void queryWithOnlyCurrencyReturnsAllData() {
     // Arrange - Create EUR rates for Jan 1-10, 2024
     var startDate = TestConstants.DATE_2024_JAN_01;
@@ -125,7 +121,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query with only startDate (endDate null) returns from start to latest")
   void queryWithOnlyStartDateReturnsToLatest() {
     // Arrange - Create EUR rates for Jan 1-10, 2024
     var startDate = TestConstants.DATE_2024_JAN_01;
@@ -146,7 +141,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query with only endDate (startDate null) returns earliest to end")
   void queryWithOnlyEndDateReturnsFromEarliest() {
     // Arrange - Create EUR rates for Jan 1-10, 2024
     var startDate = TestConstants.DATE_2024_JAN_01;
@@ -167,7 +161,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query with startDate equal to endDate returns single day")
   void queryWithSingleDateRangReturnsSingleDay() {
     // Arrange - Create EUR rates for Jan 1-10, 2024
     var startDate = TestConstants.DATE_2024_JAN_01;
@@ -193,7 +186,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Query returns only data within range (excludes boundaries)")
   void queryReturnsOnlyDataWithinRange() {
     // Arrange - Create EUR rates for Jan 1-10, 2024
     var startDate = TestConstants.DATE_2024_JAN_01;
@@ -216,7 +208,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query excludes data before startDate")
   void queryExcludesDataBeforeStartDate() {
     // Arrange - Create EUR rates for Jan 1-10, 2024
     var startDate = TestConstants.DATE_2024_JAN_01;
@@ -236,7 +227,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query excludes data after endDate")
   void queryExcludesDataAfterEndDate() {
     // Arrange - Create EUR rates for Jan 1-10, 2024
     var startDate = TestConstants.DATE_2024_JAN_01;
@@ -256,7 +246,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query filters by targetCurrency only (multiple currencies in DB)")
   void queryFiltersByTargetCurrencyOnly() {
     // Arrange - Create rates for EUR, THB, and GBP (same dates)
     var startDate = TestConstants.DATE_2024_JAN_01;
@@ -288,7 +277,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Gap-filling forwards Friday rate to weekend (Saturday and Sunday)")
   void gapFillingForwardsFridayRateToWeekend() {
     // Arrange - Create weekday-only EUR rates (Mon-Fri, Jan 1-5)
     var weekStart = TestConstants.DATE_2024_JAN_01; // Monday
@@ -326,7 +314,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Gap-filling handles multi-day gaps (3-5 missing days)")
   void gapFillingHandlesMultiDayGaps() {
     // Arrange - Create rates with gaps: Jan 1, 2, then gap, then Jan 6, 7
     var jan01 =
@@ -376,7 +363,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Gap-filling preserves publishedDate (not equal to date for filled dates)")
   void gapFillingPreservesPublishedDate() {
     // Arrange - Create weekday-only rates
     var rates =
@@ -408,7 +394,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Gap-filling performs backward lookup when first data is after startDate")
   void gapFillingPerformsBackwardLookup() {
     // Arrange - Create rate BEFORE query range (Dec 31, 2023)
     var previousRate =
@@ -449,7 +434,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Gap-filling with no backward lookup needed (data exists at startDate)")
   void gapFillingNoBackwardLookupNeeded() {
     // Arrange - Create rate at startDate (Jan 1)
     var jan01Rate =
@@ -474,7 +458,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Gap-filling produces continuous daily data (no missing dates)")
   void gapFillingProducesContinuousDailyData() {
     // Arrange - Create weekday-only rates (realistic FRED pattern)
     var rates =
@@ -504,7 +487,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Gap-filling with weekdays-only source data (realistic FRED pattern)")
   void gapFillingWithWeekdaysOnlySourceData() {
     // Arrange - Create realistic FRED data (Mon-Fri only, 2 weeks)
     var rates =
@@ -539,7 +521,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Query with startDate after endDate throws IllegalArgumentException")
   void queryWithStartAfterEndThrowsException() {
     // Arrange - Create some EUR data
     var rates =
@@ -562,7 +543,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query for non-existent currency throws BusinessException")
   void queryForNonExistentCurrencyThrowsException() {
     // Act & Assert - Query ZAR (no data exists)
     assertThatThrownBy(
@@ -576,7 +556,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query with startDate before earliest data throws BusinessException")
   void queryWithStartBeforeEarliestThrowsException() {
     // Arrange - Create EUR data starting Jan 15, 2024
     var rates =
@@ -597,7 +576,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Exception messages contain currency code and dates for debugging")
   void exceptionMessagesContainCurrencyAndDates() {
     // Arrange - Create EUR data starting Jan 15
     var earliestDate = TestConstants.DATE_2024_JAN_15;
@@ -617,7 +595,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query with startDate equal to earliest date succeeds (edge case)")
   void queryWithStartEqualToEarliestSucceeds() {
     // Arrange - Create EUR data starting Jan 15
     var earliestDate = TestConstants.DATE_2024_JAN_15;
@@ -640,7 +617,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("Query for future date range returns empty list (not an error)")
   void queryForFutureDateRangeReturnsEmptyList() {
     // Arrange - Create EUR data for past dates
     var rates =
@@ -663,7 +639,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Query for date range with no data returns empty list")
   void queryForDateRangeWithNoDataReturnsEmptyList() {
     // Arrange - Create EUR data for Jan 1-5
     var rates =
@@ -686,7 +661,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Empty result list is distinct from no data available exception")
   void emptyResultIsDistinctFromNoDataException() {
     // Arrange - Create EUR data for past dates
     var rates =
@@ -722,7 +696,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   // ===========================================================================================
 
   @Test
-  @DisplayName("First query is cache miss and populates cache")
   void firstQueryIsCacheMissAndPopulatesCache() {
     // Arrange - Create EUR data
     var rates =
@@ -745,7 +718,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Second query with same parameters is cache hit")
   void secondQueryWithSameParametersIsCacheHit() {
     // Arrange - Create EUR data
     var rates =
@@ -775,7 +747,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Different query parameters use different cache keys")
   void differentParametersUseDifferentCacheKeys() {
     // Arrange - Create EUR data
     var rates =
@@ -804,7 +775,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Cache key format is {currencyCode}:{startDate}:{endDate}")
   void cacheKeyFormatIsCorrect() {
     // Arrange - Create EUR data
     var rates =
@@ -828,7 +798,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Cache contains correct deserialized data structure")
   void cacheContainsCorrectDeserializedData() {
     // Arrange - Create EUR data
     var rates =
@@ -857,7 +826,6 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  @DisplayName("Null parameters in cache key format (currency:null:null)")
   void nullParametersInCacheKeyFormat() {
     // Arrange - Create EUR data
     var rates =
