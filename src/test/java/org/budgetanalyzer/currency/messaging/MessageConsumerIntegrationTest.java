@@ -189,7 +189,6 @@ class MessageConsumerIntegrationTest extends AbstractWireMockTest {
    * @return Number of events with non-null completion_date
    */
   private Long countCompletedEvents() {
-    String sql = "SELECT COUNT(*) FROM event_publication WHERE completion_date IS NOT NULL";
-    return jdbcTemplate.queryForObject(sql, Long.class);
+    return testDatabaseHelper.countCompletedEvents();
   }
 }

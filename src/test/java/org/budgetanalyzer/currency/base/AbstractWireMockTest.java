@@ -42,10 +42,7 @@ public abstract class AbstractWireMockTest extends AbstractIntegrationTest {
   @BeforeEach
   protected void resetDatabaseAndWireMock() {
     // Clear database tables
-    jdbcTemplate.execute("DELETE FROM exchange_rate");
-    jdbcTemplate.execute("DELETE FROM currency_series");
-    jdbcTemplate.execute("DELETE FROM event_publication");
-    jdbcTemplate.execute("DELETE FROM shedlock");
+    testDatabaseHelper.cleanupAllTables();
 
     // Reset all WireMock stubs
     wireMockServer.resetAll();

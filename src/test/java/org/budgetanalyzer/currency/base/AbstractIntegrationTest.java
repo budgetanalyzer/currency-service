@@ -1,15 +1,9 @@
 package org.budgetanalyzer.currency.base;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.util.StreamUtils;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import org.budgetanalyzer.currency.config.TestContainersConfig;
@@ -71,7 +65,7 @@ import org.budgetanalyzer.currency.config.TestContainersConfig;
 public abstract class AbstractIntegrationTest {
   // All container configuration is in TestContainersConfiguration
 
-  @Autowired protected JdbcTemplate jdbcTemplate;
+  @Autowired protected TestDatabaseHelper testDatabaseHelper;
 
   /**
    * Cleans up all test data before each test and restores seed data.
@@ -85,36 +79,7 @@ public abstract class AbstractIntegrationTest {
    */
   @BeforeEach
   protected void resetSeedDatabase() {
-    // Delete in correct order to avoid FK constraint violations
-    // exchange_rate has FK to currency_series, so delete it first
-    jdbcTemplate.execute("DELETE FROM exchange_rate");
-    jdbcTemplate.execute("DELETE FROM currency_series");
-    jdbcTemplate.execute("DELETE FROM event_publication");
-    jdbcTemplate.execute("DELETE FROM shedlock");
-
-    // Restore seed data from V6 migration
-    restoreSeedData();
-  }
-
-  /**
-   * Restores seed data by executing the INSERT statements from V6 migration.
-   *
-   * <p>This ensures tests have access to the 23 default currency series without duplicating SQL in
-   * test code. The seed data matches exactly what exists in production.
-   */
-  private void restoreSeedData() {
-    try {
-      var resource = new ClassPathResource("db/migration/V6__insert_default_currencies.sql");
-      var sql = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
-
-      // Extract only the INSERT statement (skip ALTER TABLE since constraint already exists)
-      var insertStart = sql.indexOf("INSERT INTO currency_series");
-      if (insertStart != -1) {
-        var insertStatement = sql.substring(insertStart);
-        jdbcTemplate.execute(insertStatement);
-      }
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to restore seed data from V6 migration", e);
-    }
+    testDatabaseHelper.cleanupAllTables();
+    testDatabaseHelper.restoreSeedData();
   }
 }
