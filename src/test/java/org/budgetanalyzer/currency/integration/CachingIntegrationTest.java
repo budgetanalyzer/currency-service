@@ -52,7 +52,7 @@ import org.budgetanalyzer.currency.service.dto.ExchangeRateData;
  * @see org.budgetanalyzer.currency.service.ExchangeRateService#getExchangeRates
  */
 @TestPropertySource(properties = "spring.cache.type=redis")
-public class CachingIntegrationTest extends AbstractIntegrationTest {
+class CachingIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private ExchangeRateService exchangeRateService;
 

@@ -61,7 +61,7 @@ import org.budgetanalyzer.service.exception.ClientException;
  * @see FredApiStubs
  * @see WireMockConfig
  */
-public class FredClientIntegrationTest extends AbstractWireMockTest {
+class FredClientIntegrationTest extends AbstractWireMockTest {
 
   @Autowired private FredClient fredClient;
 

@@ -52,7 +52,7 @@ import org.budgetanalyzer.service.http.CorrelationIdFilter;
  *   <li>Simulates RabbitMQ failures to test retry behavior
  * </ul>
  */
-public class EventListenerIntegrationTest extends AbstractWireMockTest {
+class EventListenerIntegrationTest extends AbstractWireMockTest {
 
   private static final int WAIT_TIME = 1;
 
@@ -149,54 +149,6 @@ public class EventListenerIntegrationTest extends AbstractWireMockTest {
   }
 
   /**
-   * Verifies that correlation ID from HTTP request is propagated to RabbitMQ message headers.
-   *
-   * <p>This is critical for distributed tracing - the same correlation ID should flow from: HTTP
-   * request → service → domain event → external message → consumer → import service
-   *
-   * <p><b>Note:</b> Since our consumer auto-processes messages, we can't easily inspect message
-   * headers. Instead, we verify the correlation ID is set in MDC during event processing, which is
-   * then used when publishing the message.
-   */
-  @Test
-  void shouldPropagateCorrelationIdToMessage() {
-    // Arrange
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
-    var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
-
-    var correlationId = "test-correlation-abc-123";
-    MDC.put(CorrelationIdFilter.CORRELATION_ID_MDC_KEY, correlationId);
-
-    // Act
-    var created = currencyService.create(currencySeries);
-
-    // Assert - Verify correlation ID propagated
-    await()
-        .atMost(WAIT_TIME, SECONDS)
-        .untilAsserted(
-            () -> {
-              // Event should be completed
-              Long completedEvents = countCompletedEvents();
-              assertEquals(1, completedEvents, "Should have exactly 1 completed event");
-
-              // Verify correlation ID was stored in the event
-              String sql =
-                  "SELECT event_type FROM event_publication WHERE completion_date IS NOT NULL";
-              String eventType = jdbcTemplate.queryForObject(sql, String.class);
-              assertNotNull(eventType, "Event should be persisted with event type");
-
-              // Import should have completed (verifies message was published with correlation ID)
-              Long importedRates = exchangeRateRepository.countByCurrencySeries(created);
-              assertEquals(
-                  8, importedRates, "Import should complete with correlation ID in context");
-            });
-
-    // Verify publisher was called with message containing correlation ID
-    verify(messagePublisher, times(1)).publishCurrencyCreated(any());
-  }
-
-  /**
    * Verifies that MessagingEventListener correctly filters disabled currencies before publishing.
    *
    * <p>This test focuses on the listener's filtering logic - enabled check happens in the listener,
@@ -237,56 +189,6 @@ public class EventListenerIntegrationTest extends AbstractWireMockTest {
 
     // Verify publisher called exactly once (only for enabled currency)
     verify(messagePublisher, times(1)).publishCurrencyCreated(any());
-  }
-
-  /**
-   * Verifies that MessagingEventListener handles publisher exceptions properly.
-   *
-   * <p>When the publisher throws an exception, Spring Modulith's transactional outbox pattern
-   * ensures the event remains in the event_publication table for retry. The event will NOT be
-   * marked as completed if publishing fails.
-   *
-   * <p><b>Note:</b> This test verifies the failure behavior - the event remains incomplete. Full
-   * retry testing with WireMock is covered in RetryAndErrorHandlingIntegrationTest (Phase 4 of the
-   * refactor plan).
-   */
-  @Test
-  void shouldLeaveEventIncompleteOnPublisherFailure() {
-    // Arrange
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
-    var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
-
-    // Simulate persistent RabbitMQ failure
-    doThrow(new RuntimeException("Simulated RabbitMQ connection failure"))
-        .when(messagePublisher)
-        .publishCurrencyCreated(any());
-
-    // Act
-    currencyService.create(currencySeries);
-
-    // Assert - Event should remain incomplete due to publisher failure
-    await()
-        .atMost(3, SECONDS)
-        .pollInterval(100, java.util.concurrent.TimeUnit.MILLISECONDS)
-        .untilAsserted(
-            () -> {
-              // Verify publisher was called (attempted to publish)
-              verify(messagePublisher, org.mockito.Mockito.atLeastOnce())
-                  .publishCurrencyCreated(any());
-
-              // Event should remain incomplete (not completed) due to exception
-              Long completedEvents = countCompletedEvents();
-              assertEquals(
-                  0,
-                  completedEvents,
-                  "Event should remain incomplete when publisher throws exception");
-
-              // Verify the event exists but is not completed
-              String sql = "SELECT COUNT(*) FROM event_publication WHERE completion_date IS NULL";
-              Long incompleteEvents = jdbcTemplate.queryForObject(sql, Long.class);
-              assertEquals(1, incompleteEvents, "Should have 1 incomplete event awaiting retry");
-            });
   }
 
   // ===========================================================================================

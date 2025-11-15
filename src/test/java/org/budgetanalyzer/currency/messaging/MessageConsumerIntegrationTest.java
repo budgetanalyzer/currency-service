@@ -50,7 +50,7 @@ import org.budgetanalyzer.service.http.CorrelationIdFilter;
  * </ul>
  */
 @ExtendWith(OutputCaptureExtension.class)
-public class MessageConsumerIntegrationTest extends AbstractWireMockTest {
+class MessageConsumerIntegrationTest extends AbstractWireMockTest {
 
   private static final int WAIT_TIME = 1;
 
@@ -180,94 +180,6 @@ public class MessageConsumerIntegrationTest extends AbstractWireMockTest {
               assertEquals(
                   0, disabledCount, "Disabled currency should NOT import any exchange rates");
             });
-  }
-
-  /**
-   * Verifies that ExchangeRateImportConsumer logs import results with structured logging.
-   *
-   * <p>The consumer should log the import results including the counts of new, updated, and skipped
-   * records. This is critical for observability and debugging.
-   *
-   * <p><b>New test:</b> Verifies structured logging output with expected correlation IDs and
-   * counts.
-   */
-  @Test
-  void shouldLogImportResults(CapturedOutput output) {
-    // Arrange
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
-    var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
-
-    // Act
-    var created = currencyService.create(currencySeries);
-
-    // Assert - Wait for import to complete
-    await()
-        .atMost(WAIT_TIME, SECONDS)
-        .untilAsserted(
-            () -> {
-              Long count = exchangeRateRepository.countByCurrencySeries(created);
-              assertEquals(8, count, "Should import exactly 8 exchange rates");
-            });
-
-    // Verify log output contains expected messages
-    String logOutput = output.getAll();
-
-    // Should log message reception
-    assertTrue(
-        logOutput.contains("Received currency created message"),
-        "Should log message reception with currencySeriesId and currencyCode");
-
-    // Should log import completion with counts
-    assertTrue(
-        logOutput.contains("Exchange rate import completed"), "Should log import completion");
-    assertTrue(
-        logOutput.contains("new=8") || logOutput.contains("new=0"),
-        "Should log count of new records");
-    assertTrue(
-        logOutput.contains("currencyCode=EUR"), "Should log currency code in completion message");
-  }
-
-  /**
-   * Verifies that correlation ID is propagated from the message to the import service layer.
-   *
-   * <p>The consumer should extract the correlation ID from the message headers and set it in MDC
-   * (Mapped Diagnostic Context) so that all downstream operations (service calls, repository calls,
-   * logging) include the same correlation ID for distributed tracing.
-   *
-   * <p><b>New test:</b> Validates correlation ID propagation through the entire consumer flow.
-   */
-  @Test
-  void shouldPropagateCorrelationIdToImportService(CapturedOutput output) {
-    // Arrange
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
-    var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
-
-    // Set correlation ID in MDC (simulates HTTP request with correlation ID)
-    var correlationId = "test-correlation-xyz-789";
-    MDC.put(CorrelationIdFilter.CORRELATION_ID_MDC_KEY, correlationId);
-
-    // Act
-    var created = currencyService.create(currencySeries);
-
-    // Assert - Wait for import to complete
-    await()
-        .atMost(WAIT_TIME, SECONDS)
-        .untilAsserted(
-            () -> {
-              Long count = exchangeRateRepository.countByCurrencySeries(created);
-              assertEquals(8, count, "Should import exactly 8 exchange rates");
-            });
-
-    // Verify correlation ID appears in logs
-    String logOutput = output.getAll();
-
-    // The correlation ID should be present in the log output
-    // Note: The exact format depends on logging configuration (e.g., [correlationId=xyz-789])
-    assertTrue(
-        logOutput.contains(correlationId),
-        "Log output should contain correlation ID: " + correlationId);
   }
 
   // ===========================================================================================

@@ -39,7 +39,7 @@ import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
  *   <li>Query parameter handling (boolean value variations)
  * </ul>
  */
-public class CurrencySeriesControllerTest extends AbstractControllerTest {
+class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
 

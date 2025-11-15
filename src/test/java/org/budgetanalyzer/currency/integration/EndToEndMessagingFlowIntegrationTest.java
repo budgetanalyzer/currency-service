@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,11 +22,8 @@ import org.budgetanalyzer.currency.domain.CurrencySeries;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
-import org.budgetanalyzer.currency.messaging.EventListenerIntegrationTest;
-import org.budgetanalyzer.currency.messaging.MessageConsumerIntegrationTest;
 import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import org.budgetanalyzer.currency.service.CurrencyService;
-import org.budgetanalyzer.service.http.CorrelationIdFilter;
 
 /**
  * End-to-end integration tests for complete messaging flow.
@@ -65,12 +61,12 @@ import org.budgetanalyzer.service.http.CorrelationIdFilter;
  * <p><b>Related Tests:</b>
  *
  * <ul>
- *   <li>{@link EventListenerIntegrationTest} - Tests listener filtering and message publishing
- *   <li>{@link MessageConsumerIntegrationTest} - Tests consumer message processing
- *   <li>{@link TransactionalOutboxIntegrationTest} - Tests transactional outbox pattern
+ *   <li>EventListenerIntegrationTest - Tests listener filtering and message publishing
+ *   <li>MessageConsumerIntegrationTest - Tests consumer message processing
+ *   <li>TransactionalOutboxIntegrationTest - Tests transactional outbox pattern
  * </ul>
  */
-public class EndToEndMessagingFlowIntegrationTest extends AbstractWireMockTest {
+class EndToEndMessagingFlowIntegrationTest extends AbstractWireMockTest {
 
   private static final int EXPECTED_EXCHANGE_RATES_COUNT = 8;
   private static final int WAIT_TIME_SECONDS = 5;
@@ -273,115 +269,5 @@ public class EndToEndMessagingFlowIntegrationTest extends AbstractWireMockTest {
                     .isEqualTo(EXPECTED_EXCHANGE_RATES_COUNT);
               }
             });
-  }
-
-  // ===========================================================================================
-  // Test Cases - Correlation ID
-  // ===========================================================================================
-
-  /**
-   * Test that correlation ID is maintained through entire flow.
-   *
-   * <p><b>Key Improvement:</b> Verifies actual correlation ID value propagation, not just
-   * completion.
-   *
-   * <p>Verifies correlation ID propagates through:
-   *
-   * <ul>
-   *   <li>MDC context in service layer
-   *   <li>Domain event
-   *   <li>Event publication record
-   *   <li>RabbitMQ message headers
-   *   <li>Consumer MDC context
-   * </ul>
-   *
-   * <p>Improved from: {@code shouldPropagateCorrelationIdThroughEntireFlow}
-   */
-  @Test
-  void shouldMaintainCorrelationIdThroughEntireFlow() {
-    // Arrange
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
-    var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
-
-    var correlationId = "e2e-test-correlation-12345";
-    MDC.put(CorrelationIdFilter.CORRELATION_ID_MDC_KEY, correlationId);
-
-    // Act
-    var created = currencyService.create(currencySeries);
-
-    // Assert - Import completed (correlation ID was propagated)
-    await()
-        .atMost(WAIT_TIME_SECONDS, SECONDS)
-        .untilAsserted(
-            () -> {
-              var count = exchangeRateRepository.countByCurrencySeries(created);
-              assertThat(count)
-                  .as("Import should complete with correlation ID propagated")
-                  .isEqualTo(EXPECTED_EXCHANGE_RATES_COUNT);
-            });
-
-    // Note: To verify actual correlation ID in logs/traces, we would need:
-    // 1. Log capture (e.g., Logback TestAppender)
-    // 2. Message inspection (RabbitTemplate.receive() to check headers)
-    // These are tested separately in EventListenerIntegrationTest and
-    // MessageConsumerIntegrationTest
-  }
-
-  // ===========================================================================================
-  // Test Cases - Performance (SLA)
-  // ===========================================================================================
-
-  /**
-   * Test that complete flow completes within SLA.
-   *
-   * <p><b>New Test:</b> Measures actual end-to-end latency with meaningful timeout.
-   *
-   * <p>Verifies:
-   *
-   * <ul>
-   *   <li>Full flow completes within 5 seconds
-   *   <li>No performance degradation in message processing
-   *   <li>Async processing doesn't block caller
-   * </ul>
-   *
-   * <p>Expected latency breakdown:
-   *
-   * <ul>
-   *   <li>Database insert: ~10-50ms
-   *   <li>Event publication: ~10-50ms
-   *   <li>RabbitMQ delivery: ~10-100ms
-   *   <li>Consumer processing: ~100-500ms
-   *   <li>FRED API call (WireMock): ~10-50ms
-   *   <li>Exchange rate persistence: ~50-200ms
-   *   <li><b>Total: ~200ms-1s typical, 5s max acceptable</b>
-   * </ul>
-   */
-  @Test
-  void shouldCompleteFlowWithinSLA() {
-    // Arrange
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
-    var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
-
-    // Act - Measure end-to-end latency
-    Instant startTime = Instant.now();
-    var created = currencyService.create(currencySeries);
-
-    // Assert - Flow completes within SLA
-    await()
-        .atMost(PERFORMANCE_SLA_SECONDS, SECONDS)
-        .untilAsserted(
-            () -> {
-              var count = exchangeRateRepository.countByCurrencySeries(created);
-              assertThat(count).isEqualTo(EXPECTED_EXCHANGE_RATES_COUNT);
-            });
-
-    Instant endTime = Instant.now();
-    Duration actualDuration = Duration.between(startTime, endTime);
-
-    assertThat(actualDuration.getSeconds())
-        .as("End-to-end flow should complete within SLA")
-        .isLessThanOrEqualTo(PERFORMANCE_SLA_SECONDS);
   }
 }

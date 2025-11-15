@@ -52,7 +52,7 @@ import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
  * through the API.
  */
 @TestPropertySource(properties = "spring.cache.type=redis")
-public class AdminExchangeRateControllerTest extends AbstractControllerTest {
+class AdminExchangeRateControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
 

@@ -43,7 +43,7 @@ import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
  *   <li>Response structure validation (JSON schema, data types, headers)
  * </ul>
  */
-public class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
+class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
 
