@@ -16,4 +16,7 @@ public enum CurrencyServiceError {
 
   /** Start date is before the earliest available exchange rate data. */
   START_DATE_OUT_OF_RANGE,
+
+  /** Currency is not enabled for exchange rate access. */
+  CURRENCY_NOT_ENABLED,
 }

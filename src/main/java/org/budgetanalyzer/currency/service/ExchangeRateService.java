@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import org.budgetanalyzer.currency.config.CacheConfig;
 import org.budgetanalyzer.currency.domain.ExchangeRate;
+import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import org.budgetanalyzer.currency.repository.spec.ExchangeRateSpecifications;
 import org.budgetanalyzer.currency.service.dto.ExchangeRateData;
@@ -29,14 +30,19 @@ import org.budgetanalyzer.service.exception.BusinessException;
 public class ExchangeRateService {
 
   private final ExchangeRateRepository exchangeRateRepository;
+  private final CurrencySeriesRepository currencySeriesRepository;
 
   /**
    * Constructs a new ExchangeRateService.
    *
    * @param exchangeRateRepository The exchange rate data access repository
+   * @param currencySeriesRepository The currency series data access repository
    */
-  public ExchangeRateService(ExchangeRateRepository exchangeRateRepository) {
+  public ExchangeRateService(
+      ExchangeRateRepository exchangeRateRepository,
+      CurrencySeriesRepository currencySeriesRepository) {
     this.exchangeRateRepository = exchangeRateRepository;
+    this.currencySeriesRepository = currencySeriesRepository;
   }
 
   /**
@@ -85,6 +91,15 @@ public class ExchangeRateService {
     // Defensive programming: validate date range constraint
     if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
       throw new IllegalArgumentException("Start date must be before or equal to end date");
+    }
+
+    // Business validation: check if currency is enabled
+    var currencySeries =
+        currencySeriesRepository.findByCurrencyCodeAndEnabledTrue(targetCurrency.getCurrencyCode());
+    if (currencySeries.isEmpty()) {
+      throw new BusinessException(
+          "Currency is not enabled: " + targetCurrency.getCurrencyCode(),
+          CurrencyServiceError.CURRENCY_NOT_ENABLED.name());
     }
 
     // Business validation: check if data exists for currency

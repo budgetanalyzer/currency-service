@@ -531,7 +531,49 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Test
   void queryForNonExistentCurrencyThrowsException() {
-    // Act & Assert - Query ZAR (no data exists)
+    // Arrange - GBP series exists and is enabled, but has no exchange rate data
+    // (no exchange rates saved for GBP)
+
+    // Act & Assert - Query GBP (enabled but no data exists)
+    assertThatThrownBy(
+            () ->
+                exchangeRateService.getExchangeRates(
+                    TestConstants.CURRENCY_GBP,
+                    TestConstants.DATE_2024_JAN_01,
+                    TestConstants.DATE_2024_JAN_15))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("No exchange rate data available");
+  }
+
+  @Test
+  void queryForDisabledCurrencyThrowsException() {
+    // Arrange - Create disabled GBP currency series and exchange rate data
+    gbpSeries.setEnabled(false);
+    currencySeriesRepository.save(gbpSeries);
+
+    var rates =
+        ExchangeRateTestBuilder.buildDateRange(
+            gbpSeries,
+            TestConstants.DATE_2024_JAN_01,
+            TestConstants.DATE_2024_JAN_15,
+            TestConstants.RATE_GBP_USD);
+    exchangeRateRepository.saveAll(rates);
+
+    // Act & Assert - Query disabled currency throws CURRENCY_NOT_ENABLED
+    assertThatThrownBy(
+            () ->
+                exchangeRateService.getExchangeRates(
+                    TestConstants.CURRENCY_GBP,
+                    TestConstants.DATE_2024_JAN_01,
+                    TestConstants.DATE_2024_JAN_15))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Currency is not enabled")
+        .hasMessageContaining("GBP");
+  }
+
+  @Test
+  void queryForCurrencyNotInDatabaseThrowsException() {
+    // Act & Assert - Query ZAR (currency not in database at all)
     assertThatThrownBy(
             () ->
                 exchangeRateService.getExchangeRates(
@@ -539,7 +581,8 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
                     TestConstants.DATE_2024_JAN_01,
                     TestConstants.DATE_2024_JAN_15))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("No exchange rate data available");
+        .hasMessageContaining("Currency is not enabled")
+        .hasMessageContaining("ZAR");
   }
 
   @Test
@@ -668,13 +711,14 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
     // Assert - Empty list returned
     assertThat(result).isEmpty();
 
-    // Act & Assert - Query non-existent currency (throws exception)
+    // Act & Assert - Query currency with no data (THB exists but has no exchange rates)
     assertThatThrownBy(
             () ->
                 exchangeRateService.getExchangeRates(
-                    TestConstants.CURRENCY_ZAR_NOT_IN_DB,
+                    TestConstants.CURRENCY_THB,
                     TestConstants.DATE_2024_JAN_01,
                     TestConstants.DATE_2024_JAN_15))
-        .isInstanceOf(BusinessException.class);
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("No exchange rate data available");
   }
 }
