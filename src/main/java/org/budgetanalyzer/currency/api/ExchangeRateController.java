@@ -86,6 +86,17 @@ public class ExchangeRateController {
                         "message": "Exchange rates for THB not available before 2000-01-03",
                         "code": "START_DATE_OUT_OF_RANGE"
                       }
+                      """),
+                      @ExampleObject(
+                          name = "Currency Not Enabled",
+                          summary = "Currency not enabled for exchange rate data",
+                          value =
+                              """
+                      {
+                        "type": "APPLICATION_ERROR",
+                        "message": "Currency is not enabled: EUR",
+                        "code": "CURRENCY_NOT_ENABLED"
+                      }
                       """)
                     }))
       })

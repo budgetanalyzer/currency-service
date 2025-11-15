@@ -212,13 +212,33 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn422WhenNoCurrencySeriesExists() throws Exception {
-    // Setup: Empty database (no series for ZAR)
+    // Setup: Save enabled ZAR series but with no exchange rates
+    CurrencySeries series = createSeriesForCurrency("ZAR");
+    currencySeriesRepository.save(series);
 
-    // Execute: Query for currency that doesn't exist in DB
+    // Execute: Query for currency that has no exchange rate data
     performGet("/v1/exchange-rates?targetCurrency=ZAR&startDate=2024-01-01&endDate=2024-12-31")
         .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.type").value("APPLICATION_ERROR"))
         .andExpect(jsonPath("$.code").value("NO_EXCHANGE_RATE_DATA_AVAILABLE"));
+  }
+
+  @Test
+  void shouldReturn422WhenCurrencyNotEnabled() throws Exception {
+    // Setup: Save disabled ZAR series
+    CurrencySeries series =
+        new CurrencySeriesTestBuilder()
+            .withCurrencyCode("ZAR")
+            .withProviderSeriesId("DEXZAUS")
+            .enabled(false)
+            .build();
+    currencySeriesRepository.save(series);
+
+    // Execute: Query for disabled currency
+    performGet("/v1/exchange-rates?targetCurrency=ZAR&startDate=2024-01-01&endDate=2024-12-31")
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.type").value("APPLICATION_ERROR"))
+        .andExpect(jsonPath("$.code").value("CURRENCY_NOT_ENABLED"));
   }
 
   @Test
