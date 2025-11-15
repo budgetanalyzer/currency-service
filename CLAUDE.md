@@ -35,69 +35,24 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 
 ## Advanced Patterns Used
 
-This service implements ALL advanced patterns from service-common. These are production-proven patterns for external integrations, messaging, caching, and distributed systems.
+This service implements ALL advanced patterns from service-common for external integrations, messaging, caching, and distributed systems.
 
-### Provider Abstraction Pattern
+**Pattern**: Provider abstraction (external APIs), Transactional Outbox (guaranteed messaging), Redis caching (performance), ShedLock (distributed locking).
 
-**Pattern**: Service layer depends on `ExchangeRateProvider` interface, never on concrete FRED implementation. Allows switching providers without service changes.
-
-**When to consult documentation**:
-- Adding new providers (ECB, Bloomberg, etc.) → Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md#provider-abstraction-pattern)
-- Understanding dependency rules (Service → Interface only) → See Provider Abstraction Pattern section
-- Modifying provider implementations → Review [advanced-patterns.md](../service-common/docs/advanced-patterns.md#provider-abstraction-pattern)
-
-**Quick reference**:
-- Service uses `ExchangeRateProvider` interface only
-- `FredExchangeRateProvider` implements interface
-- `FredClient` handles HTTP communication
-- Provider name NEVER appears in service layer code
-
-### ShedLock Distributed Locking
-
-**Pattern**: Daily scheduled import runs once across all pods using database-backed distributed lock.
-
-**When to consult documentation**:
-- Adjusting lock durations → Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md#distributed-locking-with-shedlock)
-- Adding new scheduled tasks → See ShedLock section in [advanced-patterns.md](../service-common/docs/advanced-patterns.md)
-- Debugging multi-pod coordination → Review Distributed Locking patterns
+**When to consult detailed documentation**:
+- **Adding new providers (ECB, Bloomberg)** → Read [Advanced Patterns Usage Guide](docs/advanced-patterns-usage.md#provider-abstraction-pattern)
+- **Adjusting lock durations or schedules** → See [ShedLock section](docs/advanced-patterns-usage.md#shedlock-distributed-locking)
+- **Cache tuning or monitoring** → Review [Redis Caching section](docs/advanced-patterns-usage.md#redis-distributed-caching)
+- **Adding domain events** → Check [Event-Driven Messaging](docs/advanced-patterns-usage.md#event-driven-messaging)
+- **Understanding pattern theory** → Read [service-common/docs/advanced-patterns.md](../service-common/docs/advanced-patterns.md)
 
 **Quick reference**:
-- `@SchedulerLock` on `@Scheduled` methods
-- `lockAtMostFor: 15m` (safety timeout for 30-second task)
-- `lockAtLeastFor: 1m` (prevents rapid re-execution)
-- Database-backed (PostgreSQL) for service independence
+- **Provider Pattern**: Service → `ExchangeRateProvider` interface → `FredExchangeRateProvider` → `FredClient`
+- **ShedLock**: `@SchedulerLock` on scheduled tasks, 15m max lock, 1m min lock, PostgreSQL-backed
+- **Redis Cache**: `@Cacheable` on queries (1-3ms), `@CacheEvict` on imports (50-200ms miss), 80-95% hit rate
+- **Messaging**: Domain events → `event_publication` table → `@ApplicationModuleListener` → RabbitMQ
 
-### Redis Distributed Caching
-
-**Pattern**: Exchange rate queries cached with 1-hour TTL. Cache hit: 1-3ms. Cache miss: 50-200ms.
-
-**When to consult documentation**:
-- Adjusting cache TTL or key strategy → Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md#redis-distributed-caching)
-- Adding caching to other queries → See Redis Caching section in [advanced-patterns.md](../service-common/docs/advanced-patterns.md)
-- Troubleshooting cache performance → Review cache configuration patterns
-
-**Quick reference**:
-- `@Cacheable` on `getExchangeRates()` queries
-- `@CacheEvict(allEntries = true)` after imports
-- Key format: `{targetCurrency}:{startDate}:{endDate}`
-- Expected hit rate: 80-95%
-
-### Event-Driven Messaging
-
-**Pattern**: Transactional outbox ensures 100% guaranteed message delivery. Events persisted in DB with business data (atomic), then published to RabbitMQ asynchronously.
-
-**When to consult documentation**:
-- Adding new domain events → Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md#event-driven-messaging-with-transactional-outbox)
-- Understanding event flow and retry behavior → See Transactional Outbox section in [advanced-patterns.md](../service-common/docs/advanced-patterns.md)
-- Debugging messaging issues → Review event-driven messaging patterns
-
-**Quick reference**:
-- Service publishes domain events (e.g., `CurrencyCreatedEvent`)
-- Spring Modulith persists in `event_publication` table
-- `@ApplicationModuleListener` bridges to RabbitMQ
-- Automatic retries until successful
-
-**For all advanced pattern details:** Read [advanced-patterns.md](../service-common/docs/advanced-patterns.md)
+**For implementation examples and testing patterns:** Read [docs/advanced-patterns-usage.md](docs/advanced-patterns-usage.md)
 
 ## Service-Specific Patterns
 
