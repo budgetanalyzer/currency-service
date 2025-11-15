@@ -42,8 +42,13 @@ The Currency Service is responsible for:
 ### Prerequisites
 
 - JDK 24
-- PostgreSQL database
-- Gradle (wrapper included)
+- Docker and Docker Compose (for infrastructure)
+
+**Local development setup**: See [getting-started.md](https://github.com/budget-analyzer/orchestration/blob/main/docs/development/getting-started.md)
+
+**Database configuration**: See [database-setup.md](https://github.com/budget-analyzer/orchestration/blob/main/docs/development/database-setup.md)
+
+Note: This service uses the `currency` database (not `budget_analyzer`).
 
 ### Running Locally
 
@@ -55,23 +60,21 @@ The Currency Service is responsible for:
 ./gradlew bootRun
 ```
 
-The service will start on the default port and connect to PostgreSQL.
+The service runs on port 8084 for development/debugging.
 
-### Configuration
+### API Access
 
-Configure via `application.properties` or environment variables:
+**Production/User access** (through gateway):
+- Currencies API: `http://localhost:8080/api/v1/currencies`
+- Exchange Rates API: `http://localhost:8080/api/v1/exchange-rates`
+- Unified API Documentation: `http://localhost:8080/api/docs`
+- OpenAPI JSON: `http://localhost:8080/api/docs/openapi.json`
+- OpenAPI YAML: `http://localhost:8080/api/docs/openapi.yaml`
 
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/budget_analyzer
-spring.datasource.username=budget_analyzer
-spring.datasource.password=budget_analyzer
-```
-
-### API Documentation
-
-Once running, access the OpenAPI documentation at:
-- Swagger UI: `http://localhost:<port>/swagger-ui.html`
-- OpenAPI Spec: `http://localhost:<port>/v3/api-docs`
+**Development access** (direct to service):
+- Swagger UI: `http://localhost:8084/swagger-ui.html`
+- OpenAPI Spec: `http://localhost:8084/v3/api-docs`
+- Health Check: `http://localhost:8084/actuator/health`
 
 ## Development
 
