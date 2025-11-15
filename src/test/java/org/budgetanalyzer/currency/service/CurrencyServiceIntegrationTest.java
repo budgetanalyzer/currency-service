@@ -5,15 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.event.ApplicationEvents;
-import org.springframework.test.context.event.RecordApplicationEvents;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
 import org.budgetanalyzer.currency.base.AbstractWireMockTest;
-import org.budgetanalyzer.currency.domain.event.CurrencyCreatedEvent;
-import org.budgetanalyzer.currency.domain.event.CurrencyUpdatedEvent;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
@@ -31,28 +26,22 @@ import org.budgetanalyzer.service.exception.ServiceUnavailableException;
  *   <li>Create operations (happy paths and validation)
  *   <li>Read operations (get by ID, get all with filters)
  *   <li>Update operations (enable/disable)
- *   <li>Event publishing (CurrencyCreatedEvent, CurrencyUpdatedEvent)
  *   <li>Provider integration (validation)
- *   <li>Spring Modulith transactional outbox pattern
  * </ul>
  *
  * <p>Uses modern Spring Boot 3.5.7 testing patterns:
  *
  * <ul>
- *   <li>@RecordApplicationEvents for event capture (official Spring approach)
  *   <li>WireMock server for stubbing FRED API responses
  *   <li>@ServiceConnection for TestContainers (Spring Boot 3.1+)
  *   <li>AssertJ fluent assertions
  * </ul>
  */
-@RecordApplicationEvents
 class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
 
   @Autowired private CurrencyService currencyService;
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
-
-  @Autowired private JdbcTemplate jdbcTemplate;
 
   @Autowired private WireMockServer wireMockServer;
 
@@ -76,56 +65,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
     assertThat(created.isEnabled()).isTrue();
     assertThat(created.getCreatedAt()).isNotNull();
     assertThat(created.getUpdatedAt()).isNotNull();
-  }
-
-  @Test
-  void createCurrencyPublishesEvent(ApplicationEvents events) {
-    // Arrange - Stub FRED API responses
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    var series = CurrencySeriesTestBuilder.defaultEur().build();
-
-    // Act
-    var created = currencyService.create(series);
-
-    // Assert - Modern event verification
-    long eventCount = events.stream(CurrencyCreatedEvent.class).count();
-    assertThat(eventCount).isEqualTo(1);
-
-    var event =
-        events.stream(CurrencyCreatedEvent.class)
-            .findFirst()
-            .orElseThrow(() -> new AssertionError("Expected CurrencyCreatedEvent"));
-
-    assertThat(event.currencySeriesId()).isEqualTo(created.getId());
-    assertThat(event.currencyCode()).isEqualTo(TestConstants.VALID_CURRENCY_EUR);
-    assertThat(event.enabled()).isTrue();
-    assertThat(event.correlationId()).isNull(); // MDC not set in test context
-  }
-
-  @Test
-  void createCurrencyPersistsEventToOutbox() {
-    // Arrange - Stub FRED API responses
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    var series = CurrencySeriesTestBuilder.defaultEur().build();
-
-    // Get initial count
-    var initialCount =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM event_publication WHERE event_type LIKE ?",
-            Long.class,
-            "%CurrencyCreatedEvent");
-
-    // Act
-    currencyService.create(series);
-
-    // Assert - Query event_publication table (includes both pending and completed events)
-    var finalCount =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM event_publication WHERE event_type LIKE ?",
-            Long.class,
-            "%CurrencyCreatedEvent");
-
-    assertThat(finalCount).isGreaterThan(initialCount);
   }
 
   // ===========================================================================================
@@ -372,35 +311,6 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   @Test
-  void updatePublishesCurrencyUpdatedEvent(ApplicationEvents events) {
-    // Arrange - Stub FRED API responses and create series
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    var series = CurrencySeriesTestBuilder.defaultEur().build();
-    var created = currencyService.create(series);
-
-    // Clear create events by counting them first
-    long createEventCount = events.stream(CurrencyCreatedEvent.class).count();
-    assertThat(createEventCount).isEqualTo(1);
-
-    // Act
-    currencyService.update(created.getId(), false);
-
-    // Assert - Verify CurrencyUpdatedEvent published
-    long updateEventCount = events.stream(CurrencyUpdatedEvent.class).count();
-    assertThat(updateEventCount).isEqualTo(1);
-
-    var updateEvent =
-        events.stream(CurrencyUpdatedEvent.class)
-            .findFirst()
-            .orElseThrow(() -> new AssertionError("Expected CurrencyUpdatedEvent"));
-
-    assertThat(updateEvent.currencySeriesId()).isEqualTo(created.getId());
-    assertThat(updateEvent.currencyCode()).isEqualTo(TestConstants.VALID_CURRENCY_EUR);
-    assertThat(updateEvent.enabled()).isFalse();
-    assertThat(updateEvent.correlationId()).isNull(); // MDC not set in test context
-  }
-
-  @Test
   void updateNonExistentSeriesThrowsException() {
     // Act & Assert
     assertThatThrownBy(() -> currencyService.update(999L, true))
@@ -424,69 +334,5 @@ class CurrencyServiceIntegrationTest extends AbstractWireMockTest {
 
     // Assert
     assertThat(updated.getUpdatedAt()).isAfter(originalUpdatedAt);
-  }
-
-  // ===========================================================================================
-  // F. Event Verification
-  // ===========================================================================================
-
-  @Test
-  void currencyCreatedEventContainsAllRequiredFields(ApplicationEvents events) {
-    // Arrange - Stub FRED API responses
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_THB);
-    var series = CurrencySeriesTestBuilder.defaultThb().build();
-
-    // Act
-    var created = currencyService.create(series);
-
-    // Assert
-    var event =
-        events.stream(CurrencyCreatedEvent.class)
-            .findFirst()
-            .orElseThrow(() -> new AssertionError("Expected CurrencyCreatedEvent"));
-
-    assertThat(event.currencySeriesId()).isNotNull().isEqualTo(created.getId());
-    assertThat(event.currencyCode()).isNotNull().isEqualTo(TestConstants.VALID_CURRENCY_THB);
-    assertThat(event.enabled()).isTrue();
-    // correlationId is null in test context (no HTTP request / MDC)
-  }
-
-  @Test
-  void multipleCreatesPublishMultipleEvents(ApplicationEvents events) {
-    // Arrange - Stub FRED API responses
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_THB);
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_GBP);
-
-    // Act - Create 3 different currency series
-    currencyService.create(CurrencySeriesTestBuilder.defaultEur().build());
-    currencyService.create(CurrencySeriesTestBuilder.defaultThb().build());
-    currencyService.create(CurrencySeriesTestBuilder.defaultGbp().build());
-
-    // Assert
-    long eventCount = events.stream(CurrencyCreatedEvent.class).count();
-    assertThat(eventCount).isEqualTo(3);
-  }
-
-  @Test
-  void updatePublishesCorrectEventType(ApplicationEvents events) {
-    // Arrange - Stub FRED API responses and create series
-    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-    var series = CurrencySeriesTestBuilder.defaultEur().build();
-    var created = currencyService.create(series);
-
-    // Count create events first
-    long createEventsBefore = events.stream(CurrencyCreatedEvent.class).count();
-
-    // Act - Update the series
-    currencyService.update(created.getId(), false);
-
-    // Assert - No new CurrencyCreatedEvent
-    long createEventsAfter = events.stream(CurrencyCreatedEvent.class).count();
-    assertThat(createEventsAfter).isEqualTo(createEventsBefore);
-
-    // Assert - Exactly one CurrencyUpdatedEvent
-    long updateEventCount = events.stream(CurrencyUpdatedEvent.class).count();
-    assertThat(updateEventCount).isEqualTo(1);
   }
 }

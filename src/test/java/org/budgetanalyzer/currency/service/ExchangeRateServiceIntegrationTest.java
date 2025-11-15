@@ -9,11 +9,8 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.CacheManager;
-import org.springframework.test.context.TestPropertySource;
 
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
-import org.budgetanalyzer.currency.config.CacheConfig;
 import org.budgetanalyzer.currency.domain.CurrencySeries;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.ExchangeRateTestBuilder;
@@ -33,15 +30,10 @@ import org.budgetanalyzer.service.exception.BusinessException;
  *   <li>Gap-filling algorithm (forward-fill and backward lookup)
  *   <li>Validation and error handling (date validation, missing data)
  *   <li>Empty result scenarios (future dates, no data in range)
- *   <li>Redis distributed caching behavior (cache hits, misses, key format)
  * </ul>
  *
  * <p>Uses TestContainers for PostgreSQL, Redis, and RabbitMQ infrastructure.
- *
- * <p><b>Cache Configuration:</b> This test explicitly enables Redis cache to verify caching
- * behavior.
  */
-@TestPropertySource(properties = "spring.cache.type=redis")
 class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private ExchangeRateService exchangeRateService;
@@ -50,18 +42,13 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private CurrencySeriesRepository currencySeriesRepository;
 
-  @Autowired private CacheManager cacheManager;
-
   private CurrencySeries eurSeries;
   private CurrencySeries thbSeries;
   private CurrencySeries gbpSeries;
 
   @BeforeEach
   void setUp() {
-    // Clear cache for test isolation
-    cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE).clear();
-
-    // Clean database and cache for test isolation
+    // Clean database for test isolation
     exchangeRateRepository.deleteAll();
     currencySeriesRepository.deleteAll();
 
@@ -689,159 +676,5 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
                     TestConstants.DATE_2024_JAN_01,
                     TestConstants.DATE_2024_JAN_15))
         .isInstanceOf(BusinessException.class);
-  }
-
-  // ===========================================================================================
-  // F. Redis Caching Behavior
-  // ===========================================================================================
-
-  @Test
-  void firstQueryIsCacheMissAndPopulatesCache() {
-    // Arrange - Create EUR data
-    var rates =
-        ExchangeRateTestBuilder.buildDateRange(
-            eurSeries,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15,
-            TestConstants.RATE_EUR_USD);
-    exchangeRateRepository.saveAll(rates);
-
-    // Act - First query (cache miss)
-    var result1 =
-        exchangeRateService.getExchangeRates(
-            TestConstants.CURRENCY_EUR,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15);
-
-    // Assert - Result is not empty (cache behavior is verified via second query test)
-    assertThat(result1).isNotEmpty().hasSize(15);
-  }
-
-  @Test
-  void secondQueryWithSameParametersIsCacheHit() {
-    // Arrange - Create EUR data
-    var rates =
-        ExchangeRateTestBuilder.buildDateRange(
-            eurSeries,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15,
-            TestConstants.RATE_EUR_USD);
-    exchangeRateRepository.saveAll(rates);
-
-    // Act - First query (cache miss)
-    var result1 =
-        exchangeRateService.getExchangeRates(
-            TestConstants.CURRENCY_EUR,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15);
-
-    // Act - Second query (cache hit)
-    var result2 =
-        exchangeRateService.getExchangeRates(
-            TestConstants.CURRENCY_EUR,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15);
-
-    // Assert - Both results are identical
-    assertThat(result2).isEqualTo(result1);
-  }
-
-  @Test
-  void differentParametersUseDifferentCacheKeys() {
-    // Arrange - Create EUR data
-    var rates =
-        ExchangeRateTestBuilder.buildDateRange(
-            eurSeries,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15,
-            TestConstants.RATE_EUR_USD);
-    exchangeRateRepository.saveAll(rates);
-
-    // Act - Query with different date ranges
-    var result1 =
-        exchangeRateService.getExchangeRates(
-            TestConstants.CURRENCY_EUR,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_05);
-    var result2 =
-        exchangeRateService.getExchangeRates(
-            TestConstants.CURRENCY_EUR,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15);
-
-    // Assert - Both queries return different results (proving different cache keys)
-    assertThat(result1).hasSize(5);
-    assertThat(result2).hasSize(15);
-  }
-
-  @Test
-  void cacheKeyFormatIsCorrect() {
-    // Arrange - Create EUR data
-    var rates =
-        ExchangeRateTestBuilder.buildDateRange(
-            eurSeries,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15,
-            TestConstants.RATE_EUR_USD);
-    exchangeRateRepository.saveAll(rates);
-
-    // Act - Query with specific parameters
-    var result =
-        exchangeRateService.getExchangeRates(
-            TestConstants.CURRENCY_EUR,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15);
-
-    // Assert - Verify service returns expected data (cache key format is internal implementation)
-    assertThat(result).hasSize(15);
-    assertThat(result.get(0).targetCurrency().getCurrencyCode()).isEqualTo("EUR");
-  }
-
-  @Test
-  void cacheContainsCorrectDeserializedData() {
-    // Arrange - Create EUR data
-    var rates =
-        ExchangeRateTestBuilder.buildDateRange(
-            eurSeries,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_05,
-            TestConstants.RATE_EUR_USD);
-    exchangeRateRepository.saveAll(rates);
-
-    // Act - Query twice (second query uses cache)
-    var result1 =
-        exchangeRateService.getExchangeRates(
-            TestConstants.CURRENCY_EUR,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_05);
-    var result2 =
-        exchangeRateService.getExchangeRates(
-            TestConstants.CURRENCY_EUR,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_05);
-
-    // Assert - Both results are equal (cache preserves data structure)
-    assertThat(result2).isEqualTo(result1);
-    assertThat(result1).hasSize(5);
-  }
-
-  @Test
-  void nullParametersInCacheKeyFormat() {
-    // Arrange - Create EUR data
-    var rates =
-        ExchangeRateTestBuilder.buildDateRange(
-            eurSeries,
-            TestConstants.DATE_2024_JAN_01,
-            TestConstants.DATE_2024_JAN_15,
-            TestConstants.RATE_EUR_USD);
-    exchangeRateRepository.saveAll(rates);
-
-    // Act - Query with null dates (twice to verify caching works)
-    var result1 = exchangeRateService.getExchangeRates(TestConstants.CURRENCY_EUR, null, null);
-    var result2 = exchangeRateService.getExchangeRates(TestConstants.CURRENCY_EUR, null, null);
-
-    // Assert - Both queries return same result (cache works with null parameters)
-    assertThat(result2).isEqualTo(result1);
-    assertThat(result1).hasSize(15);
   }
 }

@@ -3,9 +3,7 @@ package org.budgetanalyzer.currency.messaging;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -25,7 +23,6 @@ import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.messaging.publisher.CurrencyMessagePublisher;
 import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
 import org.budgetanalyzer.currency.service.CurrencyService;
-import org.budgetanalyzer.service.http.CorrelationIdFilter;
 
 /**
  * Integration tests for {@link
@@ -71,7 +68,6 @@ class EventListenerIntegrationTest extends AbstractWireMockTest {
   @BeforeEach
   void cleanup() {
     super.resetDatabaseAndWireMock();
-    MDC.clear();
   }
 
   /**
