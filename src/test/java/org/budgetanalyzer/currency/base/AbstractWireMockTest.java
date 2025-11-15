@@ -45,6 +45,7 @@ public abstract class AbstractWireMockTest extends AbstractIntegrationTest {
     jdbcTemplate.execute("DELETE FROM exchange_rate");
     jdbcTemplate.execute("DELETE FROM currency_series");
     jdbcTemplate.execute("DELETE FROM event_publication");
+    jdbcTemplate.execute("DELETE FROM shedlock");
 
     // Reset all WireMock stubs
     wireMockServer.resetAll();

@@ -58,7 +58,7 @@ import org.budgetanalyzer.service.exception.BusinessException;
 @EnableScenarios
 @TestPropertySource(
     properties = {
-      "spring.cloud.stream.bindings.importExchangeRates-in-0.consumer.auto-startup=false"
+      "spring.cloud.function.definition=", // Empty string = disable all consumers
     })
 public class TransactionalOutboxIntegrationTest extends AbstractWireMockTest {
 
