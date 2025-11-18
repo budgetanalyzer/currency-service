@@ -36,11 +36,11 @@ public class SecurityContextUtil {
    * @return Optional containing the user ID if authenticated, empty otherwise
    */
   public static Optional<String> getCurrentUserId() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    var authentication = SecurityContextHolder.getContext().getAuthentication();
 
     if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-      Jwt jwt = jwtAuth.getToken();
-      String userId = jwt.getSubject(); // Extract 'sub' claim
+      var jwt = jwtAuth.getToken();
+      var userId = jwt.getSubject(); // Extract 'sub' claim
       logger.trace("Extracted user ID from JWT: {}", userId);
       return Optional.ofNullable(userId);
     }
@@ -57,11 +57,11 @@ public class SecurityContextUtil {
    * @return Optional containing the user email if present, empty otherwise
    */
   public static Optional<String> getCurrentUserEmail() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    var authentication = SecurityContextHolder.getContext().getAuthentication();
 
     if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-      Jwt jwt = jwtAuth.getToken();
-      String email = jwt.getClaimAsString("email");
+      var jwt = jwtAuth.getToken();
+      var email = jwt.getClaimAsString("email");
       logger.trace("Extracted user email from JWT: {}", email);
       return Optional.ofNullable(email);
     }
@@ -77,11 +77,12 @@ public class SecurityContextUtil {
    * @return Optional containing all JWT claims if authenticated, empty otherwise
    */
   public static Optional<Map<String, Object>> getAllClaims() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    var authentication = SecurityContextHolder.getContext().getAuthentication();
 
     if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-      Jwt jwt = jwtAuth.getToken();
-      Map<String, Object> claims = jwt.getClaims();
+      var jwt = jwtAuth.getToken();
+      var claims = jwt.getClaims();
+
       logger.trace("JWT claims: {}", claims);
       return Optional.of(claims);
     }
@@ -96,12 +97,12 @@ public class SecurityContextUtil {
    * who is making API requests.
    */
   public static void logAuthenticationContext() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    var authentication = SecurityContextHolder.getContext().getAuthentication();
 
     if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-      Jwt jwt = jwtAuth.getToken();
-      String userId = jwt.getSubject();
-      String email = jwt.getClaimAsString("email");
+      var jwt = jwtAuth.getToken();
+      var userId = jwt.getSubject();
+      var email = jwt.getClaimAsString("email");
       var authorities = authentication.getAuthorities();
 
       logger.info(
