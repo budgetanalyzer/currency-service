@@ -250,7 +250,7 @@ public class SecurityConfig {
     grantedAuthoritiesConverter.setAuthoritiesClaimName("scope");
     grantedAuthoritiesConverter.setAuthorityPrefix("SCOPE_");
 
-    JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
+    var jwtAuthenticationConverter = new JwtAuthenticationConverter();
     jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
 
     logger.debug("JWT authentication converter configured with scope-based authorities");
