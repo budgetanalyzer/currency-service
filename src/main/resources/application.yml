@@ -49,6 +49,18 @@ spring:
     locations: classpath:db/migration
     validate-on-migrate: true
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Auth0 issuer URI (abstracted through NGINX /auth/.well-known/openid-configuration)
+          # In production, this will point to NGINX gateway
+          # In development, can point directly to Auth0 or through NGINX
+          issuer-uri: ${AUTH0_ISSUER_URI:https://dev-gcz1r8453xzz0317.us.auth0.com/}
+          # JWT audience validation - ensures token was issued for our API
+          audiences:
+            - ${AUTH0_AUDIENCE:https://api.budgetanalyzer.org}
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -156,7 +168,7 @@ budgetanalyzer:
       enabled: true
       log-level: DEBUG
       include-request-body: true
-      include-response-body: false
+      include-response-body: true
       max-body-size: 10000
       exclude-patterns:
         - /**/actuator/**

@@ -35,6 +35,7 @@ dependencies {
 
     // Service-specific base
     implementation(libs.spring.boot.starter.validation)
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation(libs.flyway.core)
     implementation(libs.flyway.database.postgresql)
 

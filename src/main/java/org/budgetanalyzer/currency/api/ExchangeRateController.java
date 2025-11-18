@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,6 +27,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import org.budgetanalyzer.currency.api.response.ExchangeRateResponse;
+import org.budgetanalyzer.currency.security.SecurityContextUtil;
 import org.budgetanalyzer.currency.service.ExchangeRateService;
 import org.budgetanalyzer.service.api.ApiErrorResponse;
 import org.budgetanalyzer.service.exception.InvalidRequestException;
@@ -43,6 +45,7 @@ public class ExchangeRateController {
     this.exchangeRateService = exchangeRateService;
   }
 
+  @PreAuthorize("isAuthenticated()")
   @Operation(
       summary = "Get exchange rates",
       description = "Get exchange rates for converting USD to the target currency")
@@ -116,8 +119,14 @@ public class ExchangeRateController {
           @NotNull
           @RequestParam
           Currency targetCurrency) {
+    // Log authenticated user information (for audit purposes)
+    var userId = SecurityContextUtil.getCurrentUserId();
+    var userEmail = SecurityContextUtil.getCurrentUserEmail();
     log.info(
-        "Received get getExchangeRates request startDate: {} endDate: {} targetCurrency: {}",
+        "Received getExchangeRates request - User ID: {}, Email: {}, startDate: {},"
+            + " endDate: {}, targetCurrency: {}",
+        userId.orElse("anonymous"),
+        userEmail.orElse("N/A"),
         startDate.orElse(null),
         endDate.orElse(null),
         targetCurrency);
