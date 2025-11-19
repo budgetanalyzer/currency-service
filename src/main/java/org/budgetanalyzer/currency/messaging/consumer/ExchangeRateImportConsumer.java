@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 
 import org.budgetanalyzer.currency.messaging.message.CurrencyCreatedMessage;
 import org.budgetanalyzer.currency.service.ExchangeRateImportService;
-import org.budgetanalyzer.service.http.CorrelationIdFilter;
+import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
 
 /**
  * Consumer for currency-related messages.

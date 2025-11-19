@@ -10,7 +10,7 @@ import org.budgetanalyzer.currency.domain.event.CurrencyCreatedEvent;
 import org.budgetanalyzer.currency.domain.event.CurrencyUpdatedEvent;
 import org.budgetanalyzer.currency.messaging.message.CurrencyCreatedMessage;
 import org.budgetanalyzer.currency.messaging.publisher.CurrencyMessagePublisher;
-import org.budgetanalyzer.service.http.CorrelationIdFilter;
+import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
 
 /**
  * Event listener that bridges domain events to external messaging (RabbitMQ).

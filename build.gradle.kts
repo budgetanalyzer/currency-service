@@ -30,8 +30,13 @@ dependencyManagement {
 }
 
 dependencies {
-    // Service-web provides: web, data-jpa, springdoc, jackson, slf4j, opencsv, actuator
+    // Service-web provides core functionality and common utilities
     implementation(libs.service.web)
+
+    // Stack-specific dependencies (required since service-web uses compileOnly)
+    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.data.jpa)
+    implementation(libs.springdoc.openapi)
 
     // Service-specific base
     implementation(libs.spring.boot.starter.validation)

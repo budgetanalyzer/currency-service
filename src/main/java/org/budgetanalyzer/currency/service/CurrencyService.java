@@ -18,7 +18,7 @@ import org.budgetanalyzer.service.exception.BusinessException;
 import org.budgetanalyzer.service.exception.ClientException;
 import org.budgetanalyzer.service.exception.ResourceNotFoundException;
 import org.budgetanalyzer.service.exception.ServiceUnavailableException;
-import org.budgetanalyzer.service.http.CorrelationIdFilter;
+import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
 
 /**
  * Service for managing currency operations.

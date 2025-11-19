@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 import org.budgetanalyzer.core.logging.SafeLogger;
 import org.budgetanalyzer.currency.service.ExchangeRateImportService;
-import org.budgetanalyzer.service.http.HttpLoggingProperties;
+import org.budgetanalyzer.service.config.HttpLoggingProperties;
 
 @Component
 public class CurrencyServiceStartupConfig {
