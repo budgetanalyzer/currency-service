@@ -44,7 +44,7 @@ import org.testcontainers.utility.DockerImageName;
  * @see WireMockConfig
  */
 @TestConfiguration(proxyBeanMethods = false)
-@Import(TestSecurityConfig.class)
+@Import(org.budgetanalyzer.service.security.test.TestSecurityConfig.class)
 public class TestContainersConfig {
 
   /**

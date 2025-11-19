@@ -8,7 +8,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import org.budgetanalyzer.currency.config.TestContainersConfig;
-import org.budgetanalyzer.currency.config.TestSecurityConfig;
+import org.budgetanalyzer.service.security.test.TestSecurityConfig;
 
 /**
  * Base class for integration tests with TestContainers infrastructure.

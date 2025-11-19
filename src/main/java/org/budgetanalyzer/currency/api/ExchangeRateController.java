@@ -27,10 +27,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import org.budgetanalyzer.currency.api.response.ExchangeRateResponse;
-import org.budgetanalyzer.currency.security.SecurityContextUtil;
 import org.budgetanalyzer.currency.service.ExchangeRateService;
 import org.budgetanalyzer.service.api.ApiErrorResponse;
 import org.budgetanalyzer.service.exception.InvalidRequestException;
+import org.budgetanalyzer.service.security.SecurityContextUtil;
 
 @Tag(name = "Exchange Rates Handler", description = "Endpoints for querying exchange rates")
 @RestController
