@@ -4,7 +4,7 @@ info:
   description: API documentation for Currency Service resources
   contact:
     name: Bleu Rubin
-    email: support@bleurubin.com
+    email: budgetanalyzer@proton.me
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
@@ -17,7 +17,7 @@ servers:
   description: Local environment (via gateway)
 - url: http://localhost:8084/currency-service
   description: Local environment (direct)
-- url: https://api.bleurubin.com
+- url: https://api.budgetanalyzer.org
   description: Production environment
 tags:
 - name: Exchange Rates Handler
@@ -331,6 +331,13 @@ paths:
                     type: APPLICATION_ERROR
                     message: Exchange rates for THB not available before 2000-01-03
                     code: START_DATE_OUT_OF_RANGE
+                Currency Not Enabled:
+                  summary: Currency not enabled for exchange rate data
+                  description: Currency Not Enabled
+                  value:
+                    type: APPLICATION_ERROR
+                    message: "Currency is not enabled: EUR"
+                    code: CURRENCY_NOT_ENABLED
         "500":
           description: Internal Server Error
           content:
@@ -533,6 +540,8 @@ components:
           - APPLICATION_ERROR
           - SERVICE_UNAVAILABLE
           - INTERNAL_ERROR
+          - UNAUTHORIZED
+          - PERMISSION_DENIED
           example: APPLICATION_ERROR
         message:
           type: string

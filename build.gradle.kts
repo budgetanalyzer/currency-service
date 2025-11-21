@@ -82,6 +82,7 @@ spotless {
 
 checkstyle {
     toolVersion = libs.versions.checkstyle.get()
+    config = resources.text.fromUri("https://raw.githubusercontent.com/budgetanalyzer/checkstyle-config/main/checkstyle.xml")
 }
 
 tasks.named("check") {
