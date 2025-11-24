@@ -1,5 +1,7 @@
 # Currency Service
 
+[![Build](https://github.com/budgetanalyzer/currency-service/actions/workflows/build.yml/badge.svg)](https://github.com/budgetanalyzer/currency-service/actions/workflows/build.yml)
+
 Spring Boot microservice that automates exchange rate imports from the Federal Reserve Economic Data (FRED) API. This service provides production-quality integration with the St. Louis Fed's economic data infrastructure, delivering reliable currency and exchange rate data for Budget Analyzer.
 
 ## Overview
