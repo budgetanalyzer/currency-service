@@ -42,10 +42,10 @@ import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 @EnableAsync
 public class SchedulingConfig implements SchedulingConfigurer {
 
-  private final TaskSchedulingProperties properties;
+  private final TaskSchedulingProperties taskSchedulingProperties;
 
-  public SchedulingConfig(TaskSchedulingProperties properties) {
-    this.properties = properties;
+  public SchedulingConfig(TaskSchedulingProperties taskSchedulingProperties) {
+    this.taskSchedulingProperties = taskSchedulingProperties;
   }
 
   /**
@@ -62,16 +62,16 @@ public class SchedulingConfig implements SchedulingConfigurer {
   public TaskScheduler taskScheduler() {
     var scheduler = new ThreadPoolTaskScheduler();
 
-    var pool = properties.getPool();
+    var pool = taskSchedulingProperties.getPool();
     scheduler.setPoolSize(pool.getSize());
 
-    var shutdown = properties.getShutdown();
+    var shutdown = taskSchedulingProperties.getShutdown();
     scheduler.setWaitForTasksToCompleteOnShutdown(shutdown.isAwaitTermination());
     if (shutdown.getAwaitTerminationPeriod() != null) {
       scheduler.setAwaitTerminationSeconds((int) shutdown.getAwaitTerminationPeriod().getSeconds());
     }
 
-    scheduler.setThreadNamePrefix(properties.getThreadNamePrefix());
+    scheduler.setThreadNamePrefix(taskSchedulingProperties.getThreadNamePrefix());
     scheduler.initialize();
 
     return scheduler;

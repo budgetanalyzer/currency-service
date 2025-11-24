@@ -60,7 +60,7 @@ class ExchangeRateImportSchedulerTest {
 
   private MeterRegistry meterRegistry;
 
-  private CurrencyServiceProperties properties;
+  private CurrencyServiceProperties currencyServiceProperties;
 
   private ExchangeRateImportScheduler scheduler;
 
@@ -74,17 +74,18 @@ class ExchangeRateImportSchedulerTest {
     meterRegistry = new SimpleMeterRegistry();
 
     // Create real properties with test configuration
-    properties = new CurrencyServiceProperties();
+    currencyServiceProperties = new CurrencyServiceProperties();
     var exchangeRateImport = new CurrencyServiceProperties.ExchangeRateImport();
     var retry = new CurrencyServiceProperties.ExchangeRateImport.Retry();
     retry.setMaxAttempts(3);
     retry.setDelayMinutes(1);
     exchangeRateImport.setRetry(retry);
-    properties.setExchangeRateImport(exchangeRateImport);
+    currencyServiceProperties.setExchangeRateImport(exchangeRateImport);
 
     // Create scheduler with mocked dependencies
     scheduler =
-        new ExchangeRateImportScheduler(taskScheduler, meterRegistry, properties, importService);
+        new ExchangeRateImportScheduler(
+            taskScheduler, meterRegistry, currencyServiceProperties, importService);
   }
 
   // ===========================================================================================
@@ -344,7 +345,7 @@ class ExchangeRateImportSchedulerTest {
     var retry = new CurrencyServiceProperties.ExchangeRateImport.Retry();
     retry.setMaxAttempts(2);
     retry.setDelayMinutes(1);
-    properties.getExchangeRateImport().setRetry(retry);
+    currencyServiceProperties.getExchangeRateImport().setRetry(retry);
 
     var exception = new RuntimeException("Persistent failure");
     when(importService.importLatestExchangeRates()).thenThrow(exception);
@@ -502,7 +503,7 @@ class ExchangeRateImportSchedulerTest {
     var retry = new CurrencyServiceProperties.ExchangeRateImport.Retry();
     retry.setMaxAttempts(3);
     retry.setDelayMinutes(5); // 5 minutes
-    properties.getExchangeRateImport().setRetry(retry);
+    currencyServiceProperties.getExchangeRateImport().setRetry(retry);
 
     var exception = new RuntimeException("Failure");
     when(importService.importLatestExchangeRates()).thenThrow(exception);

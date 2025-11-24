@@ -24,25 +24,25 @@ public class ExchangeRateImportScheduler {
 
   private final TaskScheduler taskScheduler;
   private final MeterRegistry meterRegistry;
-  private final CurrencyServiceProperties properties;
+  private final CurrencyServiceProperties currencyServiceProperties;
   private final ExchangeRateImportService exchangeRateImportService;
 
   public ExchangeRateImportScheduler(
       TaskScheduler taskScheduler,
       MeterRegistry meterRegistry,
-      CurrencyServiceProperties properties,
+      CurrencyServiceProperties currencyServiceProperties,
       ExchangeRateImportService exchangeRateImportService) {
 
     this.taskScheduler = taskScheduler;
     this.meterRegistry = meterRegistry;
-    this.properties = properties;
+    this.currencyServiceProperties = currencyServiceProperties;
     this.exchangeRateImportService = exchangeRateImportService;
   }
 
   @Scheduled(cron = "${currency-service.exchange-rate-import.cron:0 0 23 * * ?}", zone = "UTC")
   @SchedulerLock(name = "exchangeRateImport", lockAtMostFor = "15m", lockAtLeastFor = "1m")
   public void importDailyRates() {
-    var retryConfig = properties.getExchangeRateImport().getRetry();
+    var retryConfig = currencyServiceProperties.getExchangeRateImport().getRetry();
 
     log.info(
         "Starting scheduled exchange rate import (max attempts: {}, delay: {} minutes)",
@@ -65,7 +65,8 @@ public class ExchangeRateImportScheduler {
 
       recordSuccess(sample, attemptNumber);
     } catch (Exception e) {
-      var maxAttempts = properties.getExchangeRateImport().getRetry().getMaxAttempts();
+      var maxAttempts =
+          currencyServiceProperties.getExchangeRateImport().getRetry().getMaxAttempts();
 
       log.error(
           "Failed to import exchange rates on attempt {}/{}: {}",
@@ -107,7 +108,7 @@ public class ExchangeRateImportScheduler {
   }
 
   private long calculateDelayMinutes(int attemptNumber) {
-    var retryConfig = properties.getExchangeRateImport().getRetry();
+    var retryConfig = currencyServiceProperties.getExchangeRateImport().getRetry();
     // Fixed: always use the configured delay
     return retryConfig.getDelayMinutes();
   }
