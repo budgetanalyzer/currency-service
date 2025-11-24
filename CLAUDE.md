@@ -12,6 +12,19 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 - Scheduled background imports with distributed coordination
 - High-performance distributed caching
 
+## Repository Scope
+
+**Boundary**: This repository only.
+
+**Allowed**:
+- Read `../service-common/` and `../orchestration/docs/`
+- All operations within this repository
+
+**Forbidden**:
+- Writing outside this repository
+
+Cross-service changes: coordinate through orchestration or service-common.
+
 ## Spring Boot Patterns
 
 **This service follows standard Budget Analyzer Spring Boot conventions.**
