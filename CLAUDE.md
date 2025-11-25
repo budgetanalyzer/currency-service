@@ -301,3 +301,11 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 - [Service-Common CLAUDE.md](https://github.com/budgetanalyzer/service-common/blob/main/CLAUDE.md)
 - [Advanced Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/advanced-patterns.md)
 - [Testing Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/testing-patterns.md)
+
+### Web Search Year Awareness
+
+Claude's training data may default to an outdated year. When using WebSearch for best practices or current information:
+
+1. Check `<env>Today's date</env>` for the actual current year
+2. Include that year in searches (e.g., "Spring Boot best practices 2025" not 2024)
+3. This ensures results reflect current standards, not outdated patterns
