@@ -5,12 +5,13 @@ import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotNull;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,6 +31,8 @@ import org.budgetanalyzer.currency.api.response.ExchangeRateResponse;
 import org.budgetanalyzer.currency.service.ExchangeRateService;
 import org.budgetanalyzer.service.api.ApiErrorResponse;
 import org.budgetanalyzer.service.exception.InvalidRequestException;
+import org.budgetanalyzer.service.permission.AuthorizationContext;
+import org.budgetanalyzer.service.permission.PermissionClient;
 import org.budgetanalyzer.service.security.SecurityContextUtil;
 
 @Tag(name = "Exchange Rates Handler", description = "Endpoints for querying exchange rates")
@@ -40,12 +43,14 @@ public class ExchangeRateController {
   private static final Logger log = LoggerFactory.getLogger(ExchangeRateController.class);
 
   private final ExchangeRateService exchangeRateService;
+  private final PermissionClient permissionClient;
 
-  public ExchangeRateController(ExchangeRateService exchangeRateService) {
+  public ExchangeRateController(
+      ExchangeRateService exchangeRateService, PermissionClient permissionClient) {
     this.exchangeRateService = exchangeRateService;
+    this.permissionClient = permissionClient;
   }
 
-  @PreAuthorize("isAuthenticated()")
   @Operation(
       summary = "Get exchange rates",
       description = "Get exchange rates for converting USD to the target currency")
@@ -118,15 +123,24 @@ public class ExchangeRateController {
       @Parameter(description = "Target currency of exchange rate", example = "THB")
           @NotNull
           @RequestParam
-          Currency targetCurrency) {
-    // Log authenticated user information (for audit purposes)
-    var userId = SecurityContextUtil.getCurrentUserId();
-    var userEmail = SecurityContextUtil.getCurrentUserEmail();
+          Currency targetCurrency,
+      HttpServletRequest request) {
+
+    var userId =
+        SecurityContextUtil.getCurrentUserId()
+            .orElseThrow(() -> new AccessDeniedException("Authentication required"));
+
+    var ctx = AuthorizationContext.fromRequest(userId, request);
+
+    if (!permissionClient.canPerform(ctx, "read", "currency")) {
+      log.warn("Access denied for user {} to read exchange rates", userId);
+      throw new AccessDeniedException("Access denied");
+    }
+
     log.info(
-        "Received getExchangeRates request - User ID: {}, Email: {}, startDate: {},"
+        "Received getExchangeRates request - User ID: {}, startDate: {},"
             + " endDate: {}, targetCurrency: {}",
-        userId.orElse("anonymous"),
-        userEmail.orElse("N/A"),
+        userId,
         startDate.orElse(null),
         endDate.orElse(null),
         targetCurrency);

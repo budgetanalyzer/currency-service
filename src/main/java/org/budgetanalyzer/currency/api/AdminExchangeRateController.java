@@ -2,8 +2,11 @@ package org.budgetanalyzer.currency.api;
 
 import java.util.List;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,6 +21,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import org.budgetanalyzer.currency.api.response.ExchangeRateImportResultResponse;
 import org.budgetanalyzer.currency.service.ExchangeRateImportService;
+import org.budgetanalyzer.service.permission.AuthorizationContext;
+import org.budgetanalyzer.service.permission.PermissionClient;
+import org.budgetanalyzer.service.security.SecurityContextUtil;
 
 /** Admin endpoints for exchange rate management. */
 @Tag(
@@ -30,9 +36,12 @@ public class AdminExchangeRateController {
   private static final Logger log = LoggerFactory.getLogger(AdminExchangeRateController.class);
 
   private final ExchangeRateImportService exchangeRateImportService;
+  private final PermissionClient permissionClient;
 
-  public AdminExchangeRateController(ExchangeRateImportService exchangeRateImportService) {
+  public AdminExchangeRateController(
+      ExchangeRateImportService exchangeRateImportService, PermissionClient permissionClient) {
     this.exchangeRateImportService = exchangeRateImportService;
+    this.permissionClient = permissionClient;
   }
 
   @Operation(
@@ -53,8 +62,21 @@ public class AdminExchangeRateController {
                                 @Schema(implementation = ExchangeRateImportResultResponse.class)))),
       })
   @PostMapping(path = "/import", produces = "application/json")
-  public List<ExchangeRateImportResultResponse> importLatestExchangeRates() {
-    log.info("Received importLatestExchangeRates request");
+  public List<ExchangeRateImportResultResponse> importLatestExchangeRates(
+      HttpServletRequest request) {
+
+    var userId =
+        SecurityContextUtil.getCurrentUserId()
+            .orElseThrow(() -> new AccessDeniedException("Authentication required"));
+
+    var ctx = AuthorizationContext.fromRequest(userId, request);
+
+    if (!permissionClient.canPerform(ctx, "admin", "currency")) {
+      log.warn("Access denied for user {} to import exchange rates (admin)", userId);
+      throw new AccessDeniedException("Access denied");
+    }
+
+    log.info("Received importLatestExchangeRates request from user {}", userId);
 
     var results = exchangeRateImportService.importLatestExchangeRates();
     return results.stream().map(ExchangeRateImportResultResponse::from).toList();

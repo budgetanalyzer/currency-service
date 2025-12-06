@@ -1,14 +1,20 @@
 package org.budgetanalyzer.currency.config;
 
+import java.util.Map;
+import java.util.Set;
+
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import org.budgetanalyzer.service.permission.AuthorizationContext;
+import org.budgetanalyzer.service.permission.PermissionClient;
 import org.budgetanalyzer.service.security.test.TestSecurityConfig;
 
 /**
@@ -100,5 +106,42 @@ public class TestContainersConfig {
   @ServiceConnection
   RabbitMQContainer rabbitMQContainer() {
     return rabbitMQContainer;
+  }
+
+  /**
+   * Mock PermissionClient that permits all operations.
+   *
+   * <p>For integration tests, we want to test the controller/service logic without involving the
+   * permission-service. Tests that specifically verify permission behavior should use a different
+   * approach (e.g., custom mock per test).
+   */
+  @Bean
+  @Primary
+  PermissionClient permissionClient() {
+    return new PermissionClient() {
+      @Override
+      public boolean canPerform(AuthorizationContext ctx, String action, String resourceType) {
+        return true;
+      }
+
+      @Override
+      public boolean canAccess(
+          AuthorizationContext ctx,
+          String action,
+          String resourceType,
+          String resourceId,
+          String ownerId) {
+        return true;
+      }
+
+      @Override
+      public Set<String> filterAccessible(
+          AuthorizationContext ctx,
+          String action,
+          String resourceType,
+          Map<String, String> resourceIdToOwnerId) {
+        return resourceIdToOwnerId.keySet();
+      }
+    };
   }
 }
