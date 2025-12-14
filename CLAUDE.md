@@ -44,8 +44,8 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 
 **When to consult documentation**:
 - Setting up architecture layers → Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) Architecture Layers section
-- Creating entities → Review Base Entity Classes in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (AuditableEntity, SoftDeletableEntity)
-- Writing controllers → See HTTP Response Patterns in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (201 Created with Location header)
+- Creating entities → Read Base Entity Classes in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (AuditableEntity, SoftDeletableEntity)
+- Writing controllers → Read HTTP Response Patterns in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (201 Created with Location header)
 - Dependency injection patterns → Read Dependency Injection section in [service-common/CLAUDE.md](../service-common/CLAUDE.md)
 
 **Quick reference**:
@@ -65,9 +65,9 @@ This service implements ALL advanced patterns from service-common for external i
 
 **When to consult detailed documentation**:
 - **Adding new providers (ECB, Bloomberg)** → Read [Advanced Patterns Usage Guide](docs/advanced-patterns-usage.md#provider-abstraction-pattern)
-- **Adjusting lock durations or schedules** → See [ShedLock section](docs/advanced-patterns-usage.md#shedlock-distributed-locking)
-- **Cache tuning or monitoring** → Review [Redis Caching section](docs/advanced-patterns-usage.md#redis-distributed-caching)
-- **Adding domain events** → Check [Event-Driven Messaging](docs/advanced-patterns-usage.md#event-driven-messaging)
+- **Adjusting lock durations or schedules** → Read [ShedLock section](docs/advanced-patterns-usage.md#shedlock-distributed-locking)
+- **Cache tuning or monitoring** → Read [Redis Caching section](docs/advanced-patterns-usage.md#redis-distributed-caching)
+- **Adding domain events** → Read [Event-Driven Messaging](docs/advanced-patterns-usage.md#event-driven-messaging)
 - **Understanding pattern theory** → Read [service-common/docs/advanced-patterns.md](../service-common/docs/advanced-patterns.md)
 
 **Quick reference**:
@@ -260,8 +260,8 @@ cd ../currency-service
 
 **When to consult documentation**:
 - Writing unit tests → Read Unit Testing Patterns section in [testing-patterns.md](../service-common/docs/testing-patterns.md)
-- Setting up integration tests → Review TestContainers setup in [testing-patterns.md](../service-common/docs/testing-patterns.md)
-- Understanding test philosophy → See Testing Philosophy section in [testing-patterns.md](../service-common/docs/testing-patterns.md)
+- Setting up integration tests → Read TestContainers setup in [testing-patterns.md](../service-common/docs/testing-patterns.md)
+- Understanding test philosophy → Read Testing Philosophy section in [testing-patterns.md](../service-common/docs/testing-patterns.md)
 
 **Quick reference**:
 - Unit tests: No Spring context, fast, mock dependencies
