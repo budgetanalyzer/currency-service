@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +58,7 @@ class CurrencySeriesRepositoryIntegrationTest extends AbstractIntegrationTest {
         currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_JPY).orElseThrow();
     jpySeries.setEnabled(false);
 
-    currencySeriesRepository.saveAll(java.util.List.of(eurSeries, thbSeries, gbpSeries, jpySeries));
+    currencySeriesRepository.saveAll(List.of(eurSeries, thbSeries, gbpSeries, jpySeries));
     currencySeriesRepository.flush();
 
     // Act

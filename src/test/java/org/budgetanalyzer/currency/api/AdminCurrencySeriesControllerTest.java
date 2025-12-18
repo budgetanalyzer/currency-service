@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -475,9 +477,7 @@ class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
     // Verify createdAt is not null and hasn't changed significantly (within 1 second)
     assert updated.getCreatedAt() != null;
     assert originalCreatedAt != null;
-    assert Math.abs(
-            java.time.Duration.between(updated.getCreatedAt(), originalCreatedAt).toMillis())
-        < 1000;
+    assert Math.abs(Duration.between(updated.getCreatedAt(), originalCreatedAt).toMillis()) < 1000;
   }
 
   // ===========================================================================================

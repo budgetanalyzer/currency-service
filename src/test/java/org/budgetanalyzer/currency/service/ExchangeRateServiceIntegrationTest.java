@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -323,7 +324,7 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
             .withDate(TestConstants.DATE_2024_JAN_07_WEEKEND)
             .withRate(new BigDecimal("0.8800"))
             .build();
-    exchangeRateRepository.saveAll(java.util.List.of(jan01, jan02, jan06, jan07));
+    exchangeRateRepository.saveAll(List.of(jan01, jan02, jan06, jan07));
 
     // Act - Query Jan 1-7 (includes 3-day gap: Jan 3, 4, 5)
     var result =

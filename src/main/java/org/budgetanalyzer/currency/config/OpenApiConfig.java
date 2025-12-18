@@ -30,5 +30,5 @@ import org.budgetanalyzer.service.config.BaseOpenApiConfig;
     externalDocs =
         @ExternalDocumentation(
             description = "Find more info here",
-            url = "https://github.com/budgetanalyzer/currency-service"))
+            url = "https://github.com/budgetanalyzerllc/currency-service"))
 public class OpenApiConfig extends BaseOpenApiConfig {}

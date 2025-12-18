@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,19 +100,19 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API responses for historical data for each currency
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_02.toString(), "0.8510")));
 
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_THB,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "32.6800"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_02.toString(), "32.7000")));
 
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_GBP,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.7800"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_02.toString(), "0.7810")));
 
@@ -160,13 +161,12 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API responses for THB and GBP only (EUR is skipped since it has data)
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_THB,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "32.6800")));
 
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_GBP,
-        java.util.List.of(
-            new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.7800")));
+        List.of(new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.7800")));
 
     // Act
     var results = exchangeRateImportService.importMissingExchangeRates();
@@ -266,7 +266,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
 
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(jan16.toString(), "0.8500"),
             new FredApiStubs.Observation(jan17.toString(), "0.8510"),
             new FredApiStubs.Observation(jan18.toString(), "0.8520"),
@@ -275,7 +275,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
 
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_THB,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(jan16.toString(), "32.6800"),
             new FredApiStubs.Observation(jan17.toString(), "32.6900"),
             new FredApiStubs.Observation(jan18.toString(), "32.7000"),
@@ -284,7 +284,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
 
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_GBP,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(jan16.toString(), "0.7800"),
             new FredApiStubs.Observation(jan17.toString(), "0.7810"),
             new FredApiStubs.Observation(jan18.toString(), "0.7820"),
@@ -338,10 +338,10 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_THB,
-        java.util.List.of(new FredApiStubs.Observation(jan16.toString(), "32.6800")));
+        List.of(new FredApiStubs.Observation(jan16.toString(), "32.6800")));
 
     // Act
     var results = exchangeRateImportService.importLatestExchangeRates();
@@ -378,7 +378,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(jan16.toString(), "0.8500"),
             new FredApiStubs.Observation(jan16.plusDays(1).toString(), "0.8510"),
             new FredApiStubs.Observation(jan16.plusDays(2).toString(), "0.8520"),
@@ -410,7 +410,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API response with 3 historical rates
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_02.toString(), "0.8510"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_05.toString(), "0.8520")));
@@ -457,7 +457,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API response with 3 rates
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_02.toString(), "0.8510"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_05.toString(), "0.8520")));
@@ -497,7 +497,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(jan16.toString(), "0.8500"),
             new FredApiStubs.Observation(jan16.plusDays(1).toString(), "0.8510"),
             new FredApiStubs.Observation(jan16.plusDays(2).toString(), "0.8520"),
@@ -536,7 +536,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan21 = jan15.plusDays(6); // Service requests from Jan 21 (day after last stored)
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(
                 jan15.plusDays(1).toString(), "0.8500"), // Jan 16 - unchanged (skip)
             new FredApiStubs.Observation(
@@ -585,7 +585,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan16 = jan15.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(jan16.toString(), "0.8600"),
             new FredApiStubs.Observation(jan16.plusDays(1).toString(), "0.8610"),
             new FredApiStubs.Observation(jan16.plusDays(2).toString(), "0.8620"),
@@ -634,7 +634,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan12 = jan11.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(jan12.toString(), "0.8800"), // NEW
             new FredApiStubs.Observation(jan12.plusDays(1).toString(), "0.8900"), // NEW
             new FredApiStubs.Observation(jan12.plusDays(2).toString(), "0.9000"), // NEW
@@ -666,7 +666,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan31 = LocalDate.of(2024, 1, 31);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(jan01.toString(), "0.8500"),
             new FredApiStubs.Observation(jan01.plusDays(15).toString(), "0.8600"),
             new FredApiStubs.Observation(jan31.toString(), "0.8700")));
@@ -706,8 +706,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API response
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
-            new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
 
     // Act
     exchangeRateImportService.importMissingExchangeRates();
@@ -743,7 +742,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
 
     // Act
     exchangeRateImportService.importLatestExchangeRates();
@@ -779,7 +778,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
 
     // Act
     exchangeRateImportService.importExchangeRatesForSeries(eurSeries.getId());
@@ -900,7 +899,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
 
     // Act
     var result = exchangeRateImportService.importExchangeRatesForSeries(eurSeries.getId());
@@ -923,8 +922,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API response
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
-            new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
 
     // Act
     var result = exchangeRateImportService.importExchangeRatesForSeries(eurSeries.getId());
@@ -1004,8 +1002,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API response (service uses ExchangeRateProvider abstraction, not FRED directly)
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
-            new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
 
     // Act
     var result = exchangeRateImportService.importExchangeRatesForSeries(eurSeries.getId());
@@ -1054,13 +1051,13 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(jan16.toString(), "0.8500")));
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_THB,
-        java.util.List.of(new FredApiStubs.Observation(jan16.toString(), "32.6800")));
+        List.of(new FredApiStubs.Observation(jan16.toString(), "32.6800")));
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_GBP,
-        java.util.List.of(new FredApiStubs.Observation(jan16.toString(), "0.7800")));
+        List.of(new FredApiStubs.Observation(jan16.toString(), "0.7800")));
 
     // Act
     var results = exchangeRateImportService.importLatestExchangeRates();
@@ -1124,7 +1121,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API response with valid data
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_02.toString(), "0.8510")));
 
@@ -1159,13 +1156,11 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API: EUR succeeds, THB throws error (causes rollback), GBP not reached
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
-            new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
     FredApiStubs.stubServerError(TestConstants.FRED_SERIES_THB); // This will cause the error
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_GBP,
-        java.util.List.of(
-            new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.7800")));
+        List.of(new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.7800")));
 
     // Record initial count
     var countBefore = exchangeRateRepository.count();
@@ -1243,7 +1238,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API response with 5 rates
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_02.toString(), "0.8510"),
             new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_05.toString(), "0.8520"),
@@ -1334,24 +1329,24 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var nextDate = baseDate.plusDays(6);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(new FredApiStubs.Observation(nextDate.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(nextDate.toString(), "0.8500")));
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_THB,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(nextDate.toString(), "32.6800"),
             new FredApiStubs.Observation(nextDate.plusDays(1).toString(), "32.6900")));
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_GBP,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(nextDate.toString(), "0.7800"),
             new FredApiStubs.Observation(nextDate.plusDays(1).toString(), "0.7810"),
             new FredApiStubs.Observation(nextDate.plusDays(2).toString(), "0.7820")));
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_JPY,
-        java.util.List.of(new FredApiStubs.Observation(nextDate.toString(), "140.5000")));
+        List.of(new FredApiStubs.Observation(nextDate.toString(), "140.5000")));
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_CAD,
-        java.util.List.of(new FredApiStubs.Observation(nextDate.toString(), "1.3500")));
+        List.of(new FredApiStubs.Observation(nextDate.toString(), "1.3500")));
 
     // Act
     var results = exchangeRateImportService.importLatestExchangeRates();
@@ -1385,8 +1380,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // Stub FRED API response
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
-            new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
+        List.of(new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500")));
 
     // Act
     var timestampBefore = Instant.now();
@@ -1421,7 +1415,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
-        java.util.List.of(
+        List.of(
             new FredApiStubs.Observation(jan16.toString(), "0.8500"),
             new FredApiStubs.Observation(jan16.plusDays(1).toString(), "0.8510"),
             new FredApiStubs.Observation(jan16.plusDays(2).toString(), "0.8520")));

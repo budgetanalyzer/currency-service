@@ -293,6 +293,17 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 3. Do NOT attempt to hack around missing prerequisites - this leads to broken implementations that must be deleted
 4. Complete prerequisites first, then return to the original task
 
+### Execution Bias
+
+When a task is clear and you have the tools to complete it, **do it** rather than describing what needs to be done.
+
+- Bad: "To verify this works, you'll need to run the build for each service..."
+- Good: "Let me run the builds and verify." [runs builds]
+
+The user can always ask for explanation afterward. But they can't un-waste time spent reading instructions for tasks you could have just done.
+
+**Exception — git operations**: Never run git commands (commit, push, checkout, reset, etc.) without explicit user request. The user controls git workflow entirely. You may suggest what to commit, but don't do it.
+
 **General guidance**: Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) for code quality standards and build commands.
 
 **Service-specific reminders**:
@@ -349,10 +360,10 @@ if (!permissionClient.canPerform(ctx, "read", "currency")) {
 
 *The relative paths in this document are optimized for Claude Code. When viewing on GitHub, use these links to access other repositories:*
 
-- [Service-Common Repository](https://github.com/budgetanalyzer/service-common)
-- [Service-Common CLAUDE.md](https://github.com/budgetanalyzer/service-common/blob/main/CLAUDE.md)
-- [Advanced Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/advanced-patterns.md)
-- [Testing Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/testing-patterns.md)
+- [Service-Common Repository](https://github.com/budgetanalyzerllc/service-common)
+- [Service-Common CLAUDE.md](https://github.com/budgetanalyzerllc/service-common/blob/main/CLAUDE.md)
+- [Advanced Patterns Documentation](https://github.com/budgetanalyzerllc/service-common/blob/main/docs/advanced-patterns.md)
+- [Testing Patterns Documentation](https://github.com/budgetanalyzerllc/service-common/blob/main/docs/testing-patterns.md)
 
 ## Web Search Protocol
 
