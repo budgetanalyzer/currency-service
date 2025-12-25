@@ -41,7 +41,7 @@ public class CurrencyServiceStartupConfig {
     }
 
     try {
-      var results = exchangeRateImportService.importMissingExchangeRates();
+      var results = exchangeRateImportService.importLatestExchangeRates();
       log.info(
           "Successfully completed startup exchange rate import for {} currencies: {}",
           results.size(),
