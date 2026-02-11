@@ -53,10 +53,10 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 **Pattern**: Clean layered architecture (Controller → Service → Repository) with standardized naming, pure JPA persistence, and base entity classes.
 
 **When to consult documentation**:
-- Setting up architecture layers → Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) Architecture Layers section
-- Creating entities → Read Base Entity Classes in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (AuditableEntity, SoftDeletableEntity)
-- Writing controllers → Read HTTP Response Patterns in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (201 Created with Location header)
-- Dependency injection patterns → Read Dependency Injection section in [service-common/CLAUDE.md](../service-common/CLAUDE.md)
+- Setting up architecture layers → Read [service-common/AGENTS.md](../service-common/AGENTS.md) Architecture Layers section
+- Creating entities → Read Base Entity Classes in [service-common/AGENTS.md](../service-common/AGENTS.md) (AuditableEntity, SoftDeletableEntity)
+- Writing controllers → Read HTTP Response Patterns in [service-common/AGENTS.md](../service-common/AGENTS.md) (201 Created with Location header)
+- Dependency injection patterns → Read Dependency Injection section in [service-common/AGENTS.md](../service-common/AGENTS.md)
 
 **Quick reference**:
 - Controllers: `*Controller` + thin HTTP layer only
@@ -65,7 +65,7 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 - Pure JPA only: **Forbidden** `org.hibernate.*` → **Use** `jakarta.persistence.*`
 - Base entities: Extend `AuditableEntity` or `SoftDeletableEntity`
 
-**For comprehensive patterns:** Read [service-common/CLAUDE.md](../service-common/CLAUDE.md)
+**For comprehensive patterns:** Read [service-common/AGENTS.md](../service-common/AGENTS.md)
 
 ## Advanced Patterns Used
 
@@ -148,7 +148,7 @@ cat src/main/java/org/budgetanalyzer/currency/domain/ExchangeRate.java
 
 ### Package Structure
 
-**Standard Spring Boot layers** - Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) for architecture layer details
+**Standard Spring Boot layers** - Read [service-common/AGENTS.md](../service-common/AGENTS.md) for architecture layer details
 
 **Service-specific packages:**
 - `client/fred/` - FRED API integration
@@ -303,7 +303,7 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 3. Do NOT attempt to hack around missing prerequisites - this leads to broken implementations that must be deleted
 4. Complete prerequisites first, then return to the original task
 
-**General guidance**: Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) for code quality standards and build commands.
+**General guidance**: Read [service-common/AGENTS.md](../service-common/AGENTS.md) for code quality standards and build commands.
 
 **Service-specific reminders**:
 - Service layer uses `ExchangeRateProvider` interface, NEVER references FRED directly
@@ -360,7 +360,7 @@ if (!permissionClient.canPerform(ctx, "read", "currency")) {
 *The relative paths in this document are optimized for Claude Code. When viewing on GitHub, use these links to access other repositories:*
 
 - [Service-Common Repository](https://github.com/budgetanalyzerllc/service-common)
-- [Service-Common CLAUDE.md](https://github.com/budgetanalyzerllc/service-common/blob/main/CLAUDE.md)
+- [Service-Common AGENTS.md](https://github.com/budgetanalyzerllc/service-common/blob/main/AGENTS.md)
 - [Advanced Patterns Documentation](https://github.com/budgetanalyzerllc/service-common/blob/main/docs/advanced-patterns.md)
 - [Testing Patterns Documentation](https://github.com/budgetanalyzerllc/service-common/blob/main/docs/testing-patterns.md)
 
