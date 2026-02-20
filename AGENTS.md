@@ -1,15 +1,5 @@
 # Currency Service - Exchange Rate Management
 
-## Honest Discourse
-
-Do not over-validate ideas. The user wants honest pushback, not agreement.
-
-- If something seems wrong, say so directly
-- Distinguish "novel" from "obvious in retrospect"
-- Push back on vague claims — ask for concrete constraints
-- Don't say "great question" or "that's a really interesting point"
-- Skip the preamble and caveats — just answer
-
 ## Tree Position
 
 **Archetype**: service
@@ -311,6 +301,16 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 - Services publish domain events, listeners bridge to external messages
 - Use `@Cacheable` for queries, `@CacheEvict(allEntries=true)` after imports
 - Use `@SchedulerLock` for scheduled tasks (multi-pod coordination)
+
+## Honest Discourse
+
+Do not over-validate ideas. The user wants honest pushback, not agreement.
+
+- If something seems wrong, say so directly
+- Distinguish "novel" from "obvious in retrospect"
+- Push back on vague claims — ask for concrete constraints
+- Don't say "great question" or "that's a really interesting point"
+- Skip the preamble and caveats — just answer
 
 ---
 
