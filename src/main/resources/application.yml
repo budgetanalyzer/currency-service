@@ -172,18 +172,3 @@ budgetanalyzer:
       max-body-size: 10000
       # Default exclude-patterns: /actuator/**, /swagger-ui/**, /v3/api-docs/**
 
-  # Permission client configuration
-  # Enables authorization checks via permission-service
-  permission:
-    enabled: true
-    base-url: ${PERMISSION_SERVICE_URL:http://localhost:8086/permission-service}
-    connect-timeout: 5s
-    read-timeout: 10s
-    cache:
-      enabled: true
-      ttl: 5m
-    circuit-breaker:
-      failure-rate-threshold: 50
-      wait-duration-in-open-state: 60s
-      permitted-calls-in-half-open-state: 3
-      sliding-window-size: 10

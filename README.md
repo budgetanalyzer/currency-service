@@ -4,7 +4,7 @@
 >
 > — [AGENTS.md](AGENTS.md#tree-position)
 
-[![Build](https://github.com/budgetanalyzerllc/currency-service/actions/workflows/build.yml/badge.svg)](https://github.com/budgetanalyzerllc/currency-service/actions/workflows/build.yml)
+[![Build](https://github.com/budgetanalyzer/currency-service/actions/workflows/build.yml/badge.svg)](https://github.com/budgetanalyzer/currency-service/actions/workflows/build.yml)
 
 Spring Boot microservice that automates exchange rate imports from the Federal Reserve Economic Data (FRED) API. This service provides production-quality integration with the St. Louis Fed's economic data infrastructure, delivering reliable currency and exchange rate data for Budget Analyzer.
 
@@ -98,9 +98,9 @@ FRED requires a free API key. Register at https://fred.stlouisfed.org/docs/api/a
 - JDK 24
 - Docker and Docker Compose (for infrastructure)
 
-**Local development setup**: See [getting-started.md](https://github.com/budgetanalyzerllc/orchestration/blob/main/docs/development/getting-started.md)
+**Local development setup**: See [getting-started.md](https://github.com/budgetanalyzer/orchestration/blob/main/docs/development/getting-started.md)
 
-**Database configuration**: See [database-setup.md](https://github.com/budgetanalyzerllc/orchestration/blob/main/docs/development/database-setup.md)
+**Database configuration**: See [database-setup.md](https://github.com/budgetanalyzer/orchestration/blob/main/docs/development/database-setup.md)
 
 Note: This service uses the `currency` database (not `budget_analyzer`).
 
@@ -177,14 +177,14 @@ This service integrates with:
 - **Service Common** for shared utilities
 - **Transaction Service** for multi-currency transaction support
 
-See the [orchestration repository](https://github.com/budgetanalyzerllc/orchestration) for full system setup.
+See the [orchestration repository](https://github.com/budgetanalyzer/orchestration) for full system setup.
 
 ## Related Repositories
 
-- **Orchestration**: https://github.com/budgetanalyzerllc/orchestration
-- **Service Common**: https://github.com/budgetanalyzerllc/service-common
-- **Transaction Service**: https://github.com/budgetanalyzerllc/transaction-service
-- **Web Frontend**: https://github.com/budgetanalyzerllc/budget-analyzer-web
+- **Orchestration**: https://github.com/budgetanalyzer/orchestration
+- **Service Common**: https://github.com/budgetanalyzer/service-common
+- **Transaction Service**: https://github.com/budgetanalyzer/transaction-service
+- **Web Frontend**: https://github.com/budgetanalyzer/budget-analyzer-web
 
 ## License
 

@@ -312,55 +312,14 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 - Use `@Cacheable` for queries, `@CacheEvict(allEntries=true)` after imports
 - Use `@SchedulerLock` for scheduled tasks (multi-pod coordination)
 
-## Permission Integration
-
-This service uses `PermissionClient` from service-common for authorization.
-
-**Configuration** (`application.yml`):
-```yaml
-budgetanalyzer:
-  permission:
-    enabled: true
-    base-url: ${PERMISSION_SERVICE_URL:http://localhost:8086/permission-service}
-```
-
-**Permission Model** (type-level, not resource-level):
-
-| Endpoint | Permission | Roles |
-|----------|------------|-------|
-| `GET /v1/currencies` | `currencies:read` | USER, ADMIN |
-| `GET /v1/exchange-rates` | `currencies:read` | USER, ADMIN |
-| `POST /v1/admin/currencies` | `currencies:admin` | ADMIN |
-| `PUT /v1/admin/currencies/{id}` | `currencies:admin` | ADMIN |
-| `GET /v1/admin/currencies/{id}` | `currencies:admin` | ADMIN |
-| `POST /v1/admin/exchange-rates/import` | `currencies:admin` | ADMIN |
-
-**Usage Pattern** (controllers):
-```java
-var userId = SecurityContextUtil.getCurrentUserId()
-    .orElseThrow(() -> new AccessDeniedException("Authentication required"));
-
-var ctx = AuthorizationContext.fromRequest(userId, request);
-
-if (!permissionClient.canPerform(ctx, "read", "currency")) {
-    throw new AccessDeniedException("Access denied");
-}
-```
-
-**Key Points**:
-- Currency data is shared reference data (not user-owned), so we use `canPerform()` not `canAccess()`
-- `currencies:read` is granted to all authenticated users by default (via USER role)
-- `currencies:admin` is restricted to ADMIN role
-- Fail-closed: if permission-service is unavailable and cache is empty, access is denied
-
 ---
 
 ## External Links (GitHub Web Viewing)
 
 *The relative paths in this document are optimized for Claude Code. When viewing on GitHub, use these links to access other repositories:*
 
-- [Service-Common Repository](https://github.com/budgetanalyzerllc/service-common)
-- [Service-Common AGENTS.md](https://github.com/budgetanalyzerllc/service-common/blob/main/AGENTS.md)
-- [Advanced Patterns Documentation](https://github.com/budgetanalyzerllc/service-common/blob/main/docs/advanced-patterns.md)
-- [Testing Patterns Documentation](https://github.com/budgetanalyzerllc/service-common/blob/main/docs/testing-patterns.md)
+- [Service-Common Repository](https://github.com/budgetanalyzer/service-common)
+- [Service-Common AGENTS.md](https://github.com/budgetanalyzer/service-common/blob/main/AGENTS.md)
+- [Advanced Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/advanced-patterns.md)
+- [Testing Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/testing-patterns.md)
 
