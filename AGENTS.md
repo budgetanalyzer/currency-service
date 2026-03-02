@@ -43,10 +43,10 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 **Pattern**: Clean layered architecture (Controller → Service → Repository) with standardized naming, pure JPA persistence, and base entity classes.
 
 **When to consult documentation**:
-- Setting up architecture layers → Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) Architecture Layers section
-- Creating entities → Review Base Entity Classes in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (AuditableEntity, SoftDeletableEntity)
-- Writing controllers → See HTTP Response Patterns in [service-common/CLAUDE.md](../service-common/CLAUDE.md) (201 Created with Location header)
-- Dependency injection patterns → Read Dependency Injection section in [service-common/CLAUDE.md](../service-common/CLAUDE.md)
+- Setting up architecture layers → Read [service-common/AGENTS.md](../service-common/AGENTS.md) Architecture Layers section
+- Creating entities → Read Base Entity Classes in [service-common/AGENTS.md](../service-common/AGENTS.md) (AuditableEntity, SoftDeletableEntity)
+- Writing controllers → Read HTTP Response Patterns in [service-common/AGENTS.md](../service-common/AGENTS.md) (201 Created with Location header)
+- Dependency injection patterns → Read Dependency Injection section in [service-common/AGENTS.md](../service-common/AGENTS.md)
 
 **Quick reference**:
 - Controllers: `*Controller` + thin HTTP layer only
@@ -55,7 +55,7 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 - Pure JPA only: **Forbidden** `org.hibernate.*` → **Use** `jakarta.persistence.*`
 - Base entities: Extend `AuditableEntity` or `SoftDeletableEntity`
 
-**For comprehensive patterns:** Read [service-common/CLAUDE.md](../service-common/CLAUDE.md)
+**For comprehensive patterns:** Read [service-common/AGENTS.md](../service-common/AGENTS.md)
 
 ## Advanced Patterns Used
 
@@ -65,9 +65,9 @@ This service implements ALL advanced patterns from service-common for external i
 
 **When to consult detailed documentation**:
 - **Adding new providers (ECB, Bloomberg)** → Read [Advanced Patterns Usage Guide](docs/advanced-patterns-usage.md#provider-abstraction-pattern)
-- **Adjusting lock durations or schedules** → See [ShedLock section](docs/advanced-patterns-usage.md#shedlock-distributed-locking)
-- **Cache tuning or monitoring** → Review [Redis Caching section](docs/advanced-patterns-usage.md#redis-distributed-caching)
-- **Adding domain events** → Check [Event-Driven Messaging](docs/advanced-patterns-usage.md#event-driven-messaging)
+- **Adjusting lock durations or schedules** → Read [ShedLock section](docs/advanced-patterns-usage.md#shedlock-distributed-locking)
+- **Cache tuning or monitoring** → Read [Redis Caching section](docs/advanced-patterns-usage.md#redis-distributed-caching)
+- **Adding domain events** → Read [Event-Driven Messaging](docs/advanced-patterns-usage.md#event-driven-messaging)
 - **Understanding pattern theory** → Read [service-common/docs/advanced-patterns.md](../service-common/docs/advanced-patterns.md)
 
 **Quick reference**:
@@ -138,7 +138,7 @@ cat src/main/java/org/budgetanalyzer/currency/domain/ExchangeRate.java
 
 ### Package Structure
 
-**Standard Spring Boot layers** - Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) for architecture layer details
+**Standard Spring Boot layers** - Read [service-common/AGENTS.md](../service-common/AGENTS.md) for architecture layer details
 
 **Service-specific packages:**
 - `client/fred/` - FRED API integration
@@ -260,8 +260,8 @@ cd ../currency-service
 
 **When to consult documentation**:
 - Writing unit tests → Read Unit Testing Patterns section in [testing-patterns.md](../service-common/docs/testing-patterns.md)
-- Setting up integration tests → Review TestContainers setup in [testing-patterns.md](../service-common/docs/testing-patterns.md)
-- Understanding test philosophy → See Testing Philosophy section in [testing-patterns.md](../service-common/docs/testing-patterns.md)
+- Setting up integration tests → Read TestContainers setup in [testing-patterns.md](../service-common/docs/testing-patterns.md)
+- Understanding test philosophy → Read Testing Philosophy section in [testing-patterns.md](../service-common/docs/testing-patterns.md)
 
 **Quick reference**:
 - Unit tests: No Spring context, fast, mock dependencies
@@ -293,7 +293,7 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 3. Do NOT attempt to hack around missing prerequisites - this leads to broken implementations that must be deleted
 4. Complete prerequisites first, then return to the original task
 
-**General guidance**: Read [service-common/CLAUDE.md](../service-common/CLAUDE.md) for code quality standards and build commands.
+**General guidance**: Read [service-common/AGENTS.md](../service-common/AGENTS.md) for code quality standards and build commands.
 
 **Service-specific reminders**:
 - Service layer uses `ExchangeRateProvider` interface, NEVER references FRED directly
@@ -302,6 +302,16 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 - Use `@Cacheable` for queries, `@CacheEvict(allEntries=true)` after imports
 - Use `@SchedulerLock` for scheduled tasks (multi-pod coordination)
 
+## Honest Discourse
+
+Do not over-validate ideas. The user wants honest pushback, not agreement.
+
+- If something seems wrong, say so directly
+- Distinguish "novel" from "obvious in retrospect"
+- Push back on vague claims — ask for concrete constraints
+- Don't say "great question" or "that's a really interesting point"
+- Skip the preamble and caveats — just answer
+
 ---
 
 ## External Links (GitHub Web Viewing)
@@ -309,20 +319,7 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 *The relative paths in this document are optimized for Claude Code. When viewing on GitHub, use these links to access other repositories:*
 
 - [Service-Common Repository](https://github.com/budgetanalyzer/service-common)
-- [Service-Common CLAUDE.md](https://github.com/budgetanalyzer/service-common/blob/main/CLAUDE.md)
+- [Service-Common AGENTS.md](https://github.com/budgetanalyzer/service-common/blob/main/AGENTS.md)
 - [Advanced Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/advanced-patterns.md)
 - [Testing Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/testing-patterns.md)
 
-## Web Search Protocol
-
-BEFORE any WebSearch tool call:
-1. Read `Today's date` from `<env>` block
-2. Extract the current year
-3. Use current year in queries about "latest", "best", "current" topics
-4. NEVER use previous years unless explicitly searching historical content
-
-FAILURE MODE: Training data defaults to 2023/2024. Override with `<env>` year.
-
-## Conversation Capture
-
-When the user asks to save this conversation, write it to `/workspace/architecture-conversations/conversations/` following the format in INDEX.md.

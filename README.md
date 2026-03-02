@@ -2,7 +2,7 @@
 
 > "Archetype: service. Role: Manages currencies and exchange rates with external provider integration."
 >
-> — [CLAUDE.md](CLAUDE.md#tree-position)
+> — [AGENTS.md](AGENTS.md#tree-position)
 
 [![Build](https://github.com/budgetanalyzer/currency-service/actions/workflows/build.yml/badge.svg)](https://github.com/budgetanalyzer/currency-service/actions/workflows/build.yml)
 

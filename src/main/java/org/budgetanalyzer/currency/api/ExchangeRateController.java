@@ -45,7 +45,6 @@ public class ExchangeRateController {
     this.exchangeRateService = exchangeRateService;
   }
 
-  @PreAuthorize("isAuthenticated()")
   @Operation(
       summary = "Get exchange rates",
       description = "Get exchange rates for converting USD to the target currency")
@@ -103,6 +102,7 @@ public class ExchangeRateController {
                       """)
                     }))
       })
+  @PreAuthorize("isAuthenticated()")
   @GetMapping(path = "", produces = "application/json")
   public List<ExchangeRateResponse> getExchangeRates(
       @Parameter(
@@ -119,6 +119,7 @@ public class ExchangeRateController {
           @NotNull
           @RequestParam
           Currency targetCurrency) {
+
     // Log authenticated user information (for audit purposes)
     var userId = SecurityContextUtil.getCurrentUserId();
     var userEmail = SecurityContextUtil.getCurrentUserEmail();

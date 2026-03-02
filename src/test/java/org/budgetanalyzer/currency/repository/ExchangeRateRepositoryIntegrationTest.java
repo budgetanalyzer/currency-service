@@ -5,10 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.NonTransientDataAccessException;
 import org.springframework.data.jpa.domain.Specification;
 
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
@@ -63,7 +65,7 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
             .withRate(new BigDecimal("0.8550"))
             .build();
 
-    exchangeRateRepository.saveAll(java.util.List.of(rate1, rate2, rate3));
+    exchangeRateRepository.saveAll(List.of(rate1, rate2, rate3));
     exchangeRateRepository.flush();
 
     // Act
@@ -112,7 +114,7 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
             .withRate(new BigDecimal("32.50"))
             .build();
 
-    exchangeRateRepository.saveAll(java.util.List.of(eurRate, thbRate));
+    exchangeRateRepository.saveAll(List.of(eurRate, thbRate));
     exchangeRateRepository.flush();
 
     // Act: Query for EUR only
@@ -189,7 +191,7 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
             .withRate(new BigDecimal("0.8600"))
             .build();
 
-    exchangeRateRepository.saveAll(java.util.List.of(rate1, rate2));
+    exchangeRateRepository.saveAll(List.of(rate1, rate2));
     exchangeRateRepository.flush();
 
     // Act
@@ -219,7 +221,7 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
             .withRate(new BigDecimal("32.50"))
             .build();
 
-    exchangeRateRepository.saveAll(java.util.List.of(eurRate, thbRate));
+    exchangeRateRepository.saveAll(List.of(eurRate, thbRate));
     exchangeRateRepository.flush();
 
     // Act: Query for EUR only
@@ -384,7 +386,7 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
             .withRate(new BigDecimal("0.75"))
             .build();
 
-    exchangeRateRepository.saveAll(java.util.List.of(eurRate, thbRate, gbpRate));
+    exchangeRateRepository.saveAll(List.of(eurRate, thbRate, gbpRate));
     exchangeRateRepository.flush();
 
     // Act: Filter for EUR and THB only
@@ -424,7 +426,7 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
             .withRate(new BigDecimal("0.9000"))
             .build();
 
-    exchangeRateRepository.saveAll(java.util.List.of(rate1, rate2, rate3));
+    exchangeRateRepository.saveAll(List.of(rate1, rate2, rate3));
     exchangeRateRepository.flush();
 
     // Act: Filter for rates >= 0.85
@@ -616,7 +618,7 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
               currencySeriesRepository.delete(eurSeries);
               currencySeriesRepository.flush();
             })
-        .isInstanceOf(org.springframework.dao.NonTransientDataAccessException.class);
+        .isInstanceOf(NonTransientDataAccessException.class);
   }
 
   @Test
