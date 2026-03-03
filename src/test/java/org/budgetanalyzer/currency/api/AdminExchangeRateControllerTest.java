@@ -26,6 +26,7 @@ import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
+import org.budgetanalyzer.service.security.test.JwtTestBuilder;
 
 /**
  * Integration tests for {@link AdminExchangeRateController}.
@@ -66,6 +67,7 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
   void setUp() {
     exchangeRateRepository.deleteAll();
     currencySeriesRepository.deleteAll();
+    setCustomJwt(JwtTestBuilder.admin().build());
 
     // Clear cache for test isolation
     var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
@@ -400,4 +402,19 @@ class AdminExchangeRateControllerTest extends AbstractControllerTest {
   // and is already tested in other controller tests. Skipping here to avoid
   // test execution issues when no WireMock stub is configured.
 
+  // ===========================================================================================
+  // D. Authorization Tests (403 Forbidden for non-admin users)
+  // ===========================================================================================
+
+  @Test
+  void shouldReturn401WhenUnauthenticatedUserTriesToImport() throws Exception {
+    performPostUnauthenticated("/v1/admin/exchange-rates/import", "")
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void shouldReturn403WhenNonAdminTriesToImport() throws Exception {
+    performPostWithJwt("/v1/admin/exchange-rates/import", "", JwtTestBuilder.defaultJwt())
+        .andExpect(status().isForbidden());
+  }
 }

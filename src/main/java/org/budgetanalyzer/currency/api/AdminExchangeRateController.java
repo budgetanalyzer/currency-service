@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,6 +26,7 @@ import org.budgetanalyzer.currency.service.ExchangeRateImportService;
     description = "Admin endpoints for importing and managing exchange rates")
 @RestController
 @RequestMapping(path = "/v1/admin/exchange-rates")
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminExchangeRateController {
 
   private static final Logger log = LoggerFactory.getLogger(AdminExchangeRateController.class);

@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,6 +37,7 @@ import org.budgetanalyzer.service.api.ApiErrorResponse;
     description = "Admin endpoints for creating and updating currency series")
 @RestController
 @RequestMapping(path = "/v1/admin/currencies")
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminCurrencySeriesController {
 
   private static final Logger log = LoggerFactory.getLogger(AdminCurrencySeriesController.class);

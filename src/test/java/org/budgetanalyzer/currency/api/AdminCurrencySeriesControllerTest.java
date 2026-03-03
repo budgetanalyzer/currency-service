@@ -20,6 +20,7 @@ import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
+import org.budgetanalyzer.service.security.test.JwtTestBuilder;
 
 /**
  * Integration tests for {@link AdminCurrencySeriesController}.
@@ -54,6 +55,7 @@ class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
   @BeforeEach
   void setUp() {
     currencySeriesRepository.deleteAll();
+    setCustomJwt(JwtTestBuilder.admin().build());
   }
 
   // ===========================================================================================
@@ -557,5 +559,76 @@ class AdminCurrencySeriesControllerTest extends AbstractControllerTest {
 
     // Verify none were created
     assert currencySeriesRepository.count() == 0;
+  }
+
+  // ===========================================================================================
+  // I. Authorization Tests (403 Forbidden for non-admin users)
+  // ===========================================================================================
+
+  @Test
+  void shouldReturn401WhenUnauthenticatedUserTriesToCreateCurrency() throws Exception {
+    var requestJson =
+        """
+        {
+          "currencyCode": "EUR",
+          "providerSeriesId": "DEXUSEU",
+          "enabled": true
+        }
+        """;
+
+    performPostUnauthenticated("/v1/admin/currencies", requestJson)
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void shouldReturn401WhenUnauthenticatedUserTriesToGetCurrencyById() throws Exception {
+    performGetUnauthenticated("/v1/admin/currencies/{id}", 1L).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void shouldReturn401WhenUnauthenticatedUserTriesToUpdateCurrency() throws Exception {
+    var requestJson =
+        """
+        {
+          "enabled": true
+        }
+        """;
+
+    performPutUnauthenticated("/v1/admin/currencies/1", requestJson)
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void shouldReturn403WhenNonAdminTriesToCreateCurrency() throws Exception {
+    var requestJson =
+        """
+        {
+          "currencyCode": "EUR",
+          "providerSeriesId": "DEXUSEU",
+          "enabled": true
+        }
+        """;
+
+    performPostWithJwt("/v1/admin/currencies", requestJson, JwtTestBuilder.defaultJwt())
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void shouldReturn403WhenNonAdminTriesToGetCurrencyById() throws Exception {
+    performGetWithJwt("/v1/admin/currencies/{id}", JwtTestBuilder.defaultJwt(), 1L)
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void shouldReturn403WhenNonAdminTriesToUpdateCurrency() throws Exception {
+    var requestJson =
+        """
+        {
+          "enabled": true
+        }
+        """;
+
+    performPutWithJwt("/v1/admin/currencies/1", requestJson, JwtTestBuilder.defaultJwt())
+        .andExpect(status().isForbidden());
   }
 }

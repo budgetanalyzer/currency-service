@@ -49,7 +49,16 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
   }
 
   // ===========================================================================================
-  // A. Happy Path Tests
+  // A. Authorization Tests (401 Unauthorized for unauthenticated users)
+  // ===========================================================================================
+
+  @Test
+  void shouldReturn401WhenUnauthenticatedUserTriesToGetCurrencies() throws Exception {
+    performGetUnauthenticated("/v1/currencies").andExpect(status().isUnauthorized());
+  }
+
+  // ===========================================================================================
+  // B. Happy Path Tests
   // ===========================================================================================
 
   @Test

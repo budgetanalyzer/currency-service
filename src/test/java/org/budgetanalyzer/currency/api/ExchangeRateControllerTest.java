@@ -57,7 +57,17 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
   }
 
   // ===========================================================================================
-  // A. Happy Path Tests
+  // A. Authorization Tests (401 Unauthorized for unauthenticated users)
+  // ===========================================================================================
+
+  @Test
+  void shouldReturn401WhenUnauthenticatedUserTriesToGetExchangeRates() throws Exception {
+    performGetUnauthenticated("/v1/exchange-rates?targetCurrency=EUR")
+        .andExpect(status().isUnauthorized());
+  }
+
+  // ===========================================================================================
+  // B. Happy Path Tests
   // ===========================================================================================
 
   @Test
