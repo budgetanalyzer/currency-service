@@ -57,6 +57,12 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 
 **For comprehensive patterns:** Read [service-common/AGENTS.md](../service-common/AGENTS.md)
 
+### Authorization
+
+All endpoints are protected by fine-grained JWT-based permissions. The session-gateway mints JWTs containing user roles and atomic permissions (e.g., `currencies:read`, `currencies:write`) sourced from the permission-service. Controllers enforce access via `@PreAuthorize` annotations.
+
+See [permission-service/AGENTS.md](../permission-service/AGENTS.md) for the RBAC model, role definitions, and permission details. See also the [Permission Service README](../permission-service/README.md) for an overview.
+
 ## Advanced Patterns Used
 
 This service implements ALL advanced patterns from service-common for external integrations, messaging, caching, and distributed systems.
@@ -322,4 +328,9 @@ Do not over-validate ideas. The user wants honest pushback, not agreement.
 - [Service-Common AGENTS.md](https://github.com/budgetanalyzer/service-common/blob/main/AGENTS.md)
 - [Advanced Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/advanced-patterns.md)
 - [Testing Patterns Documentation](https://github.com/budgetanalyzer/service-common/blob/main/docs/testing-patterns.md)
+- [Session Gateway Repository](https://github.com/budgetanalyzer/session-gateway)
+- [Session Gateway AGENTS.md](https://github.com/budgetanalyzer/session-gateway/blob/main/AGENTS.md)
+- [Token Validation Service Repository](https://github.com/budgetanalyzer/token-validation-service)
+- [Permission Service Repository](https://github.com/budgetanalyzer/permission-service)
+- [Permission Service AGENTS.md](https://github.com/budgetanalyzer/permission-service/blob/main/AGENTS.md)
 

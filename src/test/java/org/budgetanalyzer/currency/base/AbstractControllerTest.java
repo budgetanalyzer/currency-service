@@ -267,6 +267,57 @@ public abstract class AbstractControllerTest extends AbstractWireMockTest {
     }
   }
 
+  // ==================== Unauthenticated Request Methods ====================
+
+  /**
+   * Performs GET request without JWT authentication (unauthenticated).
+   *
+   * <p>Use this to verify that unauthenticated requests are rejected with 401 Unauthorized.
+   *
+   * @param urlTemplate URL template with optional path variables
+   * @param uriVars path variable values
+   * @return ResultActions for chaining assertions
+   * @throws Exception if request fails
+   */
+  protected ResultActions performGetUnauthenticated(String urlTemplate, Object... uriVars)
+      throws Exception {
+    return mockMvc.perform(get(urlTemplate, uriVars).contentType(MediaType.APPLICATION_JSON));
+  }
+
+  /**
+   * Performs POST request without JWT authentication (unauthenticated).
+   *
+   * <p>Use this to verify that unauthenticated requests are rejected with 401 Unauthorized.
+   *
+   * @param urlTemplate URL template with optional path variables
+   * @param jsonBody JSON request body
+   * @return ResultActions for chaining assertions
+   * @throws Exception if request fails
+   */
+  protected ResultActions performPostUnauthenticated(String urlTemplate, String jsonBody)
+      throws Exception {
+    return mockMvc.perform(
+        post(urlTemplate).contentType(MediaType.APPLICATION_JSON).content(jsonBody));
+  }
+
+  /**
+   * Performs PUT request without JWT authentication (unauthenticated).
+   *
+   * <p>Use this to verify that unauthenticated requests are rejected with 401 Unauthorized.
+   *
+   * @param urlTemplate URL template with optional path variables
+   * @param jsonBody JSON request body
+   * @return ResultActions for chaining assertions
+   * @throws Exception if request fails
+   */
+  protected ResultActions performPutUnauthenticated(String urlTemplate, String jsonBody)
+      throws Exception {
+    return mockMvc.perform(
+        put(urlTemplate).contentType(MediaType.APPLICATION_JSON).content(jsonBody));
+  }
+
+  // ==================== JWT Save/Restore Helpers ====================
+
   /**
    * Temporarily saves current custom JWT and sets a new one.
    *

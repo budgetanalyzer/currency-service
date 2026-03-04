@@ -43,16 +43,14 @@ spring:
     connect-retries: 0
 
   # OAuth2 Resource Server configuration for tests
-  # Note: issuer-uri is set but not used - we use a mock JwtDecoder in AbstractIntegrationTest
+  # Note: jwk-set-uri is set but not used - we use a mock JwtDecoder in AbstractIntegrationTest
   # The mock decoder has @Primary and is registered via @TestConfiguration,
   # which prevents the production JwtDecoder from being created (@ConditionalOnMissingBean)
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: https://test-issuer.example.com/
-          audiences:
-            - https://test-api.example.com
+          jwk-set-uri: https://test-jwks.example.com/.well-known/jwks.json
 
   data:
     redis:

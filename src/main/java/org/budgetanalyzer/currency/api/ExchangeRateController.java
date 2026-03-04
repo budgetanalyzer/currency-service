@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,13 +27,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import org.budgetanalyzer.currency.api.response.ExchangeRateImportResultResponse;
 import org.budgetanalyzer.currency.api.response.ExchangeRateResponse;
+import org.budgetanalyzer.currency.service.ExchangeRateImportService;
 import org.budgetanalyzer.currency.service.ExchangeRateService;
 import org.budgetanalyzer.service.api.ApiErrorResponse;
 import org.budgetanalyzer.service.exception.InvalidRequestException;
 import org.budgetanalyzer.service.security.SecurityContextUtil;
 
-@Tag(name = "Exchange Rates Handler", description = "Endpoints for querying exchange rates")
+@Tag(
+    name = "Exchange Rates Handler",
+    description = "Endpoints for querying and importing exchange rates")
 @RestController
 @RequestMapping(path = "/v1/exchange-rates")
 public class ExchangeRateController {
@@ -40,9 +45,13 @@ public class ExchangeRateController {
   private static final Logger log = LoggerFactory.getLogger(ExchangeRateController.class);
 
   private final ExchangeRateService exchangeRateService;
+  private final ExchangeRateImportService exchangeRateImportService;
 
-  public ExchangeRateController(ExchangeRateService exchangeRateService) {
+  public ExchangeRateController(
+      ExchangeRateService exchangeRateService,
+      ExchangeRateImportService exchangeRateImportService) {
     this.exchangeRateService = exchangeRateService;
+    this.exchangeRateImportService = exchangeRateImportService;
   }
 
   @Operation(
@@ -102,7 +111,7 @@ public class ExchangeRateController {
                       """)
                     }))
       })
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("hasAuthority('currencies:read')")
   @GetMapping(path = "", produces = "application/json")
   public List<ExchangeRateResponse> getExchangeRates(
       @Parameter(
@@ -142,5 +151,31 @@ public class ExchangeRateController {
             targetCurrency, startDate.orElse(null), endDate.orElse(null));
 
     return exchangeRates.stream().map(ExchangeRateResponse::from).toList();
+  }
+
+  @Operation(
+      summary = "Import latest available rates from FRED",
+      description =
+          "Retrieve latest un-imported exchange rates from FRED for all enabled currencies -"
+              + " manually triggers daily cron job")
+  @ApiResponses(
+      value = {
+        @ApiResponse(
+            responseCode = "200",
+            content =
+                @Content(
+                    mediaType = "application/json",
+                    array =
+                        @ArraySchema(
+                            schema =
+                                @Schema(implementation = ExchangeRateImportResultResponse.class)))),
+      })
+  @PreAuthorize("hasAuthority('currencies:write')")
+  @PostMapping(path = "/import", produces = "application/json")
+  public List<ExchangeRateImportResultResponse> importLatestExchangeRates() {
+    log.info("Received importLatestExchangeRates request");
+
+    var results = exchangeRateImportService.importLatestExchangeRates();
+    return results.stream().map(ExchangeRateImportResultResponse::from).toList();
   }
 }
