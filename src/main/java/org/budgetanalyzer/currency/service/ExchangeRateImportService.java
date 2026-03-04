@@ -27,15 +27,19 @@ import org.budgetanalyzer.service.exception.ServiceException;
  *
  * <p>Handles fetching exchange rates from providers, deduplication, and persisting to the database
  * with cache invalidation.
+ *
+ * <p><b>FRED Series Naming Convention:</b>
+ *
+ * <ul>
+ *   <li>DEXUS* (e.g., DEXUSAL for AUD): "USD per foreign currency" - stored as base=foreign,
+ *       target=USD
+ *   <li>DEX*US (e.g., DEXTHUS for THB): "foreign per USD" - stored as base=USD, target=foreign
+ * </ul>
  */
 @Service
 public class ExchangeRateImportService {
 
   private static final Logger log = LoggerFactory.getLogger(ExchangeRateImportService.class);
-
-  // The base currency will always be USD but i wanted to keep the column in the database
-  // in case the design needs to change in the future.
-  private static final Currency BASE_CURRENCY = Currency.getInstance("USD");
 
   private final ExchangeRateProvider exchangeRateProvider;
   private final ExchangeRateRepository exchangeRateRepository;
@@ -179,8 +183,8 @@ public class ExchangeRateImportService {
         seriesToImport.stream()
             .map(
                 currencySeries -> {
-                  var targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
-                  var startDate = determineStartDate(targetCurrency);
+                  var foreignCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
+                  var startDate = determineStartDate(currencySeries, foreignCurrency);
                   return importExchangeRates(currencySeries, startDate);
                 })
             .toList();
@@ -242,8 +246,8 @@ public class ExchangeRateImportService {
                     new ResourceNotFoundException(
                         "Currency series not found with id: " + currencySeriesId));
 
-    var targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
-    var startDate = determineStartDate(targetCurrency);
+    var foreignCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
+    var startDate = determineStartDate(currencySeries, foreignCurrency);
 
     return importExchangeRates(currencySeries, startDate);
   }
@@ -270,7 +274,7 @@ public class ExchangeRateImportService {
    */
   private ExchangeRateImportResult importExchangeRates(
       CurrencySeries currencySeries, LocalDate startDate) {
-    var targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
+    var foreignCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
 
     try {
       log.info(
@@ -293,7 +297,7 @@ public class ExchangeRateImportService {
             null);
       }
 
-      var exchangeRates = buildExchangeRates(dateRateMap, currencySeries, targetCurrency);
+      var exchangeRates = buildExchangeRates(dateRateMap, currencySeries, foreignCurrency);
       return saveExchangeRates(exchangeRates, currencySeries);
     } catch (ServiceException serviceException) {
       throw serviceException;
@@ -307,17 +311,22 @@ public class ExchangeRateImportService {
     }
   }
 
-  private LocalDate determineStartDate(Currency targetCurrency) {
+  private LocalDate determineStartDate(CurrencySeries currencySeries, Currency foreignCurrency) {
+    // Determine correct base/target based on FRED series naming
+    var isUsdPerForeign = currencySeries.getProviderSeriesId().startsWith("DEXUS");
+    var baseCurrency = isUsdPerForeign ? foreignCurrency : CurrencyConstants.USD;
+    var targetCurrency = isUsdPerForeign ? CurrencyConstants.USD : foreignCurrency;
+
     // Get the most recent exchange rate date from database
     var mostRecent =
         exchangeRateRepository.findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc(
-            BASE_CURRENCY, targetCurrency);
+            baseCurrency, targetCurrency);
 
     if (mostRecent.isEmpty()) {
       // Edge case 1: No data exists - import everything
       log.info(
           "No existing exchange rates found for currency code: {} - importing full history",
-          targetCurrency.getCurrencyCode());
+          foreignCurrency.getCurrencyCode());
       return null;
     }
 
@@ -343,70 +352,64 @@ public class ExchangeRateImportService {
   /**
    * Builds a list of ExchangeRate entities from provider data.
    *
-   * <p><b>Important - Denormalization:</b> This method sets BOTH:
-   *
-   * <ul>
-   *   <li><b>currencySeries</b> - Foreign key relationship for referential integrity and
-   *       traceability
-   *   <li><b>targetCurrency</b> - Denormalized currency code for query performance
-   * </ul>
-   *
-   * <p>Both fields must be set to maintain consistency between the relationship and the
-   * denormalized field.
+   * <p>Each ExchangeRate is linked to its CurrencySeries (foreign key) and has base/target
+   * currencies set according to the FRED series naming convention.
    *
    * @param dateRateMap Map of dates to exchange rates from the provider
    * @param currencySeries The currency series configuration (foreign key reference)
-   * @param targetCurrency The target currency (denormalized for performance)
+   * @param foreignCurrency The foreign currency (non-USD currency in the pair)
    * @return List of ExchangeRate entities ready to save
    */
   private List<ExchangeRate> buildExchangeRates(
       Map<LocalDate, BigDecimal> dateRateMap,
       CurrencySeries currencySeries,
-      Currency targetCurrency) {
+      Currency foreignCurrency) {
     return dateRateMap.entrySet().stream()
         .map(
             rate ->
-                buildExchangeRate(rate.getKey(), rate.getValue(), currencySeries, targetCurrency))
+                buildExchangeRate(rate.getKey(), rate.getValue(), currencySeries, foreignCurrency))
         .toList();
   }
 
   /**
-   * Builds a single ExchangeRate entity.
+   * Builds a single ExchangeRate entity with base/target currencies based on FRED series naming.
    *
-   * <p><b>Denormalization Pattern:</b> This method demonstrates the denormalization pattern used
-   * throughout the exchange rate system:
-   *
-   * <pre>
-   * exchangeRate.setCurrencySeries(currencySeries);    // Foreign key for integrity
-   * exchangeRate.setTargetCurrency(targetCurrency);    // Denormalized for performance
-   * </pre>
-   *
-   * <p><b>Why both fields?</b>
+   * <p><b>FRED Series Naming Convention:</b>
    *
    * <ul>
-   *   <li><b>currencySeries:</b> Provides referential integrity, traceability to provider
-   *       configuration
-   *   <li><b>targetCurrency:</b> Enables fast queries without JOINs, prevents N+1 lazy loading
+   *   <li>DEXUS* (e.g., DEXUSAL for AUD): "USD per foreign currency" - store as base=foreign,
+   *       target=USD
+   *   <li>DEX*US (e.g., DEXTHUS for THB): "foreign per USD" - store as base=USD, target=foreign
    * </ul>
+   *
+   * <p>Storing semantically correct base/target allows the service layer to perform accurate
+   * inversion when normalizing API responses to always show USD as base.
    *
    * @param date The date for this exchange rate
    * @param rate The exchange rate value
    * @param currencySeries The currency series (foreign key)
-   * @param targetCurrency The target currency (denormalized)
+   * @param foreignCurrency The foreign currency (non-USD currency in the pair)
    * @return Populated ExchangeRate entity
    */
   private ExchangeRate buildExchangeRate(
-      LocalDate date, BigDecimal rate, CurrencySeries currencySeries, Currency targetCurrency) {
+      LocalDate date, BigDecimal rate, CurrencySeries currencySeries, Currency foreignCurrency) {
     var exchangeRate = new ExchangeRate();
 
     // Set foreign key relationship for referential integrity
     exchangeRate.setCurrencySeries(currencySeries);
 
-    exchangeRate.setBaseCurrency(BASE_CURRENCY);
-
-    // Set denormalized currency code for query performance
-    // Note: This duplicates currencySeries.currencyCode, but prevents lazy loading in API queries
-    exchangeRate.setTargetCurrency(targetCurrency);
+    // DEXUS* series = "USD per foreign currency" (e.g., DEXUSAL = 0.66 USD per 1 AUD)
+    // Store as: base=foreign (AUD), target=USD
+    var isUsdPerForeign = currencySeries.getProviderSeriesId().startsWith("DEXUS");
+    if (isUsdPerForeign) {
+      exchangeRate.setBaseCurrency(foreignCurrency);
+      exchangeRate.setTargetCurrency(CurrencyConstants.USD);
+    } else {
+      // DEX*US series = "foreign per USD" (e.g., DEXTHUS = 32.68 THB per 1 USD)
+      // Store as: base=USD, target=foreign (THB)
+      exchangeRate.setBaseCurrency(CurrencyConstants.USD);
+      exchangeRate.setTargetCurrency(foreignCurrency);
+    }
 
     exchangeRate.setDate(date);
     exchangeRate.setRate(rate);
@@ -419,12 +422,17 @@ public class ExchangeRateImportService {
     var newCount = 0;
     var updatedCount = 0;
     var skippedCount = 0;
-    var targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
+    var foreignCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
+
+    // Determine correct base/target based on FRED series naming
+    var isUsdPerForeign = currencySeries.getProviderSeriesId().startsWith("DEXUS");
+    var baseCurrency = isUsdPerForeign ? foreignCurrency : CurrencyConstants.USD;
+    var targetCurrency = isUsdPerForeign ? CurrencyConstants.USD : foreignCurrency;
 
     // Get the most recent exchange rate date from database, if empty this is an initial import
     var isInitialImport =
         exchangeRateRepository
-            .findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc(BASE_CURRENCY, targetCurrency)
+            .findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc(baseCurrency, targetCurrency)
             .isEmpty();
 
     // if empty database just saveAll nothing to compare to

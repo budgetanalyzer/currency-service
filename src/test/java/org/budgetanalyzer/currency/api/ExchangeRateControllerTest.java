@@ -110,6 +110,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
         LocalDate.of(2024, 1, 10),
         TestConstants.RATE_EUR_USD);
 
+    // API always returns USD as base, rate inverted from stored value
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-01-01&endDate=2024-01-10")
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -163,11 +164,13 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
         LocalDate.of(2024, 1, 10),
         TestConstants.RATE_EUR_USD);
 
+    // API always returns USD as base
     performGet("/v1/exchange-rates?targetCurrency=EUR")
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$").isArray())
         .andExpect(jsonPath("$.length()").value(10))
+        .andExpect(jsonPath("$[*].baseCurrency").value(everyItem(is("USD"))))
         .andExpect(jsonPath("$[*].targetCurrency").value(everyItem(is("EUR"))));
   }
 
@@ -179,11 +182,13 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
         LocalDate.of(2024, 1, 10),
         TestConstants.RATE_EUR_USD);
 
+    // API always returns USD as base
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-01-01&endDate=2024-01-10")
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$").isArray())
         .andExpect(jsonPath("$.length()").value(10))
+        .andExpect(jsonPath("$[*].baseCurrency").value(everyItem(is("USD"))))
         .andExpect(jsonPath("$[*].targetCurrency").value(everyItem(is("EUR"))))
         .andExpect(jsonPath("$[5].date").value("2024-01-06"))
         .andExpect(jsonPath("$[6].date").value("2024-01-07"))
@@ -302,6 +307,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
         LocalDate.of(2024, 1, 2),
         new BigDecimal("0.8500"));
 
+    // API always returns USD as base with inverted rate (1/0.85 = 1.1765)
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-01-02&endDate=2024-01-02")
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -315,7 +321,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
         .andExpect(jsonPath("$[0].baseCurrency").value("USD"))
         .andExpect(jsonPath("$[0].targetCurrency").value("EUR"))
         .andExpect(jsonPath("$[0].date").value("2024-01-02"))
-        .andExpect(jsonPath("$[0].rate").value(0.85))
+        .andExpect(jsonPath("$[0].rate").value(1.1765))
         .andExpect(jsonPath("$[0].publishedDate").value("2024-01-02"));
   }
 
@@ -347,16 +353,20 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
         LocalDate.of(2024, 1, 10),
         TestConstants.RATE_THB_USD);
 
+    // API always returns USD as base
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-01-01&endDate=2024-01-10")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$").isArray())
         .andExpect(jsonPath("$.length()").value(10))
+        .andExpect(jsonPath("$[*].baseCurrency").value(everyItem(is("USD"))))
         .andExpect(jsonPath("$[*].targetCurrency").value(everyItem(is("EUR"))));
 
+    // THB uses DEXTHUS (THB per USD), so USD is already the base (no inversion)
     performGet("/v1/exchange-rates?targetCurrency=THB&startDate=2024-01-01&endDate=2024-01-10")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$").isArray())
         .andExpect(jsonPath("$.length()").value(10))
+        .andExpect(jsonPath("$[*].baseCurrency").value(everyItem(is("USD"))))
         .andExpect(jsonPath("$[*].targetCurrency").value(everyItem(is("THB"))));
   }
 
@@ -404,11 +414,13 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
         LocalDate.of(2024, 12, 31),
         TestConstants.RATE_EUR_USD);
 
+    // API always returns USD as base
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-01-01&endDate=2024-12-31")
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$").isArray())
         .andExpect(jsonPath("$.length()").value(366))
+        .andExpect(jsonPath("$[*].baseCurrency").value(everyItem(is("USD"))))
         .andExpect(jsonPath("$[*].targetCurrency").value(everyItem(is("EUR"))));
   }
 
@@ -447,7 +459,8 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
     var rates = exchangeRateRepository.findAll();
     assertThat(rates).hasSize(5);
-    assertThat(rates).allMatch(r -> r.getTargetCurrency().getCurrencyCode().equals("EUR"));
+    // EUR (DEXUSEU) is stored as base=EUR, target=USD
+    assertThat(rates).allMatch(r -> r.getBaseCurrency().getCurrencyCode().equals("EUR"));
   }
 
   @Test
@@ -482,8 +495,22 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
     var rates = exchangeRateRepository.findAll();
     assertThat(rates).hasSize(3);
-    assertThat(rates.stream().map(r -> r.getTargetCurrency().getCurrencyCode()).distinct())
-        .containsExactlyInAnyOrder("EUR", "GBP", "THB");
+    // Check that we have one rate per foreign currency
+    // EUR, GBP (DEXUS* series) have foreign as baseCurrency; THB (DEX*US) has foreign as target
+    var foreignCurrencies =
+        rates.stream()
+            .map(
+                r -> {
+                  // For DEXUS* series, foreign currency is in baseCurrency
+                  // For DEX*US series, foreign currency is in targetCurrency
+                  // Since both are USD paired, the non-USD currency is the foreign one
+                  var base = r.getBaseCurrency().getCurrencyCode();
+                  var target = r.getTargetCurrency().getCurrencyCode();
+                  return base.equals("USD") ? target : base;
+                })
+            .distinct()
+            .toList();
+    assertThat(foreignCurrencies).containsExactlyInAnyOrder("EUR", "GBP", "THB");
   }
 
   @Test
@@ -504,7 +531,8 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
     var rates = exchangeRateRepository.findAll();
     assertThat(rates).hasSize(1);
-    assertThat(rates).allMatch(r -> r.getTargetCurrency().getCurrencyCode().equals("EUR"));
+    // EUR (DEXUSEU) is stored as base=EUR, target=USD
+    assertThat(rates).allMatch(r -> r.getBaseCurrency().getCurrencyCode().equals("EUR"));
   }
 
   @Test
@@ -703,6 +731,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
       case "GBP" -> CurrencySeriesTestBuilder.defaultGbp().build();
       case "JPY" -> CurrencySeriesTestBuilder.defaultJpy().build();
       case "CAD" -> CurrencySeriesTestBuilder.defaultCad().build();
+      case "AUD" -> CurrencySeriesTestBuilder.defaultAud().build();
       default ->
           new CurrencySeriesTestBuilder()
               .withCurrencyCode(currencyCode)

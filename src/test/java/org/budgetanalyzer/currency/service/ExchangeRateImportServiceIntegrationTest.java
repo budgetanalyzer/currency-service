@@ -1256,12 +1256,17 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     assertThat(persistedRates).hasSize(5);
     assertThat(persistedRates)
         .allMatch(rate -> rate.getCurrencySeries().getId().equals(eurSeries.getId()));
+    // EUR (DEXUSEU) is stored as base=EUR, target=USD
+    assertThat(persistedRates)
+        .allMatch(
+            rate ->
+                rate.getBaseCurrency().getCurrencyCode().equals(TestConstants.VALID_CURRENCY_EUR));
     assertThat(persistedRates)
         .allMatch(
             rate ->
                 rate.getTargetCurrency()
                     .getCurrencyCode()
-                    .equals(TestConstants.VALID_CURRENCY_EUR));
+                    .equals(TestConstants.VALID_CURRENCY_USD));
   }
 
   /**
