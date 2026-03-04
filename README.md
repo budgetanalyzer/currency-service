@@ -172,10 +172,12 @@ currency-service/
 ## Integration
 
 This service integrates with:
-- **API Gateway** (NGINX) for routing
+- **[Session Gateway](https://github.com/budgetanalyzer/session-gateway)** (BFF) — mints internal RS256-signed JWTs containing user identity, roles, and permissions; backend services never see Auth0 tokens
+- **API Gateway** (NGINX) for routing, with JWT validation via [Token Validation Service](https://github.com/budgetanalyzer/token-validation-service)
 - **PostgreSQL** for data persistence
-- **Service Common** for shared utilities
+- **Service Common** for shared utilities (including automatic JWT validation against session-gateway's JWKS endpoint)
 - **Transaction Service** for multi-currency transaction support
+- **[Permission Service](https://github.com/budgetanalyzer/permission-service)** for fine-grained JWT-based authorization (roles and atomic permissions like `currencies:read`, `currencies:write`)
 
 See the [orchestration repository](https://github.com/budgetanalyzer/orchestration) for full system setup.
 
@@ -183,7 +185,10 @@ See the [orchestration repository](https://github.com/budgetanalyzer/orchestrati
 
 - **Orchestration**: https://github.com/budgetanalyzer/orchestration
 - **Service Common**: https://github.com/budgetanalyzer/service-common
+- **Session Gateway**: https://github.com/budgetanalyzer/session-gateway
+- **Token Validation Service**: https://github.com/budgetanalyzer/token-validation-service
 - **Transaction Service**: https://github.com/budgetanalyzer/transaction-service
+- **Permission Service**: https://github.com/budgetanalyzer/permission-service
 - **Web Frontend**: https://github.com/budgetanalyzer/budget-analyzer-web
 
 ## License
