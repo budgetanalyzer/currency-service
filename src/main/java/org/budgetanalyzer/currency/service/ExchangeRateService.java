@@ -11,6 +11,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import org.budgetanalyzer.currency.config.CacheConfig;
 import org.budgetanalyzer.currency.domain.ExchangeRate;
@@ -83,6 +84,7 @@ public class ExchangeRateService {
    * @param endDate optional end date (inclusive)
    * @return list of exchange rates with gaps filled using forward-fill logic
    */
+  @Transactional(readOnly = true)
   @Cacheable(
       cacheNames = CacheConfig.EXCHANGE_RATES_CACHE,
       key = "#targetCurrency.currencyCode + ':' + #startDate + ':' + #endDate")
@@ -103,7 +105,8 @@ public class ExchangeRateService {
     }
 
     // Business validation: check if data exists for currency
-    var earliestDate = exchangeRateRepository.findEarliestDateByTargetCurrency(targetCurrency);
+    var earliestDate =
+        exchangeRateRepository.findEarliestDateByForeignCurrency(targetCurrency.getCurrencyCode());
     if (earliestDate.isEmpty()) {
       throw new BusinessException(
           "No exchange rate data available for currency: " + targetCurrency.getCurrencyCode(),
@@ -135,12 +138,16 @@ public class ExchangeRateService {
     var effectiveEndDate =
         endDate != null ? endDate : definedRates.get(definedRates.size() - 1).getDate();
 
-    return buildDenseExchangeRates(definedRates, effectiveStartDate, effectiveEndDate);
+    return buildDenseExchangeRates(
+        definedRates,
+        effectiveStartDate,
+        effectiveEndDate,
+        currencySeries.get().getProviderSeriesId());
   }
 
   private Specification<ExchangeRate> buildSpecification(
       Currency targetCurrency, LocalDate startDate, LocalDate endDate) {
-    var rv = ExchangeRateSpecifications.hasTargetCurrency(targetCurrency);
+    var rv = ExchangeRateSpecifications.hasForeignCurrency(targetCurrency.getCurrencyCode());
 
     if (startDate != null) {
       rv = rv.and(ExchangeRateSpecifications.dateGreaterThanOrEqual(startDate));
@@ -154,7 +161,10 @@ public class ExchangeRateService {
   }
 
   private List<ExchangeRateData> buildDenseExchangeRates(
-      List<ExchangeRate> definedRates, LocalDate effectiveStartDate, LocalDate effectiveEndDate) {
+      List<ExchangeRate> definedRates,
+      LocalDate effectiveStartDate,
+      LocalDate effectiveEndDate,
+      String providerSeriesId) {
     var ratesByDate =
         definedRates.stream().collect(Collectors.toMap(ExchangeRate::getDate, Function.identity()));
 
@@ -163,9 +173,10 @@ public class ExchangeRateService {
 
     // Check if we need a rate before the first defined rate
     if (currentRate.getDate().isAfter(effectiveStartDate)) {
+      var foreignCurrencyCode = currentRate.getCurrencySeries().getCurrencyCode();
       var previousRate =
-          exchangeRateRepository.findTopByTargetCurrencyAndDateLessThanOrderByDateDesc(
-              currentRate.getTargetCurrency(), effectiveStartDate);
+          exchangeRateRepository.findTopByCurrencySeriesCurrencyCodeAndDateLessThanOrderByDateDesc(
+              foreignCurrencyCode, effectiveStartDate);
 
       if (previousRate.isPresent()) {
         currentRate = previousRate.get();
@@ -178,7 +189,7 @@ public class ExchangeRateService {
         currentRate = ratesByDate.get(date);
       }
 
-      rv.add(ExchangeRateData.from(currentRate, date));
+      rv.add(ExchangeRateData.from(currentRate, date, providerSeriesId));
     }
 
     return rv;

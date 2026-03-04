@@ -84,9 +84,15 @@ public class ExchangeRateTestBuilder {
   }
 
   /**
-   * Sets the currency series and automatically updates the target currency to match.
+   * Sets the currency series and automatically updates base/target currencies based on FRED series
+   * naming convention.
    *
-   * <p>This ensures consistency between the series and denormalized target currency field.
+   * <p>FRED series naming:
+   *
+   * <ul>
+   *   <li>DEXUS* (e.g., DEXUSEU for EUR): "USD per foreign" - base=foreign, target=USD
+   *   <li>DEX*US (e.g., DEXTHUS for THB): "foreign per USD" - base=USD, target=foreign
+   * </ul>
    *
    * @param currencySeries the currency series
    * @return this builder
@@ -94,7 +100,17 @@ public class ExchangeRateTestBuilder {
   public ExchangeRateTestBuilder withCurrencySeries(CurrencySeries currencySeries) {
     this.currencySeries = currencySeries;
     if (currencySeries != null && currencySeries.getCurrencyCode() != null) {
-      this.targetCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
+      var foreignCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
+      var isUsdPerForeign = currencySeries.isUsdPerForeignSeries();
+      if (isUsdPerForeign) {
+        // DEXUS* series: store as base=foreign, target=USD
+        this.baseCurrency = foreignCurrency;
+        this.targetCurrency = TestConstants.BASE_CURRENCY_USD;
+      } else {
+        // DEX*US series: store as base=USD, target=foreign
+        this.baseCurrency = TestConstants.BASE_CURRENCY_USD;
+        this.targetCurrency = foreignCurrency;
+      }
     }
     return this;
   }

@@ -10,12 +10,13 @@ import org.budgetanalyzer.currency.service.dto.ExchangeRateData;
 @Schema(description = "Exchange rate response")
 public record ExchangeRateResponse(
     @Schema(
-            description = "Base currency for conversion (currently only USD supported)",
+            description =
+                "Base currency (1 unit of base = rate units of target, currently only USD supported)",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "USD")
         String baseCurrency,
     @Schema(
-            description = "Target currency for conversion (currently only THB supported)",
+            description = "Target currency",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "THB")
         String targetCurrency,
@@ -37,12 +38,20 @@ public record ExchangeRateResponse(
             example = "2025-10-31")
         LocalDate publishedDate) {
 
-  public static ExchangeRateResponse from(ExchangeRateData exchangeRateData) {
+  /**
+   * Creates an ExchangeRateResponse from ExchangeRateData.
+   *
+   * <p>ExchangeRateData already has USD normalized as base currency, so this is a direct mapping.
+   *
+   * @param data the exchange rate data (already normalized to USD as base)
+   * @return the response
+   */
+  public static ExchangeRateResponse from(ExchangeRateData data) {
     return new ExchangeRateResponse(
-        exchangeRateData.baseCurrency().getCurrencyCode(),
-        exchangeRateData.targetCurrency().getCurrencyCode(),
-        exchangeRateData.date(),
-        exchangeRateData.rate(),
-        exchangeRateData.publishedDate());
+        data.baseCurrency().getCurrencyCode(),
+        data.targetCurrency().getCurrencyCode(),
+        data.date(),
+        data.rate(),
+        data.publishedDate());
   }
 }

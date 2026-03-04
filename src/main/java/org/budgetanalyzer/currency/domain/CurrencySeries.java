@@ -64,4 +64,20 @@ public class CurrencySeries extends AuditableEntity {
   public void setEnabled(boolean enabled) {
     this.enabled = enabled;
   }
+
+  /**
+   * Determines if this series reports rates as "USD per foreign currency".
+   *
+   * <p>FRED series naming convention:
+   *
+   * <ul>
+   *   <li>DEXUS* (e.g., DEXUSAL): "USD per foreign" - returns true
+   *   <li>DEX*US (e.g., DEXTHUS): "foreign per USD" - returns false
+   * </ul>
+   *
+   * @return true if series reports USD per foreign currency, false otherwise
+   */
+  public boolean isUsdPerForeignSeries() {
+    return providerSeriesId != null && providerSeriesId.startsWith("DEXUS");
+  }
 }

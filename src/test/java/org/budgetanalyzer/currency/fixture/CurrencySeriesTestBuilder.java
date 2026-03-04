@@ -212,6 +212,25 @@ public class CurrencySeriesTestBuilder {
   }
 
   /**
+   * Creates a builder for AUD currency series (Australian Dollar).
+   *
+   * <p>Pre-configured with:
+   *
+   * <ul>
+   *   <li>Currency Code: AUD
+   *   <li>Provider Series ID: DEXUSAL (DEXUS* pattern = "USD per foreign")
+   *   <li>Enabled: true
+   * </ul>
+   *
+   * @return a new builder for AUD
+   */
+  public static CurrencySeriesTestBuilder defaultAud() {
+    return new CurrencySeriesTestBuilder()
+        .withCurrencyCode(TestConstants.VALID_CURRENCY_AUD)
+        .withProviderSeriesId(TestConstants.FRED_SERIES_AUD);
+  }
+
+  /**
    * Creates a builder for a disabled currency series.
    *
    * <p>Uses EUR as the default currency but sets enabled to false.

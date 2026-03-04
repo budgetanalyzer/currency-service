@@ -2,6 +2,7 @@ package org.budgetanalyzer.currency.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -163,10 +164,11 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
     var result =
         exchangeRateService.getExchangeRates(TestConstants.CURRENCY_EUR, singleDate, singleDate);
 
-    // Assert - Returns exactly 1 day
+    // Assert - Returns exactly 1 day with inverted rate (1/0.85 = 1.1765)
     assertThat(result).hasSize(1);
     assertThat(result.get(0).date()).isEqualTo(singleDate);
-    assertThat(result.get(0).rate()).isEqualTo(TestConstants.RATE_EUR_USD);
+    assertThat(result.get(0).rate())
+        .isCloseTo(new BigDecimal("1.1765"), within(new BigDecimal("0.0001")));
   }
 
   // ===========================================================================================
@@ -282,22 +284,25 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
     // Assert - Returns 7 days (Mon-Sun continuous)
     assertThat(result).hasSize(7);
 
-    // Assert - Saturday (Jan 6) has Friday's rate
+    // EUR rate is inverted (1/0.85 = 1.1765) since API normalizes to USD as base
+    var expectedRate = new BigDecimal("1.1765");
+
+    // Assert - Saturday (Jan 6) has Friday's rate (inverted)
     var saturdayRate =
         result.stream()
             .filter(r -> r.date().equals(TestConstants.DATE_2024_JAN_06_WEEKEND))
             .findFirst()
             .orElseThrow();
-    assertThat(saturdayRate.rate()).isEqualTo(TestConstants.RATE_EUR_USD);
+    assertThat(saturdayRate.rate()).isCloseTo(expectedRate, within(new BigDecimal("0.0001")));
     assertThat(saturdayRate.publishedDate()).isEqualTo(weekEnd); // Friday
 
-    // Assert - Sunday (Jan 7) has Friday's rate
+    // Assert - Sunday (Jan 7) has Friday's rate (inverted)
     var sundayRate =
         result.stream()
             .filter(r -> r.date().equals(TestConstants.DATE_2024_JAN_07_WEEKEND))
             .findFirst()
             .orElseThrow();
-    assertThat(sundayRate.rate()).isEqualTo(TestConstants.RATE_EUR_USD);
+    assertThat(sundayRate.rate()).isCloseTo(expectedRate, within(new BigDecimal("0.0001")));
     assertThat(sundayRate.publishedDate()).isEqualTo(weekEnd); // Friday
   }
 
@@ -336,17 +341,20 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
     // Assert - Returns 7 continuous days
     assertThat(result).hasSize(7);
 
-    // Assert - Gap days (Jan 3, 4, 5) use Jan 2's rate
+    // EUR rates are inverted (1/0.86 = 1.1628) since API normalizes to USD as base
+    var expectedGapRate = new BigDecimal("1.1628");
+
+    // Assert - Gap days (Jan 3, 4, 5) use Jan 2's inverted rate
     assertThat(result.get(2).date()).isEqualTo(TestConstants.DATE_2024_JAN_01.plusDays(2)); // Jan 3
-    assertThat(result.get(2).rate()).isEqualTo(new BigDecimal("0.8600"));
+    assertThat(result.get(2).rate()).isCloseTo(expectedGapRate, within(new BigDecimal("0.0001")));
     assertThat(result.get(2).publishedDate()).isEqualTo(TestConstants.DATE_2024_JAN_02);
 
     assertThat(result.get(3).date()).isEqualTo(TestConstants.DATE_2024_JAN_01.plusDays(3)); // Jan 4
-    assertThat(result.get(3).rate()).isEqualTo(new BigDecimal("0.8600"));
+    assertThat(result.get(3).rate()).isCloseTo(expectedGapRate, within(new BigDecimal("0.0001")));
     assertThat(result.get(3).publishedDate()).isEqualTo(TestConstants.DATE_2024_JAN_02);
 
     assertThat(result.get(4).date()).isEqualTo(TestConstants.DATE_2024_JAN_01.plusDays(4)); // Jan 5
-    assertThat(result.get(4).rate()).isEqualTo(new BigDecimal("0.8600"));
+    assertThat(result.get(4).rate()).isCloseTo(expectedGapRate, within(new BigDecimal("0.0001")));
     assertThat(result.get(4).publishedDate()).isEqualTo(TestConstants.DATE_2024_JAN_02);
   }
 
@@ -409,15 +417,20 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
     // Assert - Returns 5 days (Jan 1-5)
     assertThat(result).hasSize(5);
 
-    // Assert - Jan 1-4 use backward-looked-up rate (Dec 31)
+    // EUR rates are inverted since API normalizes to USD as base
+    var expectedBackwardRate = new BigDecimal("1.1905"); // 1/0.84
+    var expectedJan5Rate = new BigDecimal("1.1765"); // 1/0.85
+
+    // Assert - Jan 1-4 use backward-looked-up inverted rate (Dec 31)
     for (int i = 0; i < 4; i++) {
-      assertThat(result.get(i).rate()).isEqualTo(new BigDecimal("0.8400"));
+      assertThat(result.get(i).rate())
+          .isCloseTo(expectedBackwardRate, within(new BigDecimal("0.0001")));
       assertThat(result.get(i).publishedDate()).isEqualTo(LocalDate.of(2023, 12, 31));
     }
 
-    // Assert - Jan 5 uses its own rate
+    // Assert - Jan 5 uses its own inverted rate
     assertThat(result.get(4).date()).isEqualTo(TestConstants.DATE_2024_JAN_05);
-    assertThat(result.get(4).rate()).isEqualTo(new BigDecimal("0.8500"));
+    assertThat(result.get(4).rate()).isCloseTo(expectedJan5Rate, within(new BigDecimal("0.0001")));
     assertThat(result.get(4).publishedDate()).isEqualTo(TestConstants.DATE_2024_JAN_05);
   }
 
@@ -438,11 +451,12 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
             TestConstants.DATE_2024_JAN_01,
             TestConstants.DATE_2024_JAN_01);
 
-    // Assert - Returns 1 day with correct data
+    // Assert - Returns 1 day with inverted rate (1/0.85 = 1.1765)
     assertThat(result).hasSize(1);
     assertThat(result.get(0).date()).isEqualTo(TestConstants.DATE_2024_JAN_01);
     assertThat(result.get(0).publishedDate()).isEqualTo(TestConstants.DATE_2024_JAN_01);
-    assertThat(result.get(0).rate()).isEqualTo(new BigDecimal("0.8500"));
+    assertThat(result.get(0).rate())
+        .isCloseTo(new BigDecimal("1.1765"), within(new BigDecimal("0.0001")));
   }
 
   @Test
@@ -721,5 +735,142 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
                     TestConstants.DATE_2024_JAN_15))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("No exchange rate data available");
+  }
+
+  // ===========================================================================================
+  // F. Rate Inversion (USD Normalization)
+  // ===========================================================================================
+
+  @Test
+  void queryInvertsRateForUsdPerForeignSeries() {
+    // Arrange - Create AUD series with DEXUSAL pattern (USD per AUD)
+    var audSeries = CurrencySeriesTestBuilder.defaultAud().build();
+    currencySeriesRepository.save(audSeries);
+
+    // Store with base=AUD, target=USD (as import service would)
+    // Rate 0.66 means 1 AUD = 0.66 USD
+    var rate =
+        ExchangeRateTestBuilder.forSeries(audSeries)
+            .withDate(TestConstants.DATE_2024_JAN_02)
+            .withRate(new BigDecimal("0.6600"))
+            .build();
+    exchangeRateRepository.save(rate);
+
+    // Act
+    var result =
+        exchangeRateService.getExchangeRates(
+            TestConstants.CURRENCY_AUD,
+            TestConstants.DATE_2024_JAN_02,
+            TestConstants.DATE_2024_JAN_02);
+
+    // Assert - Service returns USD as base with inverted rate (1/0.66 = 1.5152)
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).baseCurrency().getCurrencyCode()).isEqualTo("USD");
+    assertThat(result.get(0).targetCurrency().getCurrencyCode()).isEqualTo("AUD");
+    assertThat(result.get(0).rate())
+        .isCloseTo(new BigDecimal("1.5152"), within(new BigDecimal("0.0001")));
+  }
+
+  @Test
+  void queryInvertsRateForEurSeries() {
+    // Arrange - EUR uses DEXUSEU pattern (USD per EUR)
+    // Store with base=EUR, target=USD (as import service would)
+    // Rate 0.85 means 1 EUR = 0.85 USD
+    var rate =
+        ExchangeRateTestBuilder.forSeries(eurSeries)
+            .withDate(TestConstants.DATE_2024_JAN_02)
+            .withRate(new BigDecimal("0.8500"))
+            .build();
+    exchangeRateRepository.save(rate);
+
+    // Act
+    var result =
+        exchangeRateService.getExchangeRates(
+            TestConstants.CURRENCY_EUR,
+            TestConstants.DATE_2024_JAN_02,
+            TestConstants.DATE_2024_JAN_02);
+
+    // Assert - Service returns USD as base with inverted rate (1/0.85 = 1.1765)
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).baseCurrency().getCurrencyCode()).isEqualTo("USD");
+    assertThat(result.get(0).targetCurrency().getCurrencyCode()).isEqualTo("EUR");
+    assertThat(result.get(0).rate())
+        .isCloseTo(new BigDecimal("1.1765"), within(new BigDecimal("0.0001")));
+  }
+
+  @Test
+  void queryDoesNotInvertRateForForeignPerUsdSeries() {
+    // Arrange - THB uses DEXTHUS pattern (THB per USD)
+    // Store with base=USD, target=THB (as import service would)
+    // Rate 32.68 means 1 USD = 32.68 THB
+    var rate =
+        ExchangeRateTestBuilder.forSeries(thbSeries)
+            .withDate(TestConstants.DATE_2024_JAN_02)
+            .withRate(new BigDecimal("32.6800"))
+            .build();
+    exchangeRateRepository.save(rate);
+
+    // Act
+    var result =
+        exchangeRateService.getExchangeRates(
+            TestConstants.CURRENCY_THB,
+            TestConstants.DATE_2024_JAN_02,
+            TestConstants.DATE_2024_JAN_02);
+
+    // Assert - Service returns USD as base, rate unchanged
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).baseCurrency().getCurrencyCode()).isEqualTo("USD");
+    assertThat(result.get(0).targetCurrency().getCurrencyCode()).isEqualTo("THB");
+    assertThat(result.get(0).rate()).isEqualByComparingTo(new BigDecimal("32.6800"));
+  }
+
+  @Test
+  void queryReturnsConsistentUsdBaseAcrossMultipleCurrencies() {
+    // Arrange - Create rates for both EUR (DEXUS*) and THB (DEX*US)
+    var audSeries = CurrencySeriesTestBuilder.defaultAud().build();
+    currencySeriesRepository.save(audSeries);
+
+    exchangeRateRepository.save(
+        ExchangeRateTestBuilder.forSeries(eurSeries)
+            .withDate(TestConstants.DATE_2024_JAN_02)
+            .withRate(new BigDecimal("0.8500"))
+            .build());
+    exchangeRateRepository.save(
+        ExchangeRateTestBuilder.forSeries(thbSeries)
+            .withDate(TestConstants.DATE_2024_JAN_02)
+            .withRate(new BigDecimal("32.6800"))
+            .build());
+    exchangeRateRepository.save(
+        ExchangeRateTestBuilder.forSeries(audSeries)
+            .withDate(TestConstants.DATE_2024_JAN_02)
+            .withRate(new BigDecimal("0.6600"))
+            .build());
+
+    // Act - Query all three currencies
+    var eurResult =
+        exchangeRateService.getExchangeRates(
+            TestConstants.CURRENCY_EUR,
+            TestConstants.DATE_2024_JAN_02,
+            TestConstants.DATE_2024_JAN_02);
+    var thbResult =
+        exchangeRateService.getExchangeRates(
+            TestConstants.CURRENCY_THB,
+            TestConstants.DATE_2024_JAN_02,
+            TestConstants.DATE_2024_JAN_02);
+    var audResult =
+        exchangeRateService.getExchangeRates(
+            TestConstants.CURRENCY_AUD,
+            TestConstants.DATE_2024_JAN_02,
+            TestConstants.DATE_2024_JAN_02);
+
+    // Assert - All have USD as base
+    assertThat(eurResult.get(0).baseCurrency().getCurrencyCode()).isEqualTo("USD");
+    assertThat(thbResult.get(0).baseCurrency().getCurrencyCode()).isEqualTo("USD");
+    assertThat(audResult.get(0).baseCurrency().getCurrencyCode()).isEqualTo("USD");
+
+    // Assert - Each has correct target currency
+    assertThat(eurResult.get(0).targetCurrency().getCurrencyCode()).isEqualTo("EUR");
+    assertThat(thbResult.get(0).targetCurrency().getCurrencyCode()).isEqualTo("THB");
+    assertThat(audResult.get(0).targetCurrency().getCurrencyCode()).isEqualTo("AUD");
   }
 }

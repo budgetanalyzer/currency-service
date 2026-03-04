@@ -21,18 +21,36 @@ public interface ExchangeRateRepository
   Optional<ExchangeRate> findByBaseCurrencyAndTargetCurrencyAndDate(
       Currency baseCurrency, Currency targetCurrency, LocalDate date);
 
-  Optional<ExchangeRate> findTopByTargetCurrencyAndDateLessThanOrderByDateDesc(
-      Currency targetCurrency, LocalDate date);
+  /**
+   * Finds the most recent exchange rate before a given date for a foreign currency.
+   *
+   * <p>This method works correctly for both FRED series patterns by querying via the currency
+   * series's currency code.
+   *
+   * @param currencyCode The ISO 4217 currency code of the foreign currency
+   * @param date The date to look before
+   * @return Optional containing the most recent rate before the date, or empty if none exists
+   */
+  Optional<ExchangeRate> findTopByCurrencySeriesCurrencyCodeAndDateLessThanOrderByDateDesc(
+      String currencyCode, LocalDate date);
 
   /**
-   * Finds the earliest date for which exchange rate data exists for a given target currency.
+   * Finds the earliest date for which exchange rate data exists for a given foreign currency.
    *
-   * @param targetCurrency The target currency to find the earliest date for
+   * <p>This method works correctly for both FRED series patterns:
+   *
+   * <ul>
+   *   <li>DEXUS* series (e.g., EUR): stored as base=foreign, target=USD
+   *   <li>DEX*US series (e.g., THB): stored as base=USD, target=foreign
+   * </ul>
+   *
+   * @param currencyCode The ISO 4217 currency code of the foreign currency
    * @return Optional containing the earliest date, or empty if no data exists
    */
-  @Query("SELECT MIN(e.date) FROM ExchangeRate e WHERE e.targetCurrency = :targetCurrency")
-  Optional<LocalDate> findEarliestDateByTargetCurrency(
-      @Param("targetCurrency") Currency targetCurrency);
+  @Query(
+      "SELECT MIN(e.date) FROM ExchangeRate e "
+          + "WHERE e.currencySeries.currencyCode = :currencyCode")
+  Optional<LocalDate> findEarliestDateByForeignCurrency(@Param("currencyCode") String currencyCode);
 
   /**
    * Count the number of exchange rates for a given currency series.

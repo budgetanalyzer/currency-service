@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.NonTransientDataAccessException;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.annotation.Transactional;
 
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
 import org.budgetanalyzer.currency.domain.ExchangeRate;
@@ -33,6 +34,7 @@ import org.budgetanalyzer.currency.fixture.TestConstants;
  * <p>Tests run against real PostgreSQL via TestContainers with automatic transaction rollback for
  * isolation.
  */
+@Transactional
 class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired private ExchangeRateRepository exchangeRateRepository;
@@ -68,10 +70,10 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     exchangeRateRepository.saveAll(List.of(rate1, rate2, rate3));
     exchangeRateRepository.flush();
 
-    // Act
+    // Act - EUR (DEXUSEU) is stored as base=EUR, target=USD
     var mostRecent =
         exchangeRateRepository.findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc(
-            TestConstants.BASE_CURRENCY_USD, TestConstants.CURRENCY_EUR);
+            TestConstants.CURRENCY_EUR, TestConstants.BASE_CURRENCY_USD);
 
     // Assert: Should return rate from 2024-01-15 (most recent)
     assertThat(mostRecent)
@@ -117,10 +119,10 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     exchangeRateRepository.saveAll(List.of(eurRate, thbRate));
     exchangeRateRepository.flush();
 
-    // Act: Query for EUR only
+    // Act: Query for EUR only - EUR (DEXUSEU) is stored as base=EUR, target=USD
     var eurResult =
         exchangeRateRepository.findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc(
-            TestConstants.BASE_CURRENCY_USD, TestConstants.CURRENCY_EUR);
+            TestConstants.CURRENCY_EUR, TestConstants.BASE_CURRENCY_USD);
 
     // Assert: Should return EUR rate, not THB (even though THB is more recent)
     assertThat(eurResult)
@@ -128,18 +130,18 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
         .get()
         .satisfies(
             rate -> {
-              assertThat(rate.getTargetCurrency().getCurrencyCode())
+              assertThat(rate.getCurrencySeries().getCurrencyCode())
                   .isEqualTo(TestConstants.VALID_CURRENCY_EUR);
               assertThat(rate.getDate()).isEqualTo(LocalDate.of(2024, 1, 15));
             });
   }
 
   // ===========================================================================================
-  // Query Method Tests - findEarliestDateByTargetCurrency()
+  // Query Method Tests - findEarliestDateByForeignCurrency()
   // ===========================================================================================
 
   @Test
-  void findEarliestDateByTargetCurrencyReturnsEarliestDate() {
+  void findEarliestDateByForeignCurrencyReturnsEarliestDate() {
     // Arrange: Create EUR rates with various dates
     var eurSeries =
         currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
@@ -156,25 +158,24 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
 
     // Act
     var earliestDate =
-        exchangeRateRepository.findEarliestDateByTargetCurrency(TestConstants.CURRENCY_EUR);
+        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_EUR);
 
     // Assert: Should return 2024-01-02 (earliest date)
     assertThat(earliestDate).isPresent().contains(LocalDate.of(2024, 1, 2));
   }
 
   @Test
-  void findEarliestDateByTargetCurrencyWithNoDataReturnsEmpty() {
+  void findEarliestDateByForeignCurrencyWithNoDataReturnsEmpty() {
     // Act: Query for currency with no exchange rates
     var result =
-        exchangeRateRepository.findEarliestDateByTargetCurrency(
-            TestConstants.CURRENCY_ZAR_NOT_IN_DB);
+        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_ZAR);
 
     // Assert
     assertThat(result).isEmpty();
   }
 
   @Test
-  void findEarliestDateByTargetCurrencyReturnsGlobalEarliestAcrossSeries() {
+  void findEarliestDateByForeignCurrencyReturnsGlobalEarliestAcrossSeries() {
     // Arrange: Create two EUR series with different start dates
     // Note: In reality, there should only be one series per currency, but this tests the query
     var eurSeries1 =
@@ -196,14 +197,14 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
 
     // Act
     var earliestDate =
-        exchangeRateRepository.findEarliestDateByTargetCurrency(TestConstants.CURRENCY_EUR);
+        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_EUR);
 
     // Assert: Should return 2020-01-01 (global earliest)
     assertThat(earliestDate).isPresent().contains(LocalDate.of(2020, 1, 1));
   }
 
   @Test
-  void findEarliestDateByTargetCurrencyIsolatesByTargetCurrency() {
+  void findEarliestDateByForeignCurrencyIsolatesByForeignCurrency() {
     // Arrange: Create EUR and THB rates with different start dates
     var eurSeries =
         currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
@@ -226,7 +227,7 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
 
     // Act: Query for EUR only
     var eurEarliest =
-        exchangeRateRepository.findEarliestDateByTargetCurrency(TestConstants.CURRENCY_EUR);
+        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_EUR);
 
     // Assert: Should return EUR date, not THB (even though THB is earlier)
     assertThat(eurEarliest).isPresent().contains(LocalDate.of(2024, 1, 15));
@@ -389,10 +390,11 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     exchangeRateRepository.saveAll(List.of(eurRate, thbRate, gbpRate));
     exchangeRateRepository.flush();
 
-    // Act: Filter for EUR and THB only
+    // Act: Filter for EUR and THB only - use currencySeries.currencyCode for foreign currency
     Specification<ExchangeRate> spec =
         (root, query, cb) ->
-            root.get("targetCurrency")
+            root.get("currencySeries")
+                .get("currencyCode")
                 .in(TestConstants.VALID_CURRENCY_EUR, TestConstants.VALID_CURRENCY_THB);
 
     var filtered = exchangeRateRepository.findAll(spec);
@@ -400,8 +402,9 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     // Assert: Should return EUR and THB rates, not GBP
     assertThat(filtered)
         .hasSize(2)
-        .extracting(ExchangeRate::getTargetCurrency)
-        .containsExactlyInAnyOrder(TestConstants.CURRENCY_EUR, TestConstants.CURRENCY_THB);
+        .extracting(r -> r.getCurrencySeries().getCurrencyCode())
+        .containsExactlyInAnyOrder(
+            TestConstants.VALID_CURRENCY_EUR, TestConstants.VALID_CURRENCY_THB);
   }
 
   @Test
@@ -470,11 +473,14 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     exchangeRateRepository.saveAll(thbRates);
     exchangeRateRepository.flush();
 
-    // Act: Filter for EUR rates between Jan 5-10 with rate >= 0.84
+    // Act: Filter for EUR rates between Jan 5-10 with rate >= 0.84 - use
+    // currencySeries.currencyCode
     Specification<ExchangeRate> spec =
         (root, query, cb) ->
             cb.and(
-                cb.equal(root.get("targetCurrency"), TestConstants.VALID_CURRENCY_EUR),
+                cb.equal(
+                    root.get("currencySeries").get("currencyCode"),
+                    TestConstants.VALID_CURRENCY_EUR),
                 cb.between(root.get("date"), LocalDate.of(2024, 1, 5), LocalDate.of(2024, 1, 10)),
                 cb.greaterThanOrEqualTo(root.get("rate"), new BigDecimal("0.8400")));
 
@@ -486,7 +492,7 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
         .hasSize(6)
         .allSatisfy(
             rate -> {
-              assertThat(rate.getTargetCurrency().getCurrencyCode())
+              assertThat(rate.getCurrencySeries().getCurrencyCode())
                   .isEqualTo(TestConstants.VALID_CURRENCY_EUR);
               assertThat(rate.getDate())
                   .isBetween(LocalDate.of(2024, 1, 5), LocalDate.of(2024, 1, 10));
