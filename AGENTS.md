@@ -291,7 +291,7 @@ cd ../currency-service
 cat src/main/resources/application.yml | grep '\${' | sort -u
 ```
 
-## Notes for Claude Code
+## NOTES FOR AI AGENTS
 
 **CRITICAL - Prerequisites First**: Before implementing any plan or feature:
 1. Check for prerequisites in documentation (e.g., "Prerequisites: service-common Enhancement")
