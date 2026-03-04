@@ -101,7 +101,7 @@ public class ExchangeRateTestBuilder {
     this.currencySeries = currencySeries;
     if (currencySeries != null && currencySeries.getCurrencyCode() != null) {
       var foreignCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
-      var isUsdPerForeign = currencySeries.getProviderSeriesId().startsWith("DEXUS");
+      var isUsdPerForeign = currencySeries.isUsdPerForeignSeries();
       if (isUsdPerForeign) {
         // DEXUS* series: store as base=foreign, target=USD
         this.baseCurrency = foreignCurrency;

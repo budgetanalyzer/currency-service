@@ -313,7 +313,7 @@ public class ExchangeRateImportService {
 
   private LocalDate determineStartDate(CurrencySeries currencySeries, Currency foreignCurrency) {
     // Determine correct base/target based on FRED series naming
-    var isUsdPerForeign = currencySeries.getProviderSeriesId().startsWith("DEXUS");
+    var isUsdPerForeign = currencySeries.isUsdPerForeignSeries();
     var baseCurrency = isUsdPerForeign ? foreignCurrency : CurrencyConstants.USD;
     var targetCurrency = isUsdPerForeign ? CurrencyConstants.USD : foreignCurrency;
 
@@ -400,7 +400,7 @@ public class ExchangeRateImportService {
 
     // DEXUS* series = "USD per foreign currency" (e.g., DEXUSAL = 0.66 USD per 1 AUD)
     // Store as: base=foreign (AUD), target=USD
-    var isUsdPerForeign = currencySeries.getProviderSeriesId().startsWith("DEXUS");
+    var isUsdPerForeign = currencySeries.isUsdPerForeignSeries();
     if (isUsdPerForeign) {
       exchangeRate.setBaseCurrency(foreignCurrency);
       exchangeRate.setTargetCurrency(CurrencyConstants.USD);
@@ -425,7 +425,7 @@ public class ExchangeRateImportService {
     var foreignCurrency = Currency.getInstance(currencySeries.getCurrencyCode());
 
     // Determine correct base/target based on FRED series naming
-    var isUsdPerForeign = currencySeries.getProviderSeriesId().startsWith("DEXUS");
+    var isUsdPerForeign = currencySeries.isUsdPerForeignSeries();
     var baseCurrency = isUsdPerForeign ? foreignCurrency : CurrencyConstants.USD;
     var targetCurrency = isUsdPerForeign ? CurrencyConstants.USD : foreignCurrency;
 
