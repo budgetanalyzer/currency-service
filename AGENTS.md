@@ -24,6 +24,10 @@ ls -d /workspace/*-service
 ls ../service-common/
 ```
 
+## Code Exploration
+
+NEVER use Agent/subagent tools for code exploration. Use Grep, Glob, and Read directly.
+
 ## Service Purpose
 
 Manages currencies and exchange rates for the Budget Analyzer application with automated import from external data providers.
