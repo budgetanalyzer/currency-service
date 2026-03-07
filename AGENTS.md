@@ -36,6 +36,10 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 - Scheduled background imports with distributed coordination
 - High-performance distributed caching
 
+## Coding Standards
+
+**Before writing or modifying any Java code, read [code-quality-standards.md](../service-common/docs/code-quality-standards.md).** Do not skip this step. The most common violations: missing `var`, wildcard imports, abbreviated variable names, Javadoc without trailing periods.
+
 ## Spring Boot Patterns
 
 **This service follows standard Budget Analyzer Spring Boot conventions.**
