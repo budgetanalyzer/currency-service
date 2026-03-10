@@ -16,14 +16,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.Jwt;
 
 import org.budgetanalyzer.currency.base.AbstractControllerTest;
 import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
-import org.budgetanalyzer.service.security.test.JwtTestBuilder;
+import org.budgetanalyzer.service.security.test.ClaimsHeaderTestBuilder;
 
 /**
  * Integration tests for {@link CurrencySeriesController}.
@@ -47,25 +46,24 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
   @BeforeEach
   void setUp() {
     currencySeriesRepository.deleteAll();
-    setCustomJwt(currenciesReadJwt());
+    setTestClaims(currenciesReadClaims());
   }
 
   // ===========================================================================================
-  // JWT Helpers
+  // Claims Helpers
   // ===========================================================================================
 
-  private static Jwt currenciesReadJwt() {
-    return JwtTestBuilder.user("usr_reader").withPermissions("currencies:read").build();
+  private static ClaimsHeaderTestBuilder currenciesReadClaims() {
+    return ClaimsHeaderTestBuilder.user("usr_reader").withPermissions("currencies:read");
   }
 
-  private static Jwt currenciesWriteJwt() {
-    return JwtTestBuilder.user("usr_writer")
-        .withPermissions("currencies:read", "currencies:write")
-        .build();
+  private static ClaimsHeaderTestBuilder currenciesWriteClaims() {
+    return ClaimsHeaderTestBuilder.user("usr_writer")
+        .withPermissions("currencies:read", "currencies:write");
   }
 
-  private static Jwt noPermissionsJwt() {
-    return JwtTestBuilder.user("usr_noperms").withPermissions("transactions:read").build();
+  private static ClaimsHeaderTestBuilder noPermissionsClaims() {
+    return ClaimsHeaderTestBuilder.user("usr_noperms").withPermissions("transactions:read");
   }
 
   // ===========================================================================================
@@ -110,12 +108,12 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn403WhenUserWithoutCurrenciesReadTriesToGetCurrencies() throws Exception {
-    performGetWithJwt("/v1/currencies", noPermissionsJwt()).andExpect(status().isForbidden());
+    performGetWithClaims("/v1/currencies", noPermissionsClaims()).andExpect(status().isForbidden());
   }
 
   @Test
   void shouldReturn403WhenUserWithoutCurrenciesReadTriesToGetCurrencyById() throws Exception {
-    performGetWithJwt("/v1/currencies/{id}", noPermissionsJwt(), 1L)
+    performGetWithClaims("/v1/currencies/{id}", noPermissionsClaims(), 1L)
         .andExpect(status().isForbidden());
   }
 
@@ -130,7 +128,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
         }
         """;
 
-    performPostWithJwt("/v1/currencies", requestJson, currenciesReadJwt())
+    performPostWithClaims("/v1/currencies", requestJson, currenciesReadClaims())
         .andExpect(status().isForbidden());
   }
 
@@ -143,7 +141,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
         }
         """;
 
-    performPutWithJwt("/v1/currencies/1", requestJson, currenciesReadJwt())
+    performPutWithClaims("/v1/currencies/1", requestJson, currenciesReadClaims())
         .andExpect(status().isForbidden());
   }
 
@@ -328,7 +326,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldCreateCurrencySeriesSuccessfully() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
 
     var requestJson =
@@ -358,7 +356,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldCreateCurrencySeriesWithEnabledFalse() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_GBP);
 
     var requestJson =
@@ -386,7 +384,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn400WhenCurrencyCodeIsMissing() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -403,7 +401,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn400WhenCurrencyCodeIsBlank() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -421,7 +419,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn400WhenCurrencyCodeIsTooShort() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -439,7 +437,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn400WhenCurrencyCodeIsTooLong() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -457,7 +455,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn400WhenCurrencyCodeIsLowercase() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -475,7 +473,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn400WhenCurrencyCodeContainsNumbers() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -493,7 +491,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn400WhenProviderSeriesIdIsMissing() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -510,7 +508,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn400WhenProviderSeriesIdIsBlank() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -532,7 +530,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn422WhenCurrencyCodeAlreadyExists() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var existing = CurrencySeriesTestBuilder.defaultEur().build();
     currencySeriesRepository.save(existing);
 
@@ -555,7 +553,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn422ForInvalidIso4217Code() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -573,7 +571,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn422ForInvalidProviderSeriesId() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     FredApiStubs.stubSeriesExistsNotFound(TestConstants.FRED_SERIES_INVALID);
 
     var requestJson =
@@ -647,7 +645,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldEnableCurrencySeries() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var saved =
         currencySeriesRepository.save(
             CurrencySeriesTestBuilder.defaultEur().enabled(false).build());
@@ -676,7 +674,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldDisableCurrencySeries() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var saved =
         currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultThb().enabled(true).build());
 
@@ -699,7 +697,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldPreserveImmutableFields() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var saved = currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultGbp().build());
     currencySeriesRepository.flush();
     var originalCurrencyCode = saved.getCurrencyCode();
@@ -732,7 +730,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn404WhenUpdatingNonExistentId() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var requestJson =
         """
         {
@@ -751,7 +749,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldAcceptValidIso4217Codes() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     String[] validCodes = {"EUR", "GBP", "JPY", "CHF", "CAD", "AUD"};
     String[] validSeriesIds = {"DEXUSEU", "DEXUSUK", "DEXJPUS", "DEXSZUS", "DEXCAUS", "DEXUSAL"};
 
@@ -777,7 +775,7 @@ class CurrencySeriesControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldRejectInvalidIso4217Codes() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     String[] invalidCodes = {"QQQ", "ZZZ", "ABC"};
 
     for (var invalidCode : invalidCodes) {

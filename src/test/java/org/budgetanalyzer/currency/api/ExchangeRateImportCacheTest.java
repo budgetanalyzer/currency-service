@@ -9,7 +9,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.TestPropertySource;
 
 import org.budgetanalyzer.currency.base.AbstractControllerTest;
@@ -19,7 +18,7 @@ import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
-import org.budgetanalyzer.service.security.test.JwtTestBuilder;
+import org.budgetanalyzer.service.security.test.ClaimsHeaderTestBuilder;
 
 /**
  * Integration tests for cache eviction after exchange rate import.
@@ -39,7 +38,7 @@ class ExchangeRateImportCacheTest extends AbstractControllerTest {
   void setUp() {
     exchangeRateRepository.deleteAll();
     currencySeriesRepository.deleteAll();
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
 
     var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
     if (cache != null) {
@@ -47,10 +46,9 @@ class ExchangeRateImportCacheTest extends AbstractControllerTest {
     }
   }
 
-  private static Jwt currenciesWriteJwt() {
-    return JwtTestBuilder.user("usr_writer")
-        .withPermissions("currencies:read", "currencies:write")
-        .build();
+  private static ClaimsHeaderTestBuilder currenciesWriteClaims() {
+    return ClaimsHeaderTestBuilder.user("usr_writer")
+        .withPermissions("currencies:read", "currencies:write");
   }
 
   @Test
