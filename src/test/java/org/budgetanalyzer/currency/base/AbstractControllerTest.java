@@ -7,16 +7,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
 import org.budgetanalyzer.currency.config.WireMockConfig;
+import org.budgetanalyzer.service.security.test.ClaimsHeaderTestBuilder;
 
 /**
  * Base class for controller integration tests with MockMvc and WireMock.
@@ -26,26 +24,25 @@ import org.budgetanalyzer.currency.config.WireMockConfig;
  * <ul>
  *   <li>MockMvc for HTTP request/response testing
  *   <li>WireMock server for mocking external FRED API
- *   <li>Helper methods for JSON request/response handling with automatic JWT authentication
+ *   <li>Helper methods for JSON request/response handling with claims-header authentication
  * </ul>
  *
  * <p>WireMock server is configured via {@link WireMockConfig} which is imported by this class. The
  * server instance is shared across all tests that import the configuration and is reset between
  * tests to ensure isolation.
  *
- * <p><b>JWT Authentication:</b>
+ * <p><b>Claims-Header Authentication:</b>
  *
- * <p>All helper methods ({@code performGet}, {@code performPost}, etc.) automatically add a JWT
- * Authorization header. By default, the JWT authenticates as "test-user" with scopes "openid
- * profile email". Tests can customize authentication per-test or per-request:
+ * <p>All helper methods ({@code performGet}, {@code performPost}, etc.) automatically add
+ * claims-header authentication using the configured {@code ClaimsHeaderTestBuilder}. By default,
+ * the builder authenticates as a default test user. Tests can customize authentication per-test or
+ * per-request:
  *
  * <pre>{@code
- * // Per-test authentication (affects all requests in test)
+ * // Per-test authentication (affects all requests via default helpers)
  * @BeforeEach
  * void setupAdmin() {
- *     setCustomJwt(JwtTestBuilder.admin()
- *         .withScopes("read:rates", "write:rates", "admin:currencies")
- *         .build());
+ *     setTestClaims(ClaimsHeaderTestBuilder.admin());
  * }
  *
  * @Test
@@ -57,13 +54,12 @@ import org.budgetanalyzer.currency.config.WireMockConfig;
  * // Per-request authentication (one-time override)
  * @Test
  * void testDifferentUsers() throws Exception {
- *     // Regular user
+ *     // Regular user (uses default testClaims)
  *     performGet("/v1/rates")
  *         .andExpect(status().isOk());
  *
  *     // Admin user for one request
- *     Jwt adminJwt = JwtTestBuilder.admin().withScopes("admin:all").build();
- *     performGetWithJwt("/v1/admin/rates", adminJwt)
+ *     performGetWithClaims("/v1/admin/rates", ClaimsHeaderTestBuilder.admin())
  *         .andExpect(status().isOk());
  * }
  * }</pre>
@@ -93,47 +89,41 @@ import org.budgetanalyzer.currency.config.WireMockConfig;
  * @see MockMvc
  * @see WireMockServer
  * @see WireMockConfig
- * @see JwtTestBuilder
+ * @see ClaimsHeaderTestBuilder
  */
 @AutoConfigureMockMvc
 public abstract class AbstractControllerTest extends AbstractWireMockTest {
 
   @Autowired protected MockMvc mockMvc;
 
-  // ==================== Helper Methods ====================
+  private ClaimsHeaderTestBuilder testClaims = ClaimsHeaderTestBuilder.defaultUser();
+
+  // ==================== Test Claims Configuration ====================
 
   /**
-   * Adds default JWT Authorization header to the request.
+   * Sets the claims builder used by default helper methods.
    *
-   * <p>The JWT will be decoded by the mock {@code JwtDecoder}, which returns either a custom JWT
-   * (if set via {@link #setCustomJwt(Jwt)}) or the default test JWT.
+   * <p>Call this in {@code @BeforeEach} to set authentication for all requests in the test.
    *
-   * @param builder the request builder to add the header to
-   * @return the request builder with Authorization header
+   * @param claims the claims builder to use
    */
-  private MockHttpServletRequestBuilder withJwtAuth(MockHttpServletRequestBuilder builder) {
-    return builder.header(HttpHeaders.AUTHORIZATION, "Bearer test-token");
+  protected void setTestClaims(ClaimsHeaderTestBuilder claims) {
+    this.testClaims = claims;
   }
 
   /**
-   * Adds custom JWT Authorization header to the request (one-time use).
+   * Resets the claims builder to the default test user.
    *
-   * <p>Note: For per-test authentication (affecting all requests in the test), use {@link
-   * #setCustomJwt(Jwt)} instead. This method is for one-off requests with different credentials.
-   *
-   * @param builder the request builder to add the header to
-   * @param jwt the custom JWT to use for this request only
-   * @return the request builder with Authorization header
+   * <p>Called automatically if needed. Can also be called manually within a test.
    */
-  private MockHttpServletRequestBuilder withCustomJwtAuth(
-      MockHttpServletRequestBuilder builder, Jwt jwt) {
-    // Temporarily set custom JWT, make request, then restore previous JWT
-    // Note: This is a simple approach; could be enhanced with request interceptors if needed
-    return builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.getTokenValue());
+  protected void resetTestClaims() {
+    this.testClaims = ClaimsHeaderTestBuilder.defaultUser();
   }
 
+  // ==================== Authenticated Request Methods ====================
+
   /**
-   * Performs GET request with automatic JWT authentication.
+   * Performs GET request with default claims-header authentication.
    *
    * @param urlTemplate URL template with optional path variables
    * @param uriVars path variable values
@@ -142,34 +132,29 @@ public abstract class AbstractControllerTest extends AbstractWireMockTest {
    */
   protected ResultActions performGet(String urlTemplate, Object... uriVars) throws Exception {
     return mockMvc.perform(
-        withJwtAuth(get(urlTemplate, uriVars).contentType(MediaType.APPLICATION_JSON)));
+        get(urlTemplate, uriVars).contentType(MediaType.APPLICATION_JSON).with(testClaims));
   }
 
   /**
-   * Performs GET request with custom JWT authentication (one-time override).
+   * Performs GET request with custom claims-header authentication (one-time override).
    *
-   * <p>Use this when you need a different user/scopes for a single request. For per-test
-   * authentication, use {@link #setCustomJwt(Jwt)} in {@code @BeforeEach}.
+   * <p>Use this when you need different user/permissions for a single request. For per-test
+   * authentication, use {@link #setTestClaims(ClaimsHeaderTestBuilder)} in {@code @BeforeEach}.
    *
    * @param urlTemplate URL template with optional path variables
-   * @param jwt custom JWT for this request
+   * @param claims custom claims for this request
    * @param uriVars path variable values
    * @return ResultActions for chaining assertions
    * @throws Exception if request fails
    */
-  protected ResultActions performGetWithJwt(String urlTemplate, Jwt jwt, Object... uriVars)
-      throws Exception {
-    var previousJwt = saveAndSetCustomJwt(jwt);
-
-    try {
-      return performGet(urlTemplate, uriVars);
-    } finally {
-      restoreCustomJwt(previousJwt);
-    }
+  protected ResultActions performGetWithClaims(
+      String urlTemplate, ClaimsHeaderTestBuilder claims, Object... uriVars) throws Exception {
+    return mockMvc.perform(
+        get(urlTemplate, uriVars).contentType(MediaType.APPLICATION_JSON).with(claims));
   }
 
   /**
-   * Performs POST request with JSON body and automatic JWT authentication.
+   * Performs POST request with JSON body and default claims-header authentication.
    *
    * @param urlTemplate URL template with optional path variables
    * @param jsonBody JSON request body
@@ -178,31 +163,29 @@ public abstract class AbstractControllerTest extends AbstractWireMockTest {
    */
   protected ResultActions performPost(String urlTemplate, String jsonBody) throws Exception {
     return mockMvc.perform(
-        withJwtAuth(post(urlTemplate).contentType(MediaType.APPLICATION_JSON).content(jsonBody)));
+        post(urlTemplate)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(jsonBody)
+            .with(testClaims));
   }
 
   /**
-   * Performs POST request with custom JWT authentication (one-time override).
+   * Performs POST request with custom claims-header authentication (one-time override).
    *
    * @param urlTemplate URL template with optional path variables
    * @param jsonBody JSON request body
-   * @param jwt custom JWT for this request
+   * @param claims custom claims for this request
    * @return ResultActions for chaining assertions
    * @throws Exception if request fails
    */
-  protected ResultActions performPostWithJwt(String urlTemplate, String jsonBody, Jwt jwt)
-      throws Exception {
-    var previousJwt = saveAndSetCustomJwt(jwt);
-
-    try {
-      return performPost(urlTemplate, jsonBody);
-    } finally {
-      restoreCustomJwt(previousJwt);
-    }
+  protected ResultActions performPostWithClaims(
+      String urlTemplate, String jsonBody, ClaimsHeaderTestBuilder claims) throws Exception {
+    return mockMvc.perform(
+        post(urlTemplate).contentType(MediaType.APPLICATION_JSON).content(jsonBody).with(claims));
   }
 
   /**
-   * Performs PUT request with JSON body and automatic JWT authentication.
+   * Performs PUT request with JSON body and default claims-header authentication.
    *
    * @param urlTemplate URL template with optional path variables
    * @param jsonBody JSON request body
@@ -211,31 +194,29 @@ public abstract class AbstractControllerTest extends AbstractWireMockTest {
    */
   protected ResultActions performPut(String urlTemplate, String jsonBody) throws Exception {
     return mockMvc.perform(
-        withJwtAuth(put(urlTemplate).contentType(MediaType.APPLICATION_JSON).content(jsonBody)));
+        put(urlTemplate)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(jsonBody)
+            .with(testClaims));
   }
 
   /**
-   * Performs PUT request with custom JWT authentication (one-time override).
+   * Performs PUT request with custom claims-header authentication (one-time override).
    *
    * @param urlTemplate URL template with optional path variables
    * @param jsonBody JSON request body
-   * @param jwt custom JWT for this request
+   * @param claims custom claims for this request
    * @return ResultActions for chaining assertions
    * @throws Exception if request fails
    */
-  protected ResultActions performPutWithJwt(String urlTemplate, String jsonBody, Jwt jwt)
-      throws Exception {
-    var previousJwt = saveAndSetCustomJwt(jwt);
-
-    try {
-      return performPut(urlTemplate, jsonBody);
-    } finally {
-      restoreCustomJwt(previousJwt);
-    }
+  protected ResultActions performPutWithClaims(
+      String urlTemplate, String jsonBody, ClaimsHeaderTestBuilder claims) throws Exception {
+    return mockMvc.perform(
+        put(urlTemplate).contentType(MediaType.APPLICATION_JSON).content(jsonBody).with(claims));
   }
 
   /**
-   * Performs DELETE request with automatic JWT authentication.
+   * Performs DELETE request with default claims-header authentication.
    *
    * @param urlTemplate URL template with optional path variables
    * @param uriVars path variable values
@@ -244,33 +225,28 @@ public abstract class AbstractControllerTest extends AbstractWireMockTest {
    */
   protected ResultActions performDelete(String urlTemplate, Object... uriVars) throws Exception {
     return mockMvc.perform(
-        withJwtAuth(delete(urlTemplate, uriVars).contentType(MediaType.APPLICATION_JSON)));
+        delete(urlTemplate, uriVars).contentType(MediaType.APPLICATION_JSON).with(testClaims));
   }
 
   /**
-   * Performs DELETE request with custom JWT authentication (one-time override).
+   * Performs DELETE request with custom claims-header authentication (one-time override).
    *
    * @param urlTemplate URL template with optional path variables
-   * @param jwt custom JWT for this request
+   * @param claims custom claims for this request
    * @param uriVars path variable values
    * @return ResultActions for chaining assertions
    * @throws Exception if request fails
    */
-  protected ResultActions performDeleteWithJwt(String urlTemplate, Jwt jwt, Object... uriVars)
-      throws Exception {
-    var previousJwt = saveAndSetCustomJwt(jwt);
-
-    try {
-      return performDelete(urlTemplate, uriVars);
-    } finally {
-      restoreCustomJwt(previousJwt);
-    }
+  protected ResultActions performDeleteWithClaims(
+      String urlTemplate, ClaimsHeaderTestBuilder claims, Object... uriVars) throws Exception {
+    return mockMvc.perform(
+        delete(urlTemplate, uriVars).contentType(MediaType.APPLICATION_JSON).with(claims));
   }
 
   // ==================== Unauthenticated Request Methods ====================
 
   /**
-   * Performs GET request without JWT authentication (unauthenticated).
+   * Performs GET request without authentication (unauthenticated).
    *
    * <p>Use this to verify that unauthenticated requests are rejected with 401 Unauthorized.
    *
@@ -285,7 +261,7 @@ public abstract class AbstractControllerTest extends AbstractWireMockTest {
   }
 
   /**
-   * Performs POST request without JWT authentication (unauthenticated).
+   * Performs POST request without authentication (unauthenticated).
    *
    * <p>Use this to verify that unauthenticated requests are rejected with 401 Unauthorized.
    *
@@ -301,7 +277,7 @@ public abstract class AbstractControllerTest extends AbstractWireMockTest {
   }
 
   /**
-   * Performs PUT request without JWT authentication (unauthenticated).
+   * Performs PUT request without authentication (unauthenticated).
    *
    * <p>Use this to verify that unauthenticated requests are rejected with 401 Unauthorized.
    *
@@ -314,34 +290,6 @@ public abstract class AbstractControllerTest extends AbstractWireMockTest {
       throws Exception {
     return mockMvc.perform(
         put(urlTemplate).contentType(MediaType.APPLICATION_JSON).content(jsonBody));
-  }
-
-  // ==================== JWT Save/Restore Helpers ====================
-
-  /**
-   * Temporarily saves current custom JWT and sets a new one.
-   *
-   * @param jwt the new JWT to set
-   * @return the previous JWT (may be null)
-   */
-  private Jwt saveAndSetCustomJwt(Jwt jwt) {
-    // Note: This implementation assumes access to the ThreadLocal in AbstractIntegrationTest
-    // We'll need to expose a getter or make this work differently
-    setCustomJwt(jwt);
-    return null; // Will be enhanced if we need to support nested custom JWTs
-  }
-
-  /**
-   * Restores the previous custom JWT.
-   *
-   * @param previousJwt the JWT to restore (may be null)
-   */
-  private void restoreCustomJwt(Jwt previousJwt) {
-    if (previousJwt == null) {
-      clearCustomJwt();
-    } else {
-      setCustomJwt(previousJwt);
-    }
   }
 
   /**

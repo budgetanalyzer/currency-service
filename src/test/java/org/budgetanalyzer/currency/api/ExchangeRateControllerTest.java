@@ -15,7 +15,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.Jwt;
 
 import org.budgetanalyzer.currency.base.AbstractControllerTest;
 import org.budgetanalyzer.currency.domain.CurrencySeries;
@@ -25,7 +24,7 @@ import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
-import org.budgetanalyzer.service.security.test.JwtTestBuilder;
+import org.budgetanalyzer.service.security.test.ClaimsHeaderTestBuilder;
 
 /**
  * Integration tests for {@link ExchangeRateController}.
@@ -49,25 +48,24 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
   void setUp() {
     exchangeRateRepository.deleteAll();
     currencySeriesRepository.deleteAll();
-    setCustomJwt(currenciesReadJwt());
+    setTestClaims(currenciesReadClaims());
   }
 
   // ===========================================================================================
-  // JWT Helpers
+  // Claims Helpers
   // ===========================================================================================
 
-  private static Jwt currenciesReadJwt() {
-    return JwtTestBuilder.user("usr_reader").withPermissions("currencies:read").build();
+  private static ClaimsHeaderTestBuilder currenciesReadClaims() {
+    return ClaimsHeaderTestBuilder.user("usr_reader").withPermissions("currencies:read");
   }
 
-  private static Jwt currenciesWriteJwt() {
-    return JwtTestBuilder.user("usr_writer")
-        .withPermissions("currencies:read", "currencies:write")
-        .build();
+  private static ClaimsHeaderTestBuilder currenciesWriteClaims() {
+    return ClaimsHeaderTestBuilder.user("usr_writer")
+        .withPermissions("currencies:read", "currencies:write");
   }
 
-  private static Jwt noPermissionsJwt() {
-    return JwtTestBuilder.user("usr_noperms").withPermissions("transactions:read").build();
+  private static ClaimsHeaderTestBuilder noPermissionsClaims() {
+    return ClaimsHeaderTestBuilder.user("usr_noperms").withPermissions("transactions:read");
   }
 
   // ===========================================================================================
@@ -88,13 +86,13 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturn403WhenUserWithoutCurrenciesReadTriesToGetExchangeRates() throws Exception {
-    performGetWithJwt("/v1/exchange-rates?targetCurrency=EUR", noPermissionsJwt())
+    performGetWithClaims("/v1/exchange-rates?targetCurrency=EUR", noPermissionsClaims())
         .andExpect(status().isForbidden());
   }
 
   @Test
   void shouldReturn403WhenUserWithOnlyReadTriesToImport() throws Exception {
-    performPostWithJwt("/v1/exchange-rates/import", "", currenciesReadJwt())
+    performPostWithClaims("/v1/exchange-rates/import", "", currenciesReadClaims())
         .andExpect(status().isForbidden());
   }
 
@@ -430,7 +428,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldImportSingleEnabledCurrencySuccessfully() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     currencySeriesRepository.save(eurSeries);
 
@@ -465,7 +463,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldImportMultipleEnabledCurrenciesSuccessfully() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().build());
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultGbp().build());
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultThb().build());
@@ -515,7 +513,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldSkipDisabledCurrenciesAndImportOnlyEnabled() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().enabled(true).build());
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultGbp().enabled(false).build());
 
@@ -537,7 +535,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturnEmptyListWhenNoEnabledCurrenciesExist() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().enabled(false).build());
 
     performPost("/v1/exchange-rates/import", "")
@@ -551,7 +549,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldSkipDuplicatesAndCreateOnlyNewRates() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     currencySeriesRepository.save(eurSeries);
 
@@ -592,7 +590,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldUpdateExistingRatesWhenValuesDiffer() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     currencySeriesRepository.save(eurSeries);
 
@@ -623,7 +621,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldReturnEmptyListWhenNoCurrencySeriesExist() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
 
     performPost("/v1/exchange-rates/import", "")
         .andExpect(status().isOk())
@@ -633,7 +631,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldBeIdempotentWhenImportingSameDataTwice() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     currencySeriesRepository.save(eurSeries);
 
@@ -662,7 +660,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldHandleLargeDatasetImportSuccessfully() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     currencySeriesRepository.save(eurSeries);
 
@@ -685,7 +683,7 @@ class ExchangeRateControllerTest extends AbstractControllerTest {
 
   @Test
   void shouldCorrectlyReportEarliestAndLatestDateRange() throws Exception {
-    setCustomJwt(currenciesWriteJwt());
+    setTestClaims(currenciesWriteClaims());
     var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
     currencySeriesRepository.save(eurSeries);
 

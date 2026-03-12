@@ -49,12 +49,6 @@ spring:
     locations: classpath:db/migration
     validate-on-migrate: true
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          jwk-set-uri: ${SESSION_GATEWAY_JWKS_URI:http://session-gateway:8081/.well-known/jwks.json}
-
   data:
     redis:
       host: ${REDIS_HOST:localhost}

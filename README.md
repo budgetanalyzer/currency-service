@@ -172,12 +172,12 @@ currency-service/
 ## Integration
 
 This service integrates with:
-- **[Session Gateway](https://github.com/budgetanalyzer/session-gateway)** (BFF) — mints internal RS256-signed JWTs containing user identity, roles, and permissions; backend services never see Auth0 tokens
-- **API Gateway** (NGINX) for routing, with JWT validation via [Token Validation Service](https://github.com/budgetanalyzer/token-validation-service)
+- **[Session Gateway](https://github.com/budgetanalyzer/session-gateway)** (BFF) — validates sessions and provides user identity to Envoy ext_authz; backend services never see Auth0 tokens
+- **API Gateway** (Envoy) for routing, with ext_authz injecting pre-validated `X-User-Id`, `X-Permissions`, `X-Roles` headers
 - **PostgreSQL** for data persistence
-- **Service Common** for shared utilities (including automatic JWT validation against session-gateway's JWKS endpoint)
+- **Service Common** for shared utilities (including claims-header security that reads pre-validated headers from Envoy ext_authz)
 - **Transaction Service** for multi-currency transaction support
-- **[Permission Service](https://github.com/budgetanalyzer/permission-service)** for fine-grained JWT-based authorization (roles and atomic permissions like `currencies:read`, `currencies:write`)
+- **[Permission Service](https://github.com/budgetanalyzer/permission-service)** for fine-grained claims-header-based authorization (roles and atomic permissions like `currencies:read`, `currencies:write`)
 
 See the [orchestration repository](https://github.com/budgetanalyzer/orchestration) for full system setup.
 

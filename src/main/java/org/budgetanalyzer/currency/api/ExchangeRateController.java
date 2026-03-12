@@ -131,12 +131,10 @@ public class ExchangeRateController {
 
     // Log authenticated user information (for audit purposes)
     var userId = SecurityContextUtil.getCurrentUserId();
-    var userEmail = SecurityContextUtil.getCurrentUserEmail();
     log.info(
-        "Received getExchangeRates request - User ID: {}, Email: {}, startDate: {},"
+        "Received getExchangeRates request - User ID: {}, startDate: {},"
             + " endDate: {}, targetCurrency: {}",
         userId.orElse("anonymous"),
-        userEmail.orElse("N/A"),
         startDate.orElse(null),
         endDate.orElse(null),
         targetCurrency);
