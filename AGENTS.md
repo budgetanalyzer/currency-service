@@ -28,6 +28,17 @@ ls ../service-common/
 
 NEVER use Agent/subagent tools for code exploration. Use Grep, Glob, and Read directly.
 
+## Documentation Discipline
+
+Always keep documentation up to date after any configuration or code change.
+
+Update the nearest affected documentation in the same work:
+- `AGENTS.md` when instructions, guardrails, discovery commands, or repository-specific workflow changes
+- `README.md` when setup, usage, or repository purpose changes
+- `docs/` when architecture, configuration, APIs, behaviors, or operational workflows change
+
+Do not leave documentation updates as follow-up work.
+
 ## Service Purpose
 
 Manages currencies and exchange rates for the Budget Analyzer application with automated import from external data providers.
@@ -341,4 +352,3 @@ Do not over-validate ideas. The user wants honest pushback, not agreement.
 - [Token Validation Service Repository](https://github.com/budgetanalyzer/token-validation-service)
 - [Permission Service Repository](https://github.com/budgetanalyzer/permission-service)
 - [Permission Service AGENTS.md](https://github.com/budgetanalyzer/permission-service/blob/main/AGENTS.md)
-
