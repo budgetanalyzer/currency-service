@@ -1,7 +1,7 @@
 [versions]
 java = "24"
 springBoot = "3.5.7"
-springCloud = "2024.0.0"
+springCloud = "2025.0.0"
 springModulith = "1.4.0"
 dependencyManagement = "1.1.7"
 spotless = "8.0.0"
