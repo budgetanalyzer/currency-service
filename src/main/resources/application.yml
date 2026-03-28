@@ -20,6 +20,13 @@ spring:
   application:
     name: currency-service
 
+  ssl:
+    bundle:
+      pem:
+        infra-ca:
+          truststore:
+            certificate: ${INFRA_CA_CERT_PATH:}
+
   servlet:
     multipart:
       enabled: true
@@ -35,8 +42,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/currency
-    username: budget_analyzer
-    password: budget_analyzer
+    username: ${SPRING_DATASOURCE_USERNAME:currency_service}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -51,10 +58,14 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      host: ${SPRING_DATA_REDIS_HOST:${REDIS_HOST:localhost}}
+      port: ${SPRING_DATA_REDIS_PORT:${REDIS_PORT:6379}}
+      username: ${SPRING_DATA_REDIS_USERNAME:${REDIS_USERNAME:currency-service}}
+      password: ${SPRING_DATA_REDIS_PASSWORD:${REDIS_PASSWORD:}}
       timeout: 2000ms
+      ssl:
+        enabled: ${SPRING_DATA_REDIS_SSL_ENABLED:false}
+        bundle: ${SPRING_DATA_REDIS_SSL_BUNDLE:}
       lettuce:
         pool:
           max-active: 8
@@ -98,10 +109,15 @@ spring:
               multiplier: 2.0                   # Exponential backoff
 
   rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
+    host: ${SPRING_RABBITMQ_HOST:${RABBITMQ_HOST:localhost}}
+    port: ${SPRING_RABBITMQ_PORT:${RABBITMQ_PORT:5671}}
+    username: ${SPRING_RABBITMQ_USERNAME:${RABBITMQ_USERNAME:currency-service}}
+    password: ${SPRING_RABBITMQ_PASSWORD:${RABBITMQ_PASSWORD:}}
+    ssl:
+      enabled: ${SPRING_RABBITMQ_SSL_ENABLED:false}
+      bundle: ${SPRING_RABBITMQ_SSL_BUNDLE:}
+      validate-server-certificate: ${SPRING_RABBITMQ_SSL_VALIDATE_SERVER_CERTIFICATE:true}
+      verify-hostname: ${SPRING_RABBITMQ_SSL_VERIFY_HOSTNAME:true}
 
   # Spring Modulith event processing configuration
   modulith:
@@ -159,4 +175,3 @@ budgetanalyzer:
       include-response-body: false
       max-body-size: 10000
       # Default exclude-patterns: /actuator/**, /swagger-ui/**, /v3/api-docs/**
-

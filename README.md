@@ -107,12 +107,50 @@ Note: This service uses the `currency` database (not `budget_analyzer`).
 ### Running Locally
 
 ```bash
-# Build the service
-./gradlew build
+# Start shared infrastructure in the orchestration repo
+cd ../orchestration
+tilt up
+```
 
-# Run the service
+In another terminal, direct `bootRun` now uses fail-closed password defaults.
+In the standard Tilt setup, the hostnames still default to `localhost`,
+PostgreSQL defaults to the `currency_service` user, RabbitMQ defaults to AMQPS
+on `localhost:5671`, and Redis/RabbitMQ default to the `currency-service`
+identity. Export the passwords, your FRED API key, and the transport-TLS
+settings:
+
+```bash
+cd ../currency-service
+export FRED_API_KEY=your_api_key_here
+export SPRING_DATASOURCE_PASSWORD=your_currency_database_password
+export SPRING_RABBITMQ_PASSWORD=your_currency_service_rabbitmq_password
+export SPRING_RABBITMQ_HOST=localhost
+export SPRING_RABBITMQ_PORT=5671
+export SPRING_RABBITMQ_SSL_ENABLED=true
+export SPRING_RABBITMQ_SSL_BUNDLE=infra-ca
+export SPRING_DATA_REDIS_PASSWORD=your_currency_service_redis_password
+export SPRING_DATA_REDIS_HOST="${SPRING_DATA_REDIS_HOST:-localhost}"
+export SPRING_DATA_REDIS_PORT="${SPRING_DATA_REDIS_PORT:-6379}"
+export SPRING_DATA_REDIS_SSL_ENABLED=true
+export SPRING_DATA_REDIS_SSL_BUNDLE=infra-ca
+export INFRA_CA_CERT_PATH="file:$(cd ../orchestration && pwd)/nginx/certs/infra/infra-ca.pem"
+
 ./gradlew bootRun
 ```
+
+If you are reusing values from `../orchestration/.env`, map
+`POSTGRES_CURRENCY_SERVICE_PASSWORD`,
+`RABBITMQ_CURRENCY_SERVICE_PASSWORD`, and
+`REDIS_CURRENCY_SERVICE_PASSWORD` into the Spring environment variables above.
+The CA path must point at the host-side file created by
+`../orchestration/scripts/dev/setup-infra-tls.sh`.
+RabbitMQ hostname verification remains enabled on purpose, so
+`SPRING_RABBITMQ_HOST` must stay on a name covered by the broker certificate
+SANs. The default host-side certificate includes `localhost`,
+`rabbitmq.infrastructure`, `rabbitmq.infrastructure.svc`, and
+`rabbitmq.infrastructure.svc.cluster.local`; using a different hostname or
+alias will fail the TLS handshake until the certificate is regenerated with
+that SAN.
 
 The service runs on port 8084 for development/debugging.
 
@@ -186,7 +224,6 @@ See the [orchestration repository](https://github.com/budgetanalyzer/orchestrati
 - **Orchestration**: https://github.com/budgetanalyzer/orchestration
 - **Service Common**: https://github.com/budgetanalyzer/service-common
 - **Session Gateway**: https://github.com/budgetanalyzer/session-gateway
-- **Token Validation Service**: https://github.com/budgetanalyzer/token-validation-service
 - **Transaction Service**: https://github.com/budgetanalyzer/transaction-service
 - **Permission Service**: https://github.com/budgetanalyzer/permission-service
 - **Web Frontend**: https://github.com/budgetanalyzer/budget-analyzer-web
