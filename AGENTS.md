@@ -327,6 +327,8 @@ cat src/main/resources/application.yml | grep '\${' | sort -u
 - Use `@Cacheable` for queries, `@CacheEvict(allEntries=true)` after imports
 - Use `@SchedulerLock` for scheduled tasks (multi-pod coordination)
 
+**NO GIT WRITE OPERATIONS**: Never run git commands (commit, push, checkout, reset, etc.) without explicit user request. The user controls git workflow entirely. You may suggest what to commit, but don't do it.
+
 ## Honest Discourse
 
 Do not over-validate ideas. The user wants honest pushback, not agreement.
