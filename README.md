@@ -210,8 +210,8 @@ currency-service/
 ## Integration
 
 This service integrates with:
-- **[Session Gateway](https://github.com/budgetanalyzer/session-gateway)** (BFF) — validates sessions and provides user identity to Envoy ext_authz; backend services never see Auth0 tokens
-- **API Gateway** (Envoy) for routing, with ext_authz injecting pre-validated `X-User-Id`, `X-Permissions`, `X-Roles` headers
+- **[Session Gateway](https://github.com/budgetanalyzer/session-gateway)** — session-based edge authorization service for browser clients; it manages OAuth2 login and Redis-backed sessions, so backend services never see Auth0 tokens
+- **API Gateway** (Envoy) for routing, with ext_authz validating Session Gateway-backed sessions and injecting pre-validated `X-User-Id`, `X-Permissions`, `X-Roles` headers
 - **PostgreSQL** for data persistence
 - **Service Common** for shared utilities (including claims-header security that reads pre-validated headers from Envoy ext_authz)
 - **Transaction Service** for multi-currency transaction support

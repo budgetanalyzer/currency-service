@@ -78,7 +78,7 @@ Manages currencies and exchange rates for the Budget Analyzer application with a
 
 ### Authorization
 
-All endpoints are protected by fine-grained claims-header-based permissions. Envoy ext_authz validates sessions and injects `X-User-Id`, `X-Permissions`, `X-Roles` headers. The permission-service sources user roles and atomic permissions (e.g., `currencies:read`, `currencies:write`). Controllers enforce access via `@PreAuthorize` annotations.
+All endpoints are protected by fine-grained claims-header-based permissions. Session Gateway manages browser authentication and Redis-backed sessions. Envoy ext_authz validates those sessions and injects `X-User-Id`, `X-Permissions`, `X-Roles` headers. The permission-service sources user roles and atomic permissions (e.g., `currencies:read`, `currencies:write`). Controllers enforce access via `@PreAuthorize` annotations.
 
 See [permission-service/AGENTS.md](../permission-service/AGENTS.md) for the RBAC model, role definitions, and permission details. See also the [Permission Service README](../permission-service/README.md) for an overview.
 
