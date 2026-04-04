@@ -99,7 +99,8 @@ public class CurrencyService {
    * @throws ServiceUnavailableException if unable to validate provider series ID due to external
    *     API failure
    * @see CurrencyCreatedEvent
-   * @see MessagingEventListener# onCurrencyCreated(CurrencyCreatedEvent)
+   * @see
+   *     org.budgetanalyzer.currency.messaging.listener.MessagingEventListener#onCurrencyCreated(CurrencyCreatedEvent)
    */
   @Transactional
   public CurrencySeries create(CurrencySeries currencySeries) {

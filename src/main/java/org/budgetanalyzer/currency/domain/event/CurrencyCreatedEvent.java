@@ -70,8 +70,9 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  * @param correlationId The correlation ID from the originating HTTP request for distributed tracing
  *     across async boundaries. This allows tracing the entire flow from HTTP request through async
  *     event processing to external message publishing.
- * @see CurrencyService#create( CurrencySeries)
- * @see MessagingEventListener# onCurrencyCreated(CurrencyCreatedEvent)
+ * @see CurrencyService#create(CurrencySeries)
+ * @see
+ *     org.budgetanalyzer.currency.messaging.listener.MessagingEventListener#onCurrencyCreated(CurrencyCreatedEvent)
  */
 public record CurrencyCreatedEvent(
     Long currencySeriesId, String currencyCode, boolean enabled, String correlationId) {}
