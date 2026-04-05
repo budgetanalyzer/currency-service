@@ -11,7 +11,8 @@ import org.budgetanalyzer.currency.service.dto.ExchangeRateData;
 public record ExchangeRateResponse(
     @Schema(
             description =
-                "Base currency (1 unit of base = rate units of target, currently only USD supported)",
+                "Base currency (1 unit of base = rate units of target,"
+                    + " currently only USD supported)",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "USD")
         String baseCurrency,

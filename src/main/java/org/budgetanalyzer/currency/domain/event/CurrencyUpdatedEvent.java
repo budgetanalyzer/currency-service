@@ -44,8 +44,8 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  *     across async boundaries. This allows tracing the entire flow from HTTP request through async
  *     event processing to external message publishing.
  * @see CurrencyService#update(Long, boolean)
- * @see
- *     org.budgetanalyzer.currency.messaging.listener.MessagingEventListener#onCurrencyUpdated(CurrencyUpdatedEvent)
+ * @see org.budgetanalyzer.currency.messaging.listener
+ *     .MessagingEventListener#onCurrencyUpdated(CurrencyUpdatedEvent)
  */
 public record CurrencyUpdatedEvent(
     Long currencySeriesId, String currencyCode, boolean enabled, String correlationId) {}
