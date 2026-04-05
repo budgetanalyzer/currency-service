@@ -37,7 +37,7 @@ import org.budgetanalyzer.currency.service.CurrencyService;
 import org.budgetanalyzer.service.api.ApiErrorResponse;
 
 @Tag(
-    name = "Currency Series Handler",
+    name = "Currency Series",
     description = "Endpoints for querying, creating, and updating currency series")
 @RestController
 @RequestMapping(path = "/v1/currencies")

@@ -36,7 +36,7 @@ import org.budgetanalyzer.service.exception.InvalidRequestException;
 import org.budgetanalyzer.service.security.SecurityContextUtil;
 
 @Tag(
-    name = "Exchange Rates Handler",
+    name = "Exchange Rates",
     description = "Endpoints for querying and importing exchange rates")
 @RestController
 @RequestMapping(path = "/v1/exchange-rates")
