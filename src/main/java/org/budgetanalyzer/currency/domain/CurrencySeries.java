@@ -29,7 +29,14 @@ public class CurrencySeries extends AuditableEntity {
   @NotNull
   private String providerSeriesId;
 
-  /** Whether this currency is enabled for exchange rate access. */
+  /**
+   * Whether this currency is enabled for exchange rate access.
+   *
+   * <p>This flag is the soft-disable mechanism for the currency catalog. {@link CurrencySeries}
+   * intentionally does not extend {@code SoftDeletableEntity} — setting {@code enabled=false} is
+   * the way to retire a series. See {@code service-common/docs/spring-boot-conventions.md} → Base
+   * Entity Classes → Choosing Between Them.
+   */
   @Column(nullable = false)
   private boolean enabled = true;
 
