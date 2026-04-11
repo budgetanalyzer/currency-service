@@ -143,7 +143,7 @@ If you are reusing values from `../orchestration/.env`, map
 `RABBITMQ_CURRENCY_SERVICE_PASSWORD`, and
 `REDIS_CURRENCY_SERVICE_PASSWORD` into the Spring environment variables above.
 The CA path must point at the host-side file created by
-`../orchestration/scripts/dev/setup-infra-tls.sh`.
+`../orchestration/scripts/bootstrap/setup-infra-tls.sh`.
 RabbitMQ hostname verification remains enabled on purpose, so
 `SPRING_RABBITMQ_HOST` must stay on a name covered by the broker certificate
 SANs. The default host-side certificate includes `localhost`,
