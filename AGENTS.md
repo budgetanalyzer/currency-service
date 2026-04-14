@@ -279,6 +279,10 @@ cd ../currency-service
 ./gradlew clean build
 ```
 
+For release-version or isolated Docker builds that intentionally use the remote
+published `service-common` artifacts, see
+[orchestration/docs/development/service-common-artifact-resolution.md](../orchestration/docs/development/service-common-artifact-resolution.md).
+
 ## Testing
 
 **Pattern**: Unit tests (*Test.java), integration tests (*IntegrationTest.java) with TestContainers. Minimum 80% coverage. Always test correct behavior (fix bugs, don't test around them).
