@@ -103,8 +103,9 @@ FRED requires a free API key. Register at https://fred.stlouisfed.org/docs/api/a
 **Database configuration**: See [database-setup.md](https://github.com/budgetanalyzer/orchestration/blob/main/docs/development/database-setup.md)
 
 **Service-common artifact resolution**: Local builds resolve `service-common`
-from `mavenLocal()` — no GitHub credentials required. CI/release resolution
-is documented in orchestration:
+from `mavenLocal()` — no GitHub credentials required. Default GitHub Actions
+`build.yml` runs and release builds resolve the pinned `serviceCommon` version
+from GitHub Packages. The full contract is documented in orchestration:
 [service-common artifact resolution](https://github.com/budgetanalyzer/orchestration/blob/main/docs/development/service-common-artifact-resolution.md).
 
 Note: This service uses the `currency` database (not `budget_analyzer`).
