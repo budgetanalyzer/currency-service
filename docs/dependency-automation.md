@@ -37,10 +37,12 @@ fixed.
 
 ## Resolved dependency graph
 
-`.github/workflows/dependency-submission.yml` runs on trusted pushes to `main`,
-weekly, and by manual dispatch. The job runs only for the `main` ref and uses
-the official `gradle/actions/dependency-submission` action with the open-source
-`basic` cache provider. It resolves all projects and all resolvable
+`.github/workflows/dependency-submission.yml` preserves graph submission on
+trusted `main` pushes, weekly runs, and `main` dispatches. It also accepts the
+exact `dependency-automation-trial` ref. Trial runs first perform the complete
+authenticated build and then use the official Gradle generation-only graph path
+until both the protected trial ref is the current default and the trial graph
+submission variable is enabled. It resolves all projects and all resolvable
 configurations so application, runtime, build, and test dependency trees are
 included. Do not add configuration filters without proving equivalent coverage.
 
@@ -57,6 +59,19 @@ or GitHub rejects submission. Do not substitute Maven Local, omit the internal
 dependency, filter failed configurations, or treat graph-generation failure as
 a clean security result. A hosted run on `main` is the final proof that GitHub
 accepted the submission and can produce Dependabot alerts from it.
+
+## Phase 12 branch measurement controls
+
+`build.yml` accepts trial-branch pushes and pull requests based on either `main`
+or the exact trial branch. Trial builds measure the application JAR, test
+results, and build failure log with optional caches and uploads initially off.
+The graph workflow measures its complete generated report and resolution log.
+Trial schedule, cache, upload, and submission expansion follows the variables in
+the
+[orchestration trial workflow policy](../../orchestration/docs/dependency-automation.md#trial-workflow-controls).
+Any enabled trial upload is one sealed archive retained for one day and must fit
+beneath the 25 MiB cap. Production `main` uploads and graph submission are
+unchanged.
 
 ## Bot pull request checks
 

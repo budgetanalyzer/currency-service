@@ -93,6 +93,9 @@ rg -n '\$\{[^}]+}' src/main/resources/application.yml
   [gradle/libs.versions.toml](gradle/libs.versions.toml), and the checked-in
   Gradle wrapper as the authority for plugins, dependencies, toolchains,
   coverage gates, and build behavior.
+- Read [docs/dependency-automation.md](docs/dependency-automation.md) before
+  changing Renovate configuration, dependency graph submission, build workflow
+  triggers, trial evidence measurement, caches, or artifact uploads.
 - Read
   [service-common Spring Boot conventions](../service-common/docs/spring-boot-conventions.md)
   before changing architecture layers, dependency injection, entities, or HTTP
