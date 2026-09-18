@@ -74,6 +74,7 @@ currency-service/
 | [API Reference](docs/api/README.md) | Endpoints, request/response examples, validation rules |
 | [Domain Model](docs/domain-model.md) | Entities, aggregates, domain events, business rules |
 | [Advanced Patterns](docs/advanced-patterns-usage.md) | Provider abstraction, ShedLock, Redis caching, messaging |
+| [Dependency Automation](docs/dependency-automation.md) | Renovate discovery, dependency graph submission, bot PR checks |
 
 ## Related Repositories
 
