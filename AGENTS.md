@@ -63,6 +63,9 @@ rg -n '@Scheduled|@SchedulerLock|@Cacheable|@CacheEvict|@ApplicationModuleListen
 # Runtime configuration and environment variables
 rg -n '^currency-service:|fred:|shedlock|cache|rabbit|redis' src/main/resources/application.yml
 rg -n '\$\{[^}]+}' src/main/resources/application.yml
+
+# Dependency automation and CI artifact behavior
+rg -n 'renovate|dependency-submission|upload-artifact' renovate.json .github/workflows docs/dependency-automation.md
 ```
 
 ## Sources of Truth
@@ -94,8 +97,8 @@ rg -n '\$\{[^}]+}' src/main/resources/application.yml
   Gradle wrapper as the authority for plugins, dependencies, toolchains,
   coverage gates, and build behavior.
 - Read [docs/dependency-automation.md](docs/dependency-automation.md) before
-  changing Renovate configuration, dependency graph submission, build workflow
-  triggers, trial evidence measurement, caches, or artifact uploads.
+  changing Renovate configuration, authenticated dependency graph submission,
+  build workflow triggers, artifact retention, or bot pull-request validation.
 - Read
   [service-common Spring Boot conventions](../service-common/docs/spring-boot-conventions.md)
   before changing architecture layers, dependency injection, entities, or HTTP
