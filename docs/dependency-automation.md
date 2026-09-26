@@ -37,14 +37,15 @@ and uses the official `gradle/actions/dependency-submission` action with the
 open-source `basic` cache provider. It generates and submits the graph directly
 and does not retain the snapshot as an artifact or publish a Build Scan.
 
-Before graph generation, the workflow verifies that the configured package-read
-credentials can retrieve the pinned `spring-cloud-platform`, `service-core`, and
-`service-web` POMs. Gradle receives
-`SERVICE_COMMON_PACKAGES_USERNAME` and
+Gradle receives `SERVICE_COMMON_PACKAGES_USERNAME` and
 `SERVICE_COMMON_PACKAGES_READ_TOKEN` as `GITHUB_ACTOR` and `GITHUB_TOKEN` for
 package resolution. The action separately receives `${{ github.token }}` for
 graph submission. Do not turn the package-read credential into a submission
 credential or expose either credential to untrusted workflows.
+
+Gradle resolution is authoritative for both release and timestamped snapshot
+artifacts. Do not add manual artifact URL probes that duplicate Gradle's Maven
+metadata handling.
 
 The action's default resolution task visits all projects and all resolvable
 configurations, including application, runtime, build, and test dependency
