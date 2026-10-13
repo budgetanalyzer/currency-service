@@ -195,6 +195,10 @@ Response: CacheClearResponse
 
 **Pattern**: Standardized error response format with HTTP status codes, error types, and field-level validation messages.
 
+All documented error responses use the shared `ApiErrorResponse` schema. Standard method-specific
+`400` and `404` responses are supplied by service-common; endpoints document those statuses locally
+only when they require response details beyond the shared defaults.
+
 **When to consult @service-common/docs/error-handling.md**:
 - Understanding error response format → See ApiErrorResponse Format
 - Choosing correct exception type → Review Exception Hierarchy

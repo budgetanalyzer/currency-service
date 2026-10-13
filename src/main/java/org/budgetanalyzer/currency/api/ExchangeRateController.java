@@ -65,7 +65,13 @@ public class ExchangeRateController {
                     array =
                         @ArraySchema(
                             schema = @Schema(implementation = ExchangeRateResponse.class)))),
-        @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Invalid request",
+            content =
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class))),
         @ApiResponse(
             responseCode = "422",
             description = "Business validation failed",
