@@ -89,7 +89,6 @@ public class CurrencySeriesController {
                 @Content(
                     mediaType = "application/json",
                     schema = @Schema(implementation = CurrencySeriesResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Invalid request"),
         @ApiResponse(
             responseCode = "422",
             description = "Business validation failed",
@@ -162,8 +161,7 @@ public class CurrencySeriesController {
             content =
                 @Content(
                     mediaType = "application/json",
-                    schema = @Schema(implementation = CurrencySeriesResponse.class))),
-        @ApiResponse(responseCode = "404", description = "Currency series not found")
+                    schema = @Schema(implementation = CurrencySeriesResponse.class)))
       })
   @PreAuthorize("hasAuthority('currencies:read')")
   @GetMapping(path = "/{id}", produces = "application/json")
@@ -187,9 +185,7 @@ public class CurrencySeriesController {
             content =
                 @Content(
                     mediaType = "application/json",
-                    schema = @Schema(implementation = CurrencySeriesResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Invalid request"),
-        @ApiResponse(responseCode = "404", description = "Currency series not found")
+                    schema = @Schema(implementation = CurrencySeriesResponse.class)))
       })
   @PreAuthorize("hasAuthority('currencies:write')")
   @PutMapping(path = "/{id}", produces = "application/json", consumes = "application/json")
