@@ -43,6 +43,11 @@ integration.
 - Never commit credentials or replace missing infrastructure, credentials, or
   shared artifacts with hard-coded workarounds.
 
+## Path Portability
+
+Use repository-relative, sibling-relative, or dynamically resolved paths.
+Never hardcode machine-specific checkout locations such as `/workspace`.
+
 ## Discovery
 
 Use discovery commands instead of relying on copied inventories:
