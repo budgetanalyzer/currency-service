@@ -1,243 +1,217 @@
 # Currency Service - Domain Model
 
-**Status:** Active
-**Service:** currency-service
+This service keeps a catalog of currency series and the daily USD exchange rates imported for them
+from an external provider. FRED (Federal Reserve Economic Data) is currently the only provider.
 
-## Overview
+The JPA entities live in `src/main/java/org/budgetanalyzer/currency/domain/`. Flyway migrations
+`V1`–`V8` in `src/main/resources/db/migration/` own the schema, and Hibernate only validates it
+(`ddl-auto: validate`).
 
-This service manages currencies and exchange rates with automated import from external providers (currently FRED - Federal Reserve Economic Data).
+## Entities
 
-## Core Entities
+Both entities extend service-common's `AuditableEntity`, which adds:
+
+| Field | Column | Notes |
+|---|---|---|
+| `createdAt` | `created_at` | Set on insert, not updatable |
+| `updatedAt` | `updated_at` | Set on insert and update |
+| `createdBy` | `created_by` | Up to 50 characters, from Spring Data auditing, not updatable |
+| `updatedBy` | `updated_by` | Up to 50 characters, from Spring Data auditing |
+
+Neither entity is soft-deletable.
 
 ### CurrencySeries
 
-**Purpose:** Represents a currency exchange rate time series
+Table `currency_series`. One row maps an ISO 4217 currency to the provider series that supplies its
+rates.
 
-**Key Attributes:**
-- `id` (UUID) - Unique identifier
-- `seriesCode` (String) - FRED series code (e.g., "DEXTHUS" for THB/USD)
-- `sourceCurrency` (String) - Source currency code (e.g., "THB")
-- `targetCurrency` (String) - Target currency code (e.g., "USD")
-- `name` (String) - Human-readable name
-- `provider` (String) - Data provider ("FRED")
-- `active` (Boolean) - Whether actively importing
-- `lastImportDate` (LocalDate) - Last successful import
+| Field | Column | Type | Rules |
+|---|---|---|---|
+| `id` | `id` | `Long` | Identity primary key |
+| `currencyCode` | `currency_code` | `VARCHAR(3)` | Not null, unique |
+| `providerSeriesId` | `provider_series_id` | `VARCHAR(50)` | Not null, unique (`uk_currency_series_provider_series_id`) |
+| `enabled` | `enabled` | `BOOLEAN` | Not null; the entity defaults to `true` |
 
-**Business Rules:**
-- Series code must be unique
-- Currency codes must be valid ISO 4217
-- Source and target currencies must be different
-- Active series imported daily
+Rules:
 
-**Discovery:**
-```bash
-# Find CurrencySeries entity
-grep -r "class CurrencySeries" src/main/java
-```
+- `currencyCode` must be a valid ISO 4217 code. `CurrencyService` checks it on create.
+- `providerSeriesId` must exist at the provider. `CurrencyService` checks it through
+  `ExchangeRateProvider` on create.
+- `currencyCode` and `providerSeriesId` cannot be changed after creation. Only `enabled` can be
+  updated.
+- `enabled = false` is how a series is retired. Disabled series are not imported and cannot be
+  queried for rates, but their stored rates are kept.
+- `isUsdPerForeignSeries()` is `true` when `providerSeriesId` starts with `DEXUS`. Those FRED
+  series report USD per foreign unit, for example `DEXUSEU`. Other series, such as `DEXTHUS`, report
+  foreign units per USD.
+
+Migration `V6` seeds 23 currencies, all disabled.
 
 ### ExchangeRate
 
-**Purpose:** Represents a single exchange rate observation
+Table `exchange_rate`. One row is one published rate for a currency pair on one date.
 
-**Key Attributes:**
-- `id` (UUID) - Unique identifier
-- `seriesId` (UUID) - Reference to CurrencySeries
-- `rateDate` (LocalDate) - Date of observation
-- `rate` (BigDecimal) - Exchange rate value
-- `provider` (String) - Data provider
-- `importedAt` (Instant) - When imported
+| Field | Column | Type | Rules |
+|---|---|---|---|
+| `id` | `id` | `Long` | Identity primary key |
+| `currencySeries` | `currency_series_id` | `CurrencySeries` | Not null, lazy `@ManyToOne`, foreign key `fk_exchange_rate_currency_series` |
+| `baseCurrency` | `base_currency` | `Currency` (`VARCHAR(3)`) | Not null |
+| `targetCurrency` | `target_currency` | `Currency` (`VARCHAR(3)`) | Not null |
+| `date` | `date` | `LocalDate` | Not null |
+| `rate` | `rate` | `BigDecimal` (`NUMERIC(38, 4)`) | Precision 38, scale 4; the column is nullable |
 
-**Business Rules:**
-- One rate per series per date (unique constraint)
-- Rate must be positive
-- Historical data immutable
-- Rate date cannot be in future
+Rules:
 
-**Discovery:**
-```bash
-# Find ExchangeRate entity
-grep -r "class ExchangeRate" src/main/java
+- `(base_currency, target_currency, date)` is unique (`uk_exchange_rate_currency_date`).
+- The stored direction follows the provider series. For a `DEXUS*` series, `baseCurrency` is the
+  foreign currency and `targetCurrency` is USD. For other series, `baseCurrency` is USD and
+  `targetCurrency` is the foreign currency.
+- The currency pair duplicates data that is reachable through `currencySeries`. The duplication is
+  deliberate: indexed queries can filter on the pair without loading the series.
+- An import overwrites a stored rate only when the provider returns a different value for the same
+  date.
+
+## Relationship
+
+```text
+CurrencySeries 1 ──── * ExchangeRate   (exchange_rate.currency_series_id)
 ```
 
-## Domain Relationships
+The relationship is mapped only on `ExchangeRate`. `CurrencySeries` has no collection of rates, and
+nothing cascades from a series to its rates. The foreign key uses the `RESTRICT` delete rule, so deleting a
+series that still has rates violates `fk_exchange_rate_currency_series`. No API deletes a series;
+disable it instead.
 
-```
-CurrencySeries 1 ──→ * ExchangeRate
-```
+## Services
 
-**One-to-many:** A currency series has many exchange rate observations over time.
+| Service | Responsibilities |
+|---|---|
+| `CurrencyService` | Creates, reads, lists, and updates currency series. Validates the ISO 4217 code and the provider series ID on create. Publishes `CurrencyCreatedEvent` and `CurrencyUpdatedEvent`. |
+| `ExchangeRateService` | Answers rate queries for an enabled currency over an optional date range. Returns one USD-based rate per day and fills weekends and holidays with the latest earlier rate. Results are cached. |
+| `ExchangeRateImportService` | Imports rates from `ExchangeRateProvider`: `importLatestExchangeRates()` for all enabled series (scheduler, startup, and the import endpoint) and `importExchangeRatesForSeries(id)` for one series (message consumer). `importMissingExchangeRates()`, for enabled series with no stored rates, has no production caller. Every import inserts new dates, updates changed rates, skips unchanged ones, and evicts the rate cache. |
 
-## Aggregates
+The service layer reaches the provider only through the `ExchangeRateProvider` interface;
+`FredExchangeRateProvider` is the implementation. See [fred-integration.md](fred-integration.md)
+and the [provider abstraction usage](advanced-patterns-usage.md#provider-abstraction-pattern).
 
-### CurrencySeries Aggregate
+Business rule violations raise `BusinessException` with a `CurrencyServiceError` code:
 
-**Root:** CurrencySeries
-**Entities:**
-- CurrencySeries (root)
-- ExchangeRate (child)
-
-**Aggregate Boundary:**
-- Always load ExchangeRate through CurrencySeries
-- Delete cascade: Deleting series deletes all rates
-- Import operations modify entire aggregate
-
-## Value Objects
-
-### ExchangeRateValue
-
-**Components:**
-- `rate` (BigDecimal) - Rate value
-- `date` (LocalDate) - Observation date
-
-**Business Rules:**
-- Rate must be positive (> 0)
-- Precision: Up to 10 decimal places
-- Immutable
-
-### CurrencyPair
-
-**Components:**
-- `sourceCurrency` (String) - From currency
-- `targetCurrency` (String) - To currency
-
-**Business Rules:**
-- Both currencies required
-- Must be different
-- Valid ISO 4217 codes
-- Immutable
-
-## Domain Services
-
-### ExchangeRateImportService
-
-**Responsibilities:**
-- Coordinate import from external providers
-- Transform provider data to domain entities
-- Ensure data consistency
-
-**Key Operations:**
-- `importRatesForSeries(CurrencySeries, DateRange)` - Import rates for a series
-- `importAllActiveSeries()` - Scheduled import for all active series
-
-### ExchangeRateQueryService
-
-**Responsibilities:**
-- Query exchange rates
-- Date range filtering
-- Rate interpolation (future)
-
-**Key Operations:**
-- `getRatesForSeries(seriesId, startDate, endDate)` - Query rates
-- `getLatestRate(seriesId)` - Get most recent rate
-
-## External Provider Integration
-
-**Pattern**: Provider abstraction decouples service from specific external data sources.
-
-**When to consult @service-common/docs/advanced-patterns.md#provider-abstraction-pattern**:
-- Adding new providers (ECB, Bloomberg)
-- Understanding provider interface design
-- Modifying provider implementations
-
-**Quick reference**:
-- Interface: `ExchangeRateProvider`
-- Implementation: `FredExchangeRateProvider`
-- Service never imports FRED directly
-
-**Data Flow:**
-```
-1. Scheduled job triggers
-2. ExchangeRateImportService queries provider
-3. FredExchangeRateProvider calls FRED API
-4. Provider transforms FRED response to domain model
-5. Service saves ExchangeRate entities
-6. Transaction commits
-7. Event published (CurrencyImportedEvent)
-```
+| Code | Raised by | When |
+|---|---|---|
+| `DUPLICATE_CURRENCY_CODE` | `CurrencyService.create` | Any unique-constraint violation on insert, including a duplicate `providerSeriesId` |
+| `INVALID_ISO_4217_CODE` | `CurrencyService.create` | `currencyCode` is not an ISO 4217 code |
+| `INVALID_PROVIDER_SERIES_ID` | `CurrencyService.create` | The provider reports that the series does not exist |
+| `CURRENCY_NOT_ENABLED` | `ExchangeRateService.getExchangeRates` | No enabled series exists for the currency |
+| `NO_EXCHANGE_RATE_DATA_AVAILABLE` | `ExchangeRateService.getExchangeRates` | The series has no stored rates |
+| `START_DATE_OUT_OF_RANGE` | `ExchangeRateService.getExchangeRates` | `startDate` is before the earliest stored rate |
 
 ## Domain Events
 
-### CurrencySeriesCreated
+Domain events live in `domain/event/`. `CurrencyService` publishes them inside its transaction, and
+Spring Modulith stores each one in `event_publication` as part of that transaction (transactional
+outbox).
 
-**When:** New currency series added
-**Data:** seriesId, seriesCode, currencies
+| Event | Published when | Fields |
+|---|---|---|
+| `CurrencyCreatedEvent` | An enabled series is created | `currencySeriesId`, `currencyCode`, `enabled`, `correlationId` |
+| `CurrencyUpdatedEvent` | A disabled series is changed to enabled | `currencySeriesId`, `currencyCode`, `enabled`, `correlationId` |
 
-### ExchangeRatesImported
+Creating a disabled series, disabling a series, and updates that leave `enabled` unchanged publish
+nothing.
 
-**When:** Successful import from provider
-**Data:** seriesId, count, dateRange, provider
+Event flow:
 
-### ImportFailed
+```text
+CurrencyService (transaction)
+  └─> CurrencyCreatedEvent / CurrencyUpdatedEvent  → stored in event_publication
+        (after commit, asynchronously)
+        └─> MessagingEventListener (@ApplicationModuleListener)
+              └─> ExchangeRateImportRequestedMessage → exchange-rate.import.requested (RabbitMQ)
+                    └─> ExchangeRateImportConsumer
+                          └─> ExchangeRateImportService.importExchangeRatesForSeries(currencySeriesId)
+```
 
-**When:** Import fails (provider error, validation error)
-**Data:** seriesId, error message, timestamp
+`ExchangeRateImportRequestedMessage` (in `messaging/message/`) carries `currencySeriesId`,
+`currencyCode`, and `correlationId`. The import starts the day after the latest stored rate for the
+series, or imports the full history if none is stored.
 
-## Caching Strategy
+Publication lifecycle:
 
-**Pattern**: Cache-aside with Redis for high-performance queries.
+- When the listener succeeds, the publication is marked completed and kept permanently as an audit
+  record. This is Spring Modulith's default `completion-mode` (`update`). No cleanup or archiving
+  is configured.
+- When the listener fails, the publication stays incomplete. Nothing retries it while the
+  application runs. `republish-outstanding-events-on-restart: true` resubmits every incomplete
+  publication at the next startup.
+- Delivery is therefore at least once, and the consumer must tolerate duplicate import requests. A
+  duplicate processed after an earlier import committed starts after the latest stored rate and
+  skips dates already stored with the same rate. Duplicates processed concurrently can collide on
+  `uk_exchange_rate_currency_date`, in which case the losing import fails and its transaction
+  rolls back.
 
-**When to consult @service-common/docs/advanced-patterns.md#redis-distributed-caching**:
-- Adjusting TTL values
-- Adding new cached queries
-- Understanding cache key design
+See [advanced-patterns-usage.md](advanced-patterns-usage.md#event-driven-messaging) for the
+messaging configuration.
 
-**Quick reference**:
-- Cached: Recent exchange rates (last 90 days) + series metadata
-- Keys: `exchange-rates:{seriesId}:{date}`, `currency-series:{id}`
-- TTL: Historical (24h), recent (1h), metadata (6h)
+## Caching
 
-## Scheduled Operations
+`ExchangeRateService.getExchangeRates` is the only cached method. It uses the Redis cache
+`exchangeRates`:
 
-**Pattern**: ShedLock ensures scheduled tasks run once across all pods.
+- **Key:** `currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}`. An omitted date
+  appears as `null`.
+- **TTL:** none. Entries stay until they are evicted.
+- **Eviction:** each `ExchangeRateImportService` import method evicts every `exchangeRates` entry
+  (`@CacheEvict(allEntries = true)`). The cache manager is transaction-aware, so eviction happens
+  only after the import commits.
 
-**When to consult @service-common/docs/advanced-patterns.md#shedlock-distributed-locking**:
-- Adjusting lock durations
-- Adding new scheduled jobs
-- Debugging multi-pod coordination
+Currency series reads are not cached. See `CacheConfig` and
+[advanced-patterns-usage.md](advanced-patterns-usage.md#redis-distributed-caching).
 
-**Quick reference**:
-- **Daily Import** - 6:00 AM UTC (30m lock, idempotent)
-- **Cache Warmup** - Every hour (5m lock)
+## Scheduled Import
+
+`ExchangeRateImportScheduler.importDailyRates` imports the latest rates for every enabled series:
+
+- **Schedule:** daily at 23:00 UTC (`currency-service.exchange-rate-import.cron`, default
+  `0 0 23 * * ?`, zone `UTC`).
+- **Lock:** ShedLock lock `exchangeRateImport` with `lockAtMostFor = 15m` and
+  `lockAtLeastFor = 1m`, so one pod runs each trigger.
+- **Retry:** up to `retry.max-attempts` total attempts (default 3), `retry.delay-minutes` apart
+  (default 1).
+
+The same import also runs once at startup when `import-on-startup` is `true` (the default), and on
+demand through `POST /v1/exchange-rates/import`. See
+[advanced-patterns-usage.md](advanced-patterns-usage.md#shedlock-distributed-locking).
 
 ## Discovery Commands
 
+Run these from the repository root:
+
 ```bash
-# Find all entities
-find src/main/java -name "*Entity*.java"
+# Entities, domain events, and the external message
+find src/main/java/org/budgetanalyzer/currency/domain src/main/java/org/budgetanalyzer/currency/messaging/message -name '*.java' | sort
 
-# Find domain services
-grep -r "@Service" src/main/java | grep -i "domain\|import\|query"
+# Schema migrations, including constraints and foreign keys
+rg -n 'UNIQUE|FOREIGN KEY|REFERENCES|ON DELETE' src/main/resources/db/migration
 
-# View provider implementations
-find src/main/java -name "*Provider*.java"
+# Services and business error codes
+find src/main/java/org/budgetanalyzer/currency/service -maxdepth 1 -name '*.java' | sort
+rg -n 'CurrencyServiceError\.' src/main/java
 
-# Check scheduled jobs
-grep -r "@Scheduled" src/main/java
+# Event publishing and listeners
+rg -n 'publishEvent|@ApplicationModuleListener' src/main/java
+
+# Provider implementations
+find src/main/java -name '*Provider.java'
+
+# Caching and scheduled work
+rg -n '@Cacheable|@CacheEvict|@Scheduled|@SchedulerLock' src/main/java
 ```
-
-## Business Rules Summary
-
-### Currency Series Rules
-1. Series code must be unique
-2. Active series imported daily
-3. Source ≠ target currency
-4. Provider must be supported (currently: FRED only)
-
-### Exchange Rate Rules
-1. One rate per series per date
-2. Rates must be positive
-3. Historical data immutable
-4. Rates cached for performance
-
-### Import Rules
-1. Scheduled daily at 6:00 AM UTC
-2. Idempotent (duplicate dates skipped)
-3. Distributed lock prevents concurrent imports
-4. Failed imports retry next scheduled run
 
 ## References
 
-- **Database Schema:** [database-schema.md](database-schema.md) (not yet created)
-- **API Spec:** [api/README.md](api/README.md)
-- **Advanced Patterns:** @service-common/docs/advanced-patterns.md
-- **FRED Integration:** [fred-integration.md](fred-integration.md) (future)
+- [API reference](api/README.md)
+- [FRED integration](fred-integration.md)
+- [Advanced patterns usage](advanced-patterns-usage.md)
+- [Configuration](configuration.md)
+- [service-common Spring Boot conventions](https://github.com/budgetanalyzer/service-common/blob/main/docs/spring-boot-conventions.md)
+- [service-common advanced patterns](https://github.com/budgetanalyzer/service-common/blob/main/docs/advanced-patterns.md)

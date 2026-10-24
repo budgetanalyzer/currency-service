@@ -2,23 +2,42 @@ package org.budgetanalyzer.currency.config;
 
 import java.time.Duration;
 
-import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
+import org.springframework.boot.cache.autoconfigure.RedisCacheManagerBuilderCustomizer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.cache.RedisCacheWriter;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import tools.jackson.databind.DefaultTyping;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
 /**
  * Redis cache configuration for the Currency Service.
  *
- * <p>Configures caching strategy for exchange rate queries with appropriate TTL and serialization
- * settings.
+ * <p>All caches, currently only {@link #EXCHANGE_RATES_CACHE}, share the single default {@link
+ * RedisCacheConfiguration} defined here:
+ *
+ * <ul>
+ *   <li><b>No TTL:</b> Entries never expire. Exchange rates only change during imports, and every
+ *       import evicts all entries with {@code @CacheEvict(allEntries = true)}.
+ *   <li><b>Eviction after commit:</b> The cache manager is transaction-aware, so evictions run in
+ *       the after-commit phase. A rolled-back import leaves the cache unchanged.
+ *   <li><b>Synchronous writes:</b> Writes, evictions, and clears complete before the cache call
+ *       returns, overriding Spring Data Redis 4's asynchronous Lettuce default.
+ *   <li><b>Key structure:</b> {@code currency-service:{cacheName}::{key}}, for example {@code
+ *       currency-service:exchangeRates::EUR:2024-01-01:2024-01-31}. The {@code currency-service:}
+ *       prefix prevents collisions with other services sharing the Redis instance.
+ *   <li><b>Values:</b> JSON with Jackson default typing restricted to an allowlist of types.
+ * </ul>
+ *
+ * <p>The cache manager uses only this configuration, so {@code spring.cache.redis.*} properties
+ * other than {@code cache-names} and {@code enable-statistics} have no effect.
  */
 @Configuration
 @EnableCaching
@@ -28,103 +47,80 @@ public class CacheConfig {
   public static final String EXCHANGE_RATES_CACHE = "exchangeRates";
 
   /**
-   * Creates a type-safe GenericJackson2JsonRedisSerializer with polymorphic type handling.
+   * Creates the JSON serializer for cached values with allowlisted polymorphic typing.
    *
-   * <p>Configures type validator to allow our DTOs and Java standard types for proper
-   * serialization/deserialization.
+   * <p>The serializer writes a type id for every non-final value ({@link DefaultTyping#NON_FINAL})
+   * and accepts only subtypes from {@code org.budgetanalyzer}, {@code java.util}, {@code
+   * java.time}, and {@code java.math} when reading. Any other type id is rejected.
    *
-   * @param objectMapper application-wide ObjectMapper with JavaTimeModule registered
+   * <p>Final types are written without a type id. Final values that Jackson reads back as their
+   * natural JSON type, such as {@link String}, round-trip correctly. Cached values must not be JDK
+   * immutable collections such as those returned by {@code List.of()} or {@code Stream.toList()}:
+   * their classes are final, so they are written without a type id and cannot be read back. Return
+   * {@link java.util.ArrayList} or {@link java.util.Collections#emptyList()} from cacheable methods
+   * instead.
+   *
+   * @param jsonMapper application-wide JsonMapper
    * @return configured serializer with type information
    */
   @Bean
-  public GenericJackson2JsonRedisSerializer redisSerializer(ObjectMapper objectMapper) {
-    // Create a copy of the ObjectMapper to avoid modifying the application-wide one
-    var mapper = objectMapper.copy();
-
-    // Configure type validator to allow our packages and standard Java types
+  public GenericJacksonJsonRedisSerializer redisSerializer(JsonMapper jsonMapper) {
     var typeValidator =
         BasicPolymorphicTypeValidator.builder()
-            .allowIfBaseType(Object.class)
             .allowIfSubType("org.budgetanalyzer")
             .allowIfSubType("java.util")
             .allowIfSubType("java.time")
+            .allowIfSubType("java.math")
             .build();
 
-    mapper.activateDefaultTyping(typeValidator, ObjectMapper.DefaultTyping.NON_FINAL);
+    // Rebuild a copy of the JsonMapper to avoid modifying the application-wide one
+    var cacheJsonMapper =
+        jsonMapper.rebuild().activateDefaultTyping(typeValidator, DefaultTyping.NON_FINAL).build();
 
-    return new GenericJackson2JsonRedisSerializer(mapper);
+    return new GenericJacksonJsonRedisSerializer(cacheJsonMapper);
   }
 
   /**
-   * Configures Redis cache manager with custom settings for each cache.
+   * Configures the Redis cache manager's writer and transaction handling.
    *
-   * <p><b>Exchange Rates Cache Configuration:</b>
+   * <p>The cache writer performs writes, evictions, and clears synchronously via {@code
+   * immediateWrites()}. {@code transactionAware()} defers cache puts and evictions to the
+   * after-commit phase of Spring-managed transactions.
    *
-   * <ul>
-   *   <li><b>TTL:</b> None (Duration.ZERO = infinite) - Exchange rates only change during imports,
-   *       so time-based expiration is unnecessary. Cache is explicitly evicted via
-   *       {@code @CacheEvict} when rates are imported.
-   *   <li><b>Eviction Strategy:</b> Manual only - All import operations use
-   *       {@code @CacheEvict(allEntries = true)} to clear the entire cache. This trades targeted
-   *       eviction complexity for simplicity and consistency guarantees.
-   *   <li><b>Transaction Awareness:</b> Cache operations are synchronized with Spring-managed
-   *       transactions via {@code transactionAware()}. Cache eviction is deferred until the
-   *       after-commit phase of successful transactions. If a transaction rolls back, cache
-   *       eviction does NOT occur, maintaining consistency between cache and database.
-   *   <li><b>Key Structure:</b> {@code
-   *       currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}} - Enables
-   *       currency-specific cache isolation (THB queries don't collide with EUR queries)
-   *   <li><b>Serialization:</b> JSON (GenericJackson2JsonRedisSerializer) for human-readable
-   *       debugging and cross-language compatibility
-   *   <li><b>Namespace:</b> "currency-service:" prefix prevents key collisions with other
-   *       microservices sharing the same Redis instance
-   * </ul>
-   *
-   * <p><b>Multi-Currency Considerations:</b> While the cache key includes currency code for
-   * isolation, eviction is global (all currencies evicted simultaneously). This design choice
-   * prioritizes simplicity over per-currency optimization, which is acceptable given infrequent
-   * import operations (once per day).
-   *
-   * @param redisSerializer configured serializer with type information
+   * @param redisConnectionFactory Redis connection factory used by the synchronous cache writer
    * @return customizer for RedisCacheManager
    */
   @Bean
   public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
-      GenericJackson2JsonRedisSerializer redisSerializer) {
+      RedisConnectionFactory redisConnectionFactory) {
     return builder ->
         builder
-            .transactionAware() // Synchronize cache operations with Spring transactions
-            .withCacheConfiguration(
-                EXCHANGE_RATES_CACHE,
-                RedisCacheConfiguration.defaultCacheConfig()
-                    // No TTL - rates only change during imports, explicitly evicted via @CacheEvict
-                    .entryTtl(Duration.ZERO)
-                    .serializeKeysWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(
-                            new StringRedisSerializer()))
-                    .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer))
-                    .prefixCacheNameWith("currency-service:"));
+            .cacheWriter(
+                RedisCacheWriter.create(
+                    redisConnectionFactory, configurer -> configurer.immediateWrites()))
+            .transactionAware();
   }
 
   /**
-   * Default Redis cache configuration applied to all caches unless specifically overridden.
+   * Default Redis cache configuration applied to all caches.
    *
-   * <p>Settings: - Disable null value caching (fail fast for missing data) - Use JSON serialization
-   * for readability - No TTL (data only changes during imports, explicit eviction)
+   * <p>Sets no TTL, disables caching null values, serializes keys as strings, serializes values
+   * with {@link #redisSerializer(JsonMapper)}, and prefixes every key with {@code
+   * currency-service:}.
    *
    * @param redisSerializer configured serializer with type information
    * @return default cache configuration
    */
   @Bean
   public RedisCacheConfiguration cacheConfiguration(
-      GenericJackson2JsonRedisSerializer redisSerializer) {
+      GenericJacksonJsonRedisSerializer redisSerializer) {
     return RedisCacheConfiguration.defaultCacheConfig()
         .entryTtl(Duration.ZERO)
         .disableCachingNullValues()
         .serializeKeysWith(
             RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
         .serializeValuesWith(
-            RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer));
+            RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer))
+        .prefixCacheNameWith("currency-service:");
   }
 }

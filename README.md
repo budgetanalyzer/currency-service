@@ -11,14 +11,14 @@ Spring Boot microservice that automates exchange rate imports from the [Federal 
 ## Core Capabilities
 
 - **Automated FRED imports** - Daily scheduled imports with provider abstraction ([details](docs/fred-integration.md))
-- **Currency series management** - CRUD operations for exchange rate time series ([API docs](docs/api/README.md))
-- **Historical rate queries** - Date range filtering with Redis caching (80-95% hit rate)
+- **Currency series management** - Create, read, and update exchange rate time series ([API docs](docs/api/README.md))
+- **Historical rate queries** - Date range filtering with gap-filled daily rates and Redis caching
 - **Distributed coordination** - Multi-pod safe scheduling with ShedLock
-- **Event-driven architecture** - Guaranteed delivery via transactional outbox + RabbitMQ
+- **Event-driven architecture** - At-least-once import requests via Spring Modulith transactional outbox + RabbitMQ
 
 ## Quick Start
 
-**Prerequisites:** JDK 25, Docker/Docker Compose
+**Prerequisites:** JDK 25, Docker, and the [orchestration](https://github.com/budgetanalyzer/orchestration) Tilt environment
 
 ```bash
 # 1. Start infrastructure
@@ -30,15 +30,15 @@ export FRED_API_KEY=your_api_key_here
 export SPRING_DATASOURCE_PASSWORD=your_db_password
 export SPRING_RABBITMQ_PASSWORD=your_rabbitmq_password
 export SPRING_DATA_REDIS_PASSWORD=your_redis_password
-# See docs/local-development.md for full env var list (TLS, ports, etc.)
+# See docs/local-development.md for the TLS and host settings
 ./gradlew bootRun
 ```
 
-**Dev server:** `http://localhost:8084` | **Swagger UI:** `http://localhost:8084/swagger-ui.html`
+**Dev server:** `http://localhost:8084/currency-service` | **Swagger UI:** `http://localhost:8084/currency-service/swagger-ui.html`
 
 ## Technology Stack
 
-Java 25, Spring Boot 3.x (Web, Data JPA, Modulith, Actuator), PostgreSQL, Redis, RabbitMQ, ShedLock, Flyway, SpringDoc OpenAPI, TestContainers + JUnit 5
+Java 25, Spring Boot 4.1 (Web MVC, WebFlux `WebClient`, Data JPA, Data Redis, Security, Validation), Spring Cloud Stream (RabbitMQ binder), Spring Modulith, Actuator (through service-web), PostgreSQL, Redis, RabbitMQ, ShedLock, Flyway, SpringDoc OpenAPI, Testcontainers, WireMock, JUnit 6
 
 ## Build and Test
 
@@ -68,9 +68,9 @@ currency-service/
 
 | Document | Description |
 |---|---|
-| [Local Development](docs/local-development.md) | Running locally, environment variables, building, API access |
-| [Configuration](docs/configuration.md) | Infrastructure dependencies, config properties, security |
-| [FRED Integration](docs/fred-integration.md) | Data source, API key, provider architecture, import schedule |
+| [Local Development](docs/local-development.md) | Running locally, TLS setup, building, API access |
+| [Configuration](docs/configuration.md) | Environment variables, properties, caching, scheduling, messaging, security |
+| [FRED Integration](docs/fred-integration.md) | Data source, API key, provider architecture, import behavior, rate limits |
 | [API Reference](docs/api/README.md) | Endpoints, request/response examples, validation rules |
 | [Domain Model](docs/domain-model.md) | Entities, aggregates, domain events, business rules |
 | [Advanced Patterns](docs/advanced-patterns-usage.md) | Provider abstraction, ShedLock, Redis caching, messaging |

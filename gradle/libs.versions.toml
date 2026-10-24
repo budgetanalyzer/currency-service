@@ -1,12 +1,11 @@
 [versions]
 java = "25"
-springBoot = "3.5.16"
+springBoot = "4.1.2"
 spotless = "8.10.4"
 checkstyle = "12.3.1"
 googleJavaFormat = "1.32.0"
 jacoco = "0.8.15"
-junitPlatform = "1.14.4"
-serviceCommon = "0.0.17"
+serviceCommon = "0.0.18-SNAPSHOT"
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
@@ -14,17 +13,17 @@ spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 
 [libraries]
 # Spring Boot starters (versions managed by Spring Boot BOM)
-spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
-spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
 spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache" }
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
-spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
+spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test" }
+spring-boot-starter-security-test = { module = "org.springframework.boot:spring-boot-starter-security-test" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
-spring-security-test = { module = "org.springframework.security:spring-security-test" }
 
 # SpringDoc OpenAPI (version managed by service-common platform)
 springdoc-openapi = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui" }
@@ -39,7 +38,7 @@ spring-modulith-starter-jpa = { module = "org.springframework.modulith:spring-mo
 spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
 
 # Flyway (versions managed by Spring Boot BOM)
-flyway-core = { module = "org.flywaydb:flyway-core" }
+spring-boot-starter-flyway = { module = "org.springframework.boot:spring-boot-starter-flyway" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
 
 # Third-party libraries with versions managed by service-common platform
@@ -48,18 +47,16 @@ shedlock-provider-jdbc = { module = "net.javacrumbs.shedlock:shedlock-provider-j
 
 # Service dependencies
 budgetanalyzer-spring-cloud-platform = { module = "org.budgetanalyzer:spring-cloud-platform", version.ref = "serviceCommon" }
-service-core = { module = "org.budgetanalyzer:service-core", version.ref = "serviceCommon" }
 service-web = { module = "org.budgetanalyzer:service-web", version.ref = "serviceCommon" }
 
 # Runtime dependencies
 postgresql = { module = "org.postgresql:postgresql" }
-h2 = { module = "com.h2database:h2" }
 
 # Test dependencies
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 testcontainers = { module = "org.testcontainers:testcontainers" }
-testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
-testcontainers-rabbitmq = { module = "org.testcontainers:rabbitmq" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+testcontainers-rabbitmq = { module = "org.testcontainers:testcontainers-rabbitmq" }
 wiremock-standalone = { module = "org.wiremock:wiremock-standalone" }
 awaitility = { module = "org.awaitility:awaitility" }

@@ -21,40 +21,43 @@ import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
  *
  * <p><b>Transactional Outbox Pattern:</b>
  *
- * <p>The {@code @ApplicationModuleListener} annotation provides guaranteed message delivery through
- * the following mechanism:
+ * <p>Spring Modulith's event publication registry tracks each delivery to an
+ * {@code @ApplicationModuleListener} as follows:
  *
  * <ol>
  *   <li><b>Event Persistence:</b> When a domain event is published within a transaction, Spring
- *       Modulith automatically persists it to the {@code event_publication} table in the same
- *       database transaction as the business data (e.g., currency series creation).
- *   <li><b>Atomic Commit:</b> Both the business entity and event are committed atomically - either
- *       both succeed or both fail. This eliminates the "dual-write" problem where data is saved but
- *       the message fails to publish.
- *   <li><b>Async Processing:</b> After the transaction commits, Spring Modulith asynchronously
- *       polls the {@code event_publication} table for unpublished events and invokes listener
- *       methods on a background thread.
- *   <li><b>External Publishing:</b> The listener method publishes the message to RabbitMQ. If
- *       publishing fails, Spring Modulith automatically retries until success.
- *   <li><b>Completion Tracking:</b> Once successfully published, the event is marked as completed
- *       in the database (but not deleted, allowing audit trail and replay).
+ *       Modulith persists a publication to the {@code event_publication} table in the same database
+ *       transaction as the business data (e.g., currency series creation).
+ *   <li><b>Atomic Commit:</b> Both the business entity and the publication are committed
+ *       atomically: either both succeed or both fail. This eliminates the "dual-write" problem
+ *       where data is saved but the message is never sent.
+ *   <li><b>Async Processing:</b> After the transaction commits, Spring Modulith invokes the
+ *       listener method asynchronously on a background thread.
+ *   <li><b>External Publishing:</b> The listener method publishes the message to RabbitMQ.
+ *   <li><b>Completion:</b> When the listener returns normally, the publication is marked completed
+ *       ({@code status = 'COMPLETED'} with a {@code completion_date}). With the default {@code
+ *       completion-mode} of {@code update}, the completed row is kept permanently as an intentional
+ *       audit trail.
+ *   <li><b>Failure:</b> When the listener throws, the publication is marked {@code FAILED} and
+ *       stays incomplete (no {@code completion_date}). It is not retried while the application
+ *       keeps running.
+ *   <li><b>Resubmission:</b> With {@code republish-outstanding-events-on-restart: true}, every
+ *       incomplete publication is resubmitted to its listener at application startup.
  * </ol>
  *
  * <p><b>Benefits Over Direct Message Publishing:</b>
  *
  * <ul>
- *   <li><b>100% Guaranteed Delivery:</b> Events survive application crashes since they're persisted
- *       in the database before the transaction commits
- *   <li><b>Exactly-Once Semantics:</b> No duplicate or lost messages due to timing issues between
- *       database commit and message publishing
+ *   <li><b>Durable Intent:</b> Publications survive application crashes since they're persisted in
+ *       the database before the transaction commits
+ *   <li><b>At-Least-Once Delivery:</b> A message can be sent more than once, for example when a
+ *       publication is resubmitted after RabbitMQ accepted the message but before completion was
+ *       recorded. Consumers must tolerate duplicate messages.
  *   <li><b>Decoupled Services:</b> Service layer publishes domain events without knowledge of
  *       external messaging infrastructure
  *   <li><b>Async HTTP Responses:</b> HTTP requests return immediately after database commit without
  *       waiting for RabbitMQ publishing
- *   <li><b>Automatic Retries:</b> Failed message publishing is retried automatically by Spring
- *       Modulith
- *   <li><b>Event Replay:</b> Events can be manually replayed from the database if needed for
- *       recovery or debugging
+ *   <li><b>Audit Trail:</b> Completed publications remain in the {@code event_publication} table
  * </ul>
  *
  * <p><b>Thread Safety:</b>
@@ -65,20 +68,19 @@ import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
  *
  * <p><b>Error Handling:</b>
  *
- * <p>Exceptions thrown from listener methods are caught by Spring Modulith, which will retry event
- * processing according to its retry policy. Failed events remain in the {@code event_publication}
- * table with error details for troubleshooting.
+ * <p>Exceptions thrown from listener methods mark the publication {@code FAILED}. The incomplete
+ * publication remains in the {@code event_publication} table until it is resubmitted at the next
+ * startup and its listener succeeds.
  *
  * <p><b>Configuration:</b>
  *
- * <p>Spring Modulith event processing behavior can be configured in {@code application.yml}:
+ * <p>Spring Modulith event processing behavior is configured in {@code application.yml}:
  *
  * <pre>
  * spring:
  *   modulith:
  *     events:
  *       republish-outstanding-events-on-restart: true
- *       delete-completion-after: 30d  # Retain completed events for audit trail
  * </pre>
  *
  * @see CurrencyCreatedEvent
@@ -107,7 +109,7 @@ public class MessagingEventListener {
    *
    * <p>This method is invoked asynchronously by Spring Modulith after the database transaction that
    * persisted the currency entity has committed. The event itself was stored in the {@code
-   * event_publication} table within the same transaction, guaranteeing delivery.
+   * event_publication} table within the same transaction.
    *
    * <p><b>Import Eligibility:</b>
    *
@@ -118,13 +120,15 @@ public class MessagingEventListener {
    * <p><b>Execution Flow:</b>
    *
    * <ol>
-   *   <li>Spring Modulith detects unpublished event in {@code event_publication} table
-   *   <li>Invokes this method on background thread with event payload
+   *   <li>After the transaction commits, Spring Modulith invokes this method on a background thread
+   *       with the event payload
    *   <li>Correlation ID is set in MDC for distributed tracing
-   *   <li>If currency is enabled, an import request message is published to RabbitMQ via {@link
+   *   <li>An import request message is published to RabbitMQ via {@link
    *       ExchangeRateImportMessagePublisher}
-   *   <li>On success, Spring Modulith marks event as completed in database
-   *   <li>On failure, Spring Modulith retries according to retry policy
+   *   <li>On success, Spring Modulith marks the publication completed and keeps it as an audit
+   *       record
+   *   <li>On failure, Spring Modulith marks the publication failed; it is resubmitted at the next
+   *       startup
    * </ol>
    *
    * <p><b>Distributed Tracing:</b>
@@ -136,9 +140,10 @@ public class MessagingEventListener {
    *
    * <p><b>Error Handling:</b>
    *
-   * <p>Exceptions are logged and caught by Spring Modulith's retry mechanism. The event remains in
-   * the {@code event_publication} table for retry. MDC is always cleared in the finally block to
-   * prevent memory leaks in the thread pool.
+   * <p>Exceptions are logged and rethrown so Spring Modulith marks the publication failed. The
+   * incomplete publication remains in the {@code event_publication} table and is resubmitted at the
+   * next startup. MDC is always cleared in the finally block to prevent memory leaks in the thread
+   * pool.
    *
    * <p><b>Thread Safety:</b>
    *
@@ -173,7 +178,7 @@ public class MessagingEventListener {
           event.currencyCode());
 
     } catch (Exception e) {
-      // Log error - Spring Modulith will retry event processing
+      // Log error - the publication stays incomplete for resubmission at startup
       log.error(
           "Failed to publish exchange rate import requested message: currencyCode={}",
           event.currencyCode(),
@@ -192,7 +197,7 @@ public class MessagingEventListener {
    *
    * <p>This method is invoked asynchronously by Spring Modulith after the database transaction that
    * updated the currency entity has committed. The event itself was stored in the {@code
-   * event_publication} table within the same transaction, guaranteeing delivery.
+   * event_publication} table within the same transaction.
    *
    * <p><b>Import Eligibility:</b>
    *
@@ -203,13 +208,15 @@ public class MessagingEventListener {
    * <p><b>Execution Flow:</b>
    *
    * <ol>
-   *   <li>Spring Modulith detects unpublished event in {@code event_publication} table
-   *   <li>Invokes this method on background thread with event payload
+   *   <li>After the transaction commits, Spring Modulith invokes this method on a background thread
+   *       with the event payload
    *   <li>Correlation ID is set in MDC for distributed tracing
-   *   <li>If currency is enabled, an import request message is published to RabbitMQ via {@link
+   *   <li>An import request message is published to RabbitMQ via {@link
    *       ExchangeRateImportMessagePublisher}
-   *   <li>On success, Spring Modulith marks event as completed in database
-   *   <li>On failure, Spring Modulith retries according to retry policy
+   *   <li>On success, Spring Modulith marks the publication completed and keeps it as an audit
+   *       record
+   *   <li>On failure, Spring Modulith marks the publication failed; it is resubmitted at the next
+   *       startup
    * </ol>
    *
    * <p><b>Note:</b>
@@ -246,7 +253,7 @@ public class MessagingEventListener {
           event.currencyCode());
 
     } catch (Exception e) {
-      // Log error - Spring Modulith will retry event processing
+      // Log error - the publication stays incomplete for resubmission at startup
       log.error(
           "Failed to publish exchange rate import requested message: currencyCode={}",
           event.currencyCode(),
