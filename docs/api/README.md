@@ -96,10 +96,10 @@ The service checks `currencyCode` against ISO 4217 and asks the exchange-rate pr
 | Status | Error type | When |
 |---|---|---|
 | `400` | `VALIDATION_ERROR` | `currencyCode` or `providerSeriesId` fails a Bean Validation rule |
+| `400` | `INVALID_REQUEST` | `enabled` is missing or `null`, or the body is not valid JSON (see [Validation Rules](#validation-rules)) |
 | `422` | `APPLICATION_ERROR`, code `INVALID_ISO_4217_CODE` | `currencyCode` is three uppercase letters but not an ISO 4217 code |
 | `422` | `APPLICATION_ERROR`, code `INVALID_PROVIDER_SERIES_ID` | The provider reports that the series does not exist |
 | `422` | `APPLICATION_ERROR`, code `DUPLICATE_CURRENCY_CODE` | Any unique-constraint violation on insert, including a duplicate `providerSeriesId` |
-| `500` | `INTERNAL_ERROR` | `enabled` is missing or `null` (see [Validation Rules](#validation-rules)) |
 | `503` | `SERVICE_UNAVAILABLE` | The provider could not be reached to validate `providerSeriesId` |
 
 ### `GET /v1/currencies/{id}`
@@ -122,8 +122,8 @@ If a disabled series becomes enabled, the service publishes a `CurrencyUpdatedEv
 requests an asynchronous import from the day after the latest stored rate (or the full history if
 none is stored). Disabling a series publishes nothing and keeps its stored rates.
 
-An unknown `id` returns `404 NOT_FOUND`. A missing `enabled` returns `500 INTERNAL_ERROR` (see
-[Validation Rules](#validation-rules)).
+An unknown `id` returns `404 NOT_FOUND`. A missing or `null` `enabled` returns `400 INVALID_REQUEST`
+(see [Validation Rules](#validation-rules)) and leaves the series unchanged.
 
 ### `GET /v1/exchange-rates`
 
@@ -187,17 +187,17 @@ and return `422 APPLICATION_ERROR` with a `code`.
 | `currencyCode` (create) | Must be unique | `422 DUPLICATE_CURRENCY_CODE` |
 | `providerSeriesId` (create) | Required, not blank, at most 50 characters | `400 VALIDATION_ERROR` |
 | `providerSeriesId` (create) | Must exist at the provider and be unique | `422 INVALID_PROVIDER_SERIES_ID` or `422 DUPLICATE_CURRENCY_CODE` |
-| `enabled` (create and update) | Required boolean; there is no default | See below |
+| `enabled` (create and update) | Required boolean; there is no default | `400 INVALID_REQUEST` |
 | `targetCurrency` (query) | Required ISO 4217 code | `400 INVALID_REQUEST` |
 | `startDate`, `endDate` (query) | Optional ISO dates, `startDate` not after `endDate` | `400 INVALID_REQUEST` |
 
 **`enabled` is required.** Both request records declare it as a primitive `boolean`, and the
 OpenAPI schema lists it as required. Jackson 3 rejects a missing or `null` value
 (`FAIL_ON_NULL_FOR_PRIMITIVES`) instead of defaulting it to `false`, so the request is never
-processed. However, the service returns **`500 INTERNAL_ERROR`**, not `400`. The service-common
-exception handler has no mapping for `HttpMessageNotReadableException`, so the failure falls
-through to its catch-all handler. Malformed JSON bodies get the same `500`. This was observed with
-a MockMvc request against the running application context. No test in this repository asserts it.
+processed. The service-common exception handler maps the resulting
+`HttpMessageNotReadableException` to `400 INVALID_REQUEST`, with no `fieldErrors`. Malformed JSON
+bodies get the same response. Before Jackson 3, a missing `enabled` silently became `false`, which
+disabled the series on update. Clients must now send it explicitly.
 
 ## Error Responses
 

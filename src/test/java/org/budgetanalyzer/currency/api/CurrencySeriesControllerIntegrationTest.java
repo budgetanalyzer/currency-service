@@ -1,5 +1,6 @@
 package org.budgetanalyzer.currency.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
@@ -524,6 +525,43 @@ class CurrencySeriesControllerIntegrationTest extends AbstractControllerTest {
         .andExpect(jsonPath("$.fieldErrors[0].field").value("providerSeriesId"));
   }
 
+  @Test
+  void shouldReturn400WhenEnabledIsMissingOnCreate() throws Exception {
+    setTestClaims(currenciesWriteClaims());
+    var requestJson =
+        """
+        {
+          "currencyCode": "EUR",
+          "providerSeriesId": "DEXUSEU"
+        }
+        """;
+
+    performPost("/v1/currencies", requestJson)
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("INVALID_REQUEST"));
+
+    assertThat(currencySeriesRepository.count()).isZero();
+  }
+
+  @Test
+  void shouldReturn400WhenEnabledIsNullOnCreate() throws Exception {
+    setTestClaims(currenciesWriteClaims());
+    var requestJson =
+        """
+        {
+          "currencyCode": "EUR",
+          "providerSeriesId": "DEXUSEU",
+          "enabled": null
+        }
+        """;
+
+    performPost("/v1/currencies", requestJson)
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("INVALID_REQUEST"));
+
+    assertThat(currencySeriesRepository.count()).isZero();
+  }
+
   // ===========================================================================================
   // H. POST /v1/currencies - Business Errors (422 Unprocessable Entity)
   // ===========================================================================================
@@ -725,8 +763,22 @@ class CurrencySeriesControllerIntegrationTest extends AbstractControllerTest {
   }
 
   // ===========================================================================================
-  // L. PUT /v1/currencies/{id} - Not Found (404)
+  // L. PUT /v1/currencies/{id} - Request Errors (400, 404)
   // ===========================================================================================
+
+  @Test
+  void shouldReturn400AndKeepCurrencyEnabledWhenEnabledIsMissingOnUpdate() throws Exception {
+    setTestClaims(currenciesWriteClaims());
+    var saved =
+        currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().enabled(true).build());
+
+    performPut("/v1/currencies/" + saved.getId(), "{}")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("INVALID_REQUEST"));
+
+    var unchanged = currencySeriesRepository.findById(saved.getId()).orElseThrow();
+    assertThat(unchanged.isEnabled()).isTrue();
+  }
 
   @Test
   void shouldReturn404WhenUpdatingNonExistentId() throws Exception {
