@@ -37,8 +37,10 @@ spring:
     default-property-inclusion: non_null  # Exclude null fields from JSON
     serialization:
       indent-output: true                 # Pretty print JSON
-      write-dates-as-timestamps: false    # Use ISO-8601 format for dates
-    date-format: com.fasterxml.jackson.databind.util.StdDateFormat
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false  # Use ISO-8601 format for dates
+    date-format: tools.jackson.databind.util.StdDateFormat
 
   datasource:
     url: jdbc:postgresql://localhost:5432/currency

@@ -2,17 +2,20 @@ package org.budgetanalyzer.currency.config;
 
 import java.time.Duration;
 
-import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
+import org.springframework.boot.cache.autoconfigure.RedisCacheManagerBuilderCustomizer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.cache.RedisCacheWriter;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import tools.jackson.databind.DefaultTyping;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
 /**
  * Redis cache configuration for the Currency Service.
@@ -28,19 +31,16 @@ public class CacheConfig {
   public static final String EXCHANGE_RATES_CACHE = "exchangeRates";
 
   /**
-   * Creates a type-safe GenericJackson2JsonRedisSerializer with polymorphic type handling.
+   * Creates a type-safe GenericJacksonJsonRedisSerializer with polymorphic type handling.
    *
    * <p>Configures type validator to allow our DTOs and Java standard types for proper
    * serialization/deserialization.
    *
-   * @param objectMapper application-wide ObjectMapper with JavaTimeModule registered
+   * @param jsonMapper application-wide JsonMapper
    * @return configured serializer with type information
    */
   @Bean
-  public GenericJackson2JsonRedisSerializer redisSerializer(ObjectMapper objectMapper) {
-    // Create a copy of the ObjectMapper to avoid modifying the application-wide one
-    var mapper = objectMapper.copy();
-
+  public GenericJacksonJsonRedisSerializer redisSerializer(JsonMapper jsonMapper) {
     // Configure type validator to allow our packages and standard Java types
     var typeValidator =
         BasicPolymorphicTypeValidator.builder()
@@ -50,9 +50,11 @@ public class CacheConfig {
             .allowIfSubType("java.time")
             .build();
 
-    mapper.activateDefaultTyping(typeValidator, ObjectMapper.DefaultTyping.NON_FINAL);
+    // Rebuild a copy of the JsonMapper to avoid modifying the application-wide one
+    var cacheJsonMapper =
+        jsonMapper.rebuild().activateDefaultTyping(typeValidator, DefaultTyping.NON_FINAL).build();
 
-    return new GenericJackson2JsonRedisSerializer(mapper);
+    return new GenericJacksonJsonRedisSerializer(cacheJsonMapper);
   }
 
   /**
@@ -71,10 +73,13 @@ public class CacheConfig {
    *       transactions via {@code transactionAware()}. Cache eviction is deferred until the
    *       after-commit phase of successful transactions. If a transaction rolls back, cache
    *       eviction does NOT occur, maintaining consistency between cache and database.
+   *   <li><b>Synchronous Writes:</b> Writes, evictions, and clears complete before the cache call
+   *       returns via {@code immediateWrites()}, overriding Spring Data Redis 4's asynchronous
+   *       Lettuce default.
    *   <li><b>Key Structure:</b> {@code
    *       currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}} - Enables
    *       currency-specific cache isolation (THB queries don't collide with EUR queries)
-   *   <li><b>Serialization:</b> JSON (GenericJackson2JsonRedisSerializer) for human-readable
+   *   <li><b>Serialization:</b> JSON (GenericJacksonJsonRedisSerializer) for human-readable
    *       debugging and cross-language compatibility
    *   <li><b>Namespace:</b> "currency-service:" prefix prevents key collisions with other
    *       microservices sharing the same Redis instance
@@ -86,13 +91,18 @@ public class CacheConfig {
    * import operations (once per day).
    *
    * @param redisSerializer configured serializer with type information
+   * @param redisConnectionFactory Redis connection factory used by the synchronous cache writer
    * @return customizer for RedisCacheManager
    */
   @Bean
   public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
-      GenericJackson2JsonRedisSerializer redisSerializer) {
+      GenericJacksonJsonRedisSerializer redisSerializer,
+      RedisConnectionFactory redisConnectionFactory) {
     return builder ->
         builder
+            .cacheWriter(
+                RedisCacheWriter.create(
+                    redisConnectionFactory, configurer -> configurer.immediateWrites()))
             .transactionAware() // Synchronize cache operations with Spring transactions
             .withCacheConfiguration(
                 EXCHANGE_RATES_CACHE,
@@ -118,7 +128,7 @@ public class CacheConfig {
    */
   @Bean
   public RedisCacheConfiguration cacheConfiguration(
-      GenericJackson2JsonRedisSerializer redisSerializer) {
+      GenericJacksonJsonRedisSerializer redisSerializer) {
     return RedisCacheConfiguration.defaultCacheConfig()
         .entryTtl(Duration.ZERO)
         .disableCachingNullValues()

@@ -13,10 +13,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import reactor.core.publisher.Mono;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.budgetanalyzer.core.logging.SafeLogger;
 import org.budgetanalyzer.currency.client.fred.response.FredErrorResponse;
@@ -33,13 +32,13 @@ public class FredClient {
 
   private final WebClient webClient;
   private final String fredApiKey;
-  private final ObjectMapper objectMapper;
+  private final JsonMapper jsonMapper;
   private final Duration timeout;
 
   public FredClient(
       WebClient.Builder webClientBuilder,
       CurrencyServiceProperties properties,
-      ObjectMapper objectMapper) {
+      JsonMapper jsonMapper) {
 
     var fredConfig = properties.getExchangeRateImport().getFred();
 
@@ -55,7 +54,7 @@ public class FredClient {
             .baseUrl(fredConfig.getBaseUrl())
             .defaultHeader("User-Agent", USER_AGENT)
             .build();
-    this.objectMapper = objectMapper;
+    this.jsonMapper = jsonMapper;
 
     log.info(
         "FredClient initialized with base URL: {}, timeout: {}s",
@@ -130,13 +129,13 @@ public class FredClient {
     // Try to parse structured error response
     if (body != null && !body.isBlank()) {
       try {
-        var errorResponse = objectMapper.readValue(body, FredErrorResponse.class);
+        var errorResponse = jsonMapper.readValue(body, FredErrorResponse.class);
 
         if (errorResponse.errorMessage() != null) {
           errorMessage = errorResponse.errorMessage();
         }
         errorCode = errorResponse.errorCode();
-      } catch (JsonProcessingException e) {
+      } catch (JacksonException e) {
         // Not JSON or doesn't match our error structure
         // Keep the raw body as the message
         log.debug("Could not parse FRED error response as JSON: {}", e.getMessage());

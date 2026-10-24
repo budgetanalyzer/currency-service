@@ -38,7 +38,7 @@ export SPRING_DATA_REDIS_PASSWORD=your_redis_password
 
 ## Technology Stack
 
-Java 25, Spring Boot 3.x (Web, Data JPA, Modulith, Actuator), PostgreSQL, Redis, RabbitMQ, ShedLock, Flyway, SpringDoc OpenAPI, TestContainers + JUnit 5
+Java 25, Spring Boot 4.x (Web, Data JPA, Modulith, Actuator), PostgreSQL, Redis, RabbitMQ, ShedLock, Flyway, SpringDoc OpenAPI, TestContainers + JUnit 6
 
 ## Build and Test
 

@@ -30,9 +30,8 @@ public record CurrencySeriesCreateRequest(
         String providerSeriesId,
     @Schema(
             description = "Whether this currency is enabled for exchange rate access",
-            requiredMode = Schema.RequiredMode.NOT_REQUIRED,
-            example = "true",
-            defaultValue = "true")
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "true")
         boolean enabled) {
 
   /**
