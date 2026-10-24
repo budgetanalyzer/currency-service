@@ -37,10 +37,6 @@ spring:
     default-property-inclusion: non_null  # Exclude null fields from JSON
     serialization:
       indent-output: true                 # Pretty print JSON
-    datatype:
-      datetime:
-        write-dates-as-timestamps: false  # Use ISO-8601 format for dates
-    date-format: tools.jackson.databind.util.StdDateFormat
 
   datasource:
     url: jdbc:postgresql://localhost:5432/currency
@@ -68,22 +64,9 @@ spring:
       ssl:
         enabled: ${SPRING_DATA_REDIS_SSL_ENABLED:false}
         bundle: ${SPRING_DATA_REDIS_SSL_BUNDLE:}
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 2
-          max-wait: -1ms
 
   cache:
     type: redis
-    redis:
-      # TTL is managed in CacheConfig.java (set to infinite)
-      # Exchange rates only change during imports, cache explicitly evicted via @CacheEvict
-      time-to-live: 0  # 0 = no expiration
-      cache-null-values: false
-      use-key-prefix: true
-      key-prefix: "currency-service:"
 
   cloud:
     function:
@@ -105,10 +88,6 @@ spring:
             consumer:
               auto-bind-dlq: true              # Dead letter queue
               republish-to-dlq: true            # Preserve original message
-              max-attempts: 3                   # Retry 3 times
-              initial-interval: 1000            # 1 second initial retry delay
-              max-interval: 10000               # 10 seconds max retry delay
-              multiplier: 2.0                   # Exponential backoff
 
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:${RABBITMQ_HOST:localhost}}
@@ -126,8 +105,6 @@ spring:
     events:
       # Republish outstanding events on application restart
       republish-outstanding-events-on-restart: true
-      # Retain completed events for audit trail (30 days)
-      delete-completion-after: 30d
 
   # Task execution configuration for async processing
   task:

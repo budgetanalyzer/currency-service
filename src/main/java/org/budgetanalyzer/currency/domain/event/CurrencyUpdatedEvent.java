@@ -6,8 +6,8 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  * Domain event published when a currency series is enabled.
  *
  * <p>This event is published within the same database transaction as the currency series update.
- * Spring Modulith automatically stores this event in the event_publication table for guaranteed
- * delivery via the transactional outbox pattern.
+ * Spring Modulith stores a publication for this event in the event_publication table as part of
+ * that transaction, implementing the transactional outbox pattern.
  *
  * <p><b>Event Flow:</b>
  *

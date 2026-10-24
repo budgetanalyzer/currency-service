@@ -2,6 +2,7 @@ package org.budgetanalyzer.currency.service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Currency;
 import java.util.List;
 import java.util.function.Function;
@@ -128,7 +129,7 @@ public class ExchangeRateService {
     var definedRates = exchangeRateRepository.findAll(spec, Sort.by("date").ascending());
     // nothing available for the date range isn't the same as NO_EXCHANGE_RATE_DATA_AVAILABLE
     if (definedRates.isEmpty()) {
-      return List.of();
+      return Collections.emptyList();
     }
 
     // If startDate is null, use the date of the first rate

@@ -7,8 +7,8 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  * Domain event published when a new enabled currency series is successfully created.
  *
  * <p>This event is published within the same database transaction as the currency series creation.
- * Spring Modulith automatically stores this event in the event_publication table for guaranteed
- * delivery via the transactional outbox pattern.
+ * Spring Modulith stores a publication for this event in the event_publication table as part of
+ * that transaction, implementing the transactional outbox pattern.
  *
  * <p><b>Event Flow:</b>
  *
@@ -16,21 +16,24 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  *   <li>CurrencyService creates enabled currency entity and publishes this event
  *   <li>Spring Modulith persists event to event_publication table (same transaction)
  *   <li>Database transaction commits (currency + event both saved atomically)
- *   <li>Spring Modulith asynchronously processes event via @ApplicationModuleListener
+ *   <li>After commit, Spring Modulith asynchronously invokes the @ApplicationModuleListener
  *   <li>Event listener publishes external message to RabbitMQ to trigger exchange rate import
- *   <li>Event marked as completed in event_publication table
+ *   <li>On success, the publication is marked completed and kept permanently as an audit record
+ *       (default {@code completion-mode} of {@code update})
+ *   <li>On failure, the publication is marked failed and stays incomplete until it is resubmitted
+ *       at the next startup ({@code republish-outstanding-events-on-restart: true})
  * </ol>
  *
  * <p><b>Transactional Outbox Pattern Benefits:</b>
  *
  * <ul>
- *   <li><b>100% guaranteed delivery</b> - Event survives application crashes since it's persisted
- *       in the database alongside the currency entity in the same transaction
- *   <li><b>Exactly-once semantics</b> - Events stored atomically with business data, no dual-write
- *       problem
+ *   <li><b>Durable intent</b> - Event survives application crashes since it's persisted in the
+ *       database alongside the currency entity in the same transaction
+ *   <li><b>No dual-write problem</b> - Events are stored atomically with business data
+ *   <li><b>At-least-once delivery</b> - Resubmission can send the import request more than once, so
+ *       consumers must tolerate duplicates
  *   <li><b>Async processing</b> - HTTP requests don't wait for message publishing to RabbitMQ
- *   <li><b>Automatic retries</b> - Spring Modulith retries failed event processing until success
- *   <li><b>Event replay capability</b> - Failed events can be manually replayed from database
+ *   <li><b>Audit trail</b> - Completed publications remain in the event_publication table
  * </ul>
  *
  * <p><b>Messaging Decision Logic:</b>
@@ -53,13 +56,11 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  * │
  * └─> HTTP 201 Created (request completes)
  *
- * Background (Thread 2)
+ * Background (Thread 2, after commit)
  * │
- * └─> Spring Modulith polls event_publication
- *     ├─> Finds unpublished events
- *     ├─> Calls @ApplicationModuleListener
- *     │   └─> Publish exchange rate import request
- *     └─> Marks event as published
+ * └─> Spring Modulith invokes @ApplicationModuleListener
+ *     ├─> Publish exchange rate import request
+ *     └─> Marks publication completed (row kept)
  * </pre>
  *
  * @param currencySeriesId The unique identifier of the newly created currency series

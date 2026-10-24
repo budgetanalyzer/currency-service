@@ -546,7 +546,7 @@ class CurrencySeriesControllerIntegrationTest extends AbstractControllerTest {
         """;
 
     performPost("/v1/currencies", requestJson)
-        .andExpect(status().isUnprocessableEntity())
+        .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.type").value(containsString("APPLICATION_ERROR")))
         .andExpect(jsonPath("$.code").value(containsString("DUPLICATE_CURRENCY_CODE")));
   }
@@ -564,7 +564,7 @@ class CurrencySeriesControllerIntegrationTest extends AbstractControllerTest {
         """;
 
     performPost("/v1/currencies", requestJson)
-        .andExpect(status().isUnprocessableEntity())
+        .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.type").value(containsString("APPLICATION_ERROR")))
         .andExpect(jsonPath("$.code").value(containsString("INVALID_ISO_4217_CODE")));
   }
@@ -584,7 +584,7 @@ class CurrencySeriesControllerIntegrationTest extends AbstractControllerTest {
         """;
 
     performPost("/v1/currencies", requestJson)
-        .andExpect(status().isUnprocessableEntity())
+        .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.type").value(containsString("APPLICATION_ERROR")))
         .andExpect(jsonPath("$.code").value(containsString("INVALID_PROVIDER_SERIES_ID")));
   }
@@ -791,7 +791,7 @@ class CurrencySeriesControllerIntegrationTest extends AbstractControllerTest {
               invalidCode);
 
       performPost("/v1/currencies", requestJson)
-          .andExpect(status().isUnprocessableEntity())
+          .andExpect(status().isUnprocessableContent())
           .andExpect(jsonPath("$.type").value(containsString("APPLICATION_ERROR")))
           .andExpect(jsonPath("$.code").value(containsString("INVALID_ISO_4217_CODE")));
     }

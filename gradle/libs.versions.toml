@@ -15,7 +15,6 @@ spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 # Spring Boot starters (versions managed by Spring Boot BOM)
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
-spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
 spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache" }
@@ -25,7 +24,6 @@ spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-bo
 spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test" }
 spring-boot-starter-security-test = { module = "org.springframework.boot:spring-boot-starter-security-test" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
-spring-security-test = { module = "org.springframework.security:spring-security-test" }
 
 # SpringDoc OpenAPI (version managed by service-common platform)
 springdoc-openapi = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui" }
@@ -49,12 +47,10 @@ shedlock-provider-jdbc = { module = "net.javacrumbs.shedlock:shedlock-provider-j
 
 # Service dependencies
 budgetanalyzer-spring-cloud-platform = { module = "org.budgetanalyzer:spring-cloud-platform", version.ref = "serviceCommon" }
-service-core = { module = "org.budgetanalyzer:service-core", version.ref = "serviceCommon" }
 service-web = { module = "org.budgetanalyzer:service-web", version.ref = "serviceCommon" }
 
 # Runtime dependencies
 postgresql = { module = "org.postgresql:postgresql" }
-h2 = { module = "com.h2database:h2" }
 
 # Test dependencies
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }

@@ -1172,7 +1172,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
   }
 
   // ===========================================================================================
-  // F. Edge Cases & Error Scenarios (8 tests)
+  // F. Edge Cases & Error Scenarios (9 tests)
   // ===========================================================================================
 
   /**
@@ -1282,6 +1282,39 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     assertThatThrownBy(
             () -> exchangeRateImportService.importExchangeRatesForSeries(eurSeries.getId()))
         .isInstanceOf(ClientException.class);
+  }
+
+  /**
+   * Test: Unexpected provider failure is wrapped in ServiceException.
+   *
+   * <p>A FRED response with two valued observations on the same date is malformed provider data.
+   * The provider fails with an {@link IllegalStateException}, which is not a {@link
+   * ServiceException}, so the import's generic catch-all wraps it and the transaction rolls back.
+   */
+  @Test
+  void importWrapsUnexpectedProviderFailureInServiceException() {
+    // Arrange - EUR series with duplicate-date observations from FRED
+    var eurSeries = CurrencySeriesTestBuilder.defaultEur().build();
+    currencySeriesRepository.save(eurSeries);
+
+    FredApiStubs.stubSuccessWithObservations(
+        TestConstants.FRED_SERIES_EUR,
+        List.of(
+            new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8500"),
+            new FredApiStubs.Observation(TestConstants.DATE_2024_JAN_01.toString(), "0.8510")));
+
+    var countBefore = exchangeRateRepository.count();
+
+    // Act & Assert - Exactly ServiceException (not ClientException) wrapping the provider failure
+    assertThatThrownBy(
+            () -> exchangeRateImportService.importExchangeRatesForSeries(eurSeries.getId()))
+        .isExactlyInstanceOf(ServiceException.class)
+        .hasMessageStartingWith(
+            "Failed to import exchange rates for " + TestConstants.VALID_CURRENCY_EUR + ": ")
+        .hasCauseInstanceOf(IllegalStateException.class);
+
+    // Verify no records persisted (transaction rolled back)
+    assertThat(exchangeRateRepository.count()).isEqualTo(countBefore);
   }
 
   /**

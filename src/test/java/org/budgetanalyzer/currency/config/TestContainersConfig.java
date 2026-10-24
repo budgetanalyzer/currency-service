@@ -19,7 +19,7 @@ import org.testcontainers.utility.DockerImageName;
  *   <li>RabbitMQ container for event-driven messaging
  * </ul>
  *
- * <p>Uses Spring Boot 3.1+ {@code @ServiceConnection} for automatic container property binding,
+ * <p>Uses Spring Boot's {@code @ServiceConnection} for automatic container property binding,
  * eliminating the need for {@code @DynamicPropertySource} for TestContainers.
  *
  * <p>Container reuse is enabled via testcontainers.reuse.enable=true system property for faster
@@ -74,8 +74,8 @@ public class TestContainersConfig {
   /**
    * RabbitMQ container for event-driven messaging.
    *
-   * <p>Used by Spring Modulith transactional outbox pattern for guaranteed message delivery. Events
-   * are published to {@code exchange-rate.import.requested} topic.
+   * <p>Used by Spring Modulith transactional outbox pattern for at-least-once message delivery.
+   * Events are published to {@code exchange-rate.import.requested} topic.
    */
   static RabbitMQContainer rabbitMQContainer =
       new RabbitMQContainer(DockerImageName.parse("rabbitmq:3-management-alpine")).withReuse(true);

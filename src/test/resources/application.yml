@@ -71,11 +71,6 @@ spring:
           # CRITICAL: Use unique group per test run to ensure fresh queues
           # This creates a queue like: exchange-rate.import.requested.test-abc123-def456
           group: test-${random.uuid}
-          # Additional isolation settings
-          max-attempts: 3
-          back-off-initial-interval: 1000
-          back-off-multiplier: 2.0
-          back-off-max-interval: 10000
 
       rabbit:
         bindings:
@@ -83,10 +78,6 @@ spring:
             consumer:
               auto-bind-dlq: true               # Dead letter queue
               republish-to-dlq: true            # Preserve original message
-              max-attempts: 3                   # Retry 3 times
-              initial-interval: 1000            # 1 second initial retry delay
-              max-interval: 10000               # 10 seconds max retry delay
-              multiplier: 2.0                   # Exponential backoff
               # Queue durability settings for tests
               # Use non-durable queues in tests for faster cleanup
               durable-subscription: false

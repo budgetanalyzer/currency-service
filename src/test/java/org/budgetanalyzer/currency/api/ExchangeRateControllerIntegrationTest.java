@@ -243,7 +243,7 @@ class ExchangeRateControllerIntegrationTest extends AbstractControllerTest {
     currencySeriesRepository.save(series);
 
     performGet("/v1/exchange-rates?targetCurrency=ZAR&startDate=2024-01-01&endDate=2024-12-31")
-        .andExpect(status().isUnprocessableEntity())
+        .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.type").value("APPLICATION_ERROR"))
         .andExpect(jsonPath("$.code").value("NO_EXCHANGE_RATE_DATA_AVAILABLE"));
   }
@@ -259,7 +259,7 @@ class ExchangeRateControllerIntegrationTest extends AbstractControllerTest {
     currencySeriesRepository.save(series);
 
     performGet("/v1/exchange-rates?targetCurrency=ZAR&startDate=2024-01-01&endDate=2024-12-31")
-        .andExpect(status().isUnprocessableEntity())
+        .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.type").value("APPLICATION_ERROR"))
         .andExpect(jsonPath("$.code").value("CURRENCY_NOT_ENABLED"));
   }
@@ -273,7 +273,7 @@ class ExchangeRateControllerIntegrationTest extends AbstractControllerTest {
         TestConstants.RATE_EUR_USD);
 
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=1900-01-01&endDate=2024-01-31")
-        .andExpect(status().isUnprocessableEntity())
+        .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.type").value("APPLICATION_ERROR"))
         .andExpect(jsonPath("$.code").value("START_DATE_OUT_OF_RANGE"));
   }

@@ -3,7 +3,9 @@
 ## Prerequisites
 
 - JDK 25
-- Docker and Docker Compose (for infrastructure)
+- Docker, for the Testcontainers integration tests and the orchestration Kind cluster
+- The orchestration Tilt environment, for shared PostgreSQL, Redis, and RabbitMQ when running the
+  service locally
 
 **Ecosystem setup guides:**
 - [getting-started.md](https://github.com/budgetanalyzer/orchestration/blob/main/docs/development/getting-started.md)
@@ -48,6 +50,10 @@ If you are reusing values from `../orchestration/.env`, map
 `RABBITMQ_CURRENCY_SERVICE_PASSWORD`, and
 `REDIS_CURRENCY_SERVICE_PASSWORD` into the Spring environment variables above.
 
+Redis and RabbitMQ TLS are off by default; the exports above turn TLS on and select the `infra-ca`
+bundle. See [configuration.md](configuration.md#environment-variables) for every variable and its
+default.
+
 ### TLS Notes
 
 - The CA path must point at the host-side file created by `../orchestration/scripts/bootstrap/setup-infra-tls.sh`.
@@ -56,25 +62,36 @@ If you are reusing values from `../orchestration/.env`, map
 
 ## API Access
 
-The service runs on port **8084** for development/debugging.
+The service listens on port **8084** with the context path `/currency-service`.
 
-### Production (through gateway)
-
-| Endpoint | URL |
-|---|---|
-| Currencies API | `http://localhost:8080/api/v1/currencies` |
-| Exchange Rates API | `http://localhost:8080/api/v1/exchange-rates` |
-| Unified API Docs | `https://api.budgetanalyzer.localhost/api/docs` |
-| OpenAPI JSON | `https://api.budgetanalyzer.localhost/api/docs/openapi.json` |
-| OpenAPI YAML | `https://api.budgetanalyzer.localhost/api/docs/openapi.yaml` |
-
-### Development (direct to service)
+### Through the gateway
 
 | Endpoint | URL |
 |---|---|
-| Swagger UI | `http://localhost:8084/swagger-ui.html` |
-| OpenAPI Spec | `http://localhost:8084/v3/api-docs` |
-| Health Check | `http://localhost:8084/actuator/health` |
+| Currencies API | `https://app.budgetanalyzer.localhost/api/v1/currencies` |
+| Exchange Rates API | `https://app.budgetanalyzer.localhost/api/v1/exchange-rates` |
+| Unified API docs | `https://app.budgetanalyzer.localhost/api-docs` |
+
+The gateway maps `/api/v1/...` to `/currency-service/v1/...` on this service and adds the claims
+headers after validating the session. See the orchestration
+[resource-based routing pattern](https://github.com/budgetanalyzer/orchestration/blob/main/docs/architecture/resource-routing-pattern.md)
+for routing and the
+[getting-started guide](https://github.com/budgetanalyzer/orchestration/blob/main/docs/development/getting-started.md#operator-entry-points)
+for the entry points and the unified API docs surface.
+
+### Direct to the service
+
+| Endpoint | URL |
+|---|---|
+| Swagger UI | `http://localhost:8084/currency-service/swagger-ui.html` |
+| OpenAPI JSON | `http://localhost:8084/currency-service/v3/api-docs` |
+| Health check | `http://localhost:8084/currency-service/actuator/health` |
+
+These three paths are public in service-common's claims-header security. A direct call to a
+`/currency-service/v1/...` route without claims headers returns `401`; see
+[api/README.md](api/README.md#authentication-and-authorization). In Swagger UI, select the
+`http://localhost:8084/currency-service` server before using "Try it out": the first server listed
+in `OpenApiConfig`, `http://localhost:8080/api`, is not a current entry point.
 
 ## Building
 
@@ -96,7 +113,7 @@ dependencies and explicitly excludes the `org.budgetanalyzer` group.
 JaCoCo writes the HTML report to `build/reports/jacoco/test/html/index.html`
 and the XML report to `build/reports/jacoco/test/jacocoTestReport.xml`.
 `check` enforces the Phase 2 coverage gates: 90% line coverage and 85% branch
-coverage. The recorded baseline is 96.43% line / 88.71% branch; ratchet toward
+coverage. The recorded baseline is 96.41% line / 88.71% branch; ratchet toward
 critical utility and provider path coverage.
 
 ## Testing

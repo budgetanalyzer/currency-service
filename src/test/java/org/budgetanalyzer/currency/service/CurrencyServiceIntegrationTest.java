@@ -30,11 +30,11 @@ import org.budgetanalyzer.service.exception.ServiceUnavailableException;
  *   <li>Provider integration (validation)
  * </ul>
  *
- * <p>Uses modern Spring Boot 3.5.7 testing patterns:
+ * <p>Uses Spring Boot 4 testing patterns:
  *
  * <ul>
  *   <li>WireMock server for stubbing FRED API responses
- *   <li>@ServiceConnection for TestContainers (Spring Boot 3.1+)
+ *   <li>@ServiceConnection for TestContainers
  *   <li>AssertJ fluent assertions
  * </ul>
  */

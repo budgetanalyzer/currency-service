@@ -73,7 +73,6 @@ dependencies {
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.boot.starter.data.jpa.test)
     testImplementation(libs.spring.boot.starter.security.test)
-    testImplementation(libs.spring.security.test)
     testImplementation(libs.spring.boot.testcontainers)
     testImplementation(libs.spring.modulith.starter.test)
     testImplementation(libs.testcontainers)
@@ -82,7 +81,6 @@ dependencies {
     testImplementation(libs.testcontainers.rabbitmq)
     testImplementation(libs.wiremock.standalone)
     testImplementation(libs.awaitility)
-    testRuntimeOnly(libs.h2)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
