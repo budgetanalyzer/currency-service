@@ -75,7 +75,9 @@ public class ExchangeRateImportService {
    *
    * <ul>
    *   <li><b>Simplicity:</b> No custom wildcard eviction logic required
-   *   <li><b>Consistency guarantee:</b> Eliminates any possibility of stale data
+   *   <li><b>Consistency:</b> Eviction after commit removes every entry cached before the import. A
+   *       read that raced the import can re-cache a stale result; the cache TTL ({@link
+   *       CacheConfig#EXCHANGE_RATES_TTL}) bounds how long that entry survives
    *   <li><b>Acceptable trade-off:</b> This runs at startup when cache is already empty
    * </ul>
    *
@@ -108,7 +110,9 @@ public class ExchangeRateImportService {
    *       entries would be evicted anyway
    *   <li><b>Simplicity:</b> No custom wildcard eviction logic or currency-by-currency tracking
    *   <li><b>Timing:</b> Runs once per day
-   *   <li><b>Consistency guarantee:</b> Eliminates any possibility of stale data across currencies
+   *   <li><b>Consistency:</b> Eviction after commit removes every entry cached before the import. A
+   *       read that raced the import can re-cache a stale result; the cache TTL ({@link
+   *       CacheConfig#EXCHANGE_RATES_TTL}) bounds how long that entry survives
    * </ul>
    *
    * <p><b>Performance Impact:</b> First queries after the scheduled import will experience cache
@@ -217,7 +221,9 @@ public class ExchangeRateImportService {
    *
    * <ul>
    *   <li><b>Simplicity:</b> No custom wildcard eviction logic required
-   *   <li><b>Consistency guarantee:</b> Eliminates any possibility of stale data
+   *   <li><b>Consistency:</b> Eviction after commit removes every entry cached before the import. A
+   *       read that raced the import can re-cache a stale result; the cache TTL ({@link
+   *       CacheConfig#EXCHANGE_RATES_TTL}) bounds how long that entry survives
    *   <li><b>Infrequent operation:</b> New currencies are added rarely (monthly/quarterly), making
    *       the performance impact negligible
    *   <li><b>Code maintainability:</b> Single eviction strategy across all import methods

@@ -2,6 +2,7 @@ package org.budgetanalyzer.currency.service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Currency;
 import java.util.List;
 import java.util.function.Function;
@@ -69,7 +70,9 @@ public class ExchangeRateService {
    * <p><b>Cache Eviction:</b> The entire cache is evicted (all currencies) whenever exchange rates
    * are imported via {@code @CacheEvict(allEntries = true)} in ExchangeRateImportService. See
    * method-level documentation in that class for the rationale behind global eviction rather than
-   * targeted currency-specific eviction.
+   * targeted currency-specific eviction. Entries also expire after {@link
+   * CacheConfig#EXCHANGE_RATES_TTL}, which bounds how long a result cached by a read that raced an
+   * import can stay stale.
    *
    * <p><b>Performance:</b>
    *
@@ -128,7 +131,7 @@ public class ExchangeRateService {
     var definedRates = exchangeRateRepository.findAll(spec, Sort.by("date").ascending());
     // nothing available for the date range isn't the same as NO_EXCHANGE_RATE_DATA_AVAILABLE
     if (definedRates.isEmpty()) {
-      return List.of();
+      return Collections.emptyList();
     }
 
     // If startDate is null, use the date of the first rate

@@ -8,9 +8,9 @@ import org.springframework.context.annotation.Configuration;
  *
  * <p>Configures application-wide beans.
  *
- * <p>Note: ObjectMapper is auto-configured by Spring Boot using spring.jackson.* properties in
- * application.yml. JavaTimeModule is automatically registered when jackson-datatype-jsr310 is on
- * the classpath.
+ * <p>Note: Spring Boot auto-configures the Jackson 3 {@code JsonMapper} from spring.jackson.*
+ * properties in application.yml. Jackson 3 supports {@code java.time} types natively, so no
+ * separate datatype module is required.
  *
  * <p>Note: service-common beans (including CSV parsing) are auto-configured via Spring Boot
  * autoconfiguration mechanism. Explicit @ComponentScan is NOT required.

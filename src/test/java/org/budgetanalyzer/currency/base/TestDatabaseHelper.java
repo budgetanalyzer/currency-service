@@ -2,6 +2,8 @@ package org.budgetanalyzer.currency.base;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.Optional;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -79,4 +81,43 @@ public class TestDatabaseHelper {
     String sql = "SELECT COUNT(*) FROM event_publication WHERE completion_date IS NOT NULL";
     return jdbcTemplate.queryForObject(sql, Long.class);
   }
+
+  /**
+   * Finds the ShedLock row for a lock name.
+   *
+   * @param lockName the {@code shedlock.name} value
+   * @return the lock row, or empty when no row exists
+   */
+  public Optional<ShedLockRow> findShedLock(String lockName) {
+    var sql = "SELECT lock_until, locked_at, locked_by FROM shedlock WHERE name = ?";
+    return jdbcTemplate
+        .query(
+            sql,
+            (resultSet, rowNumber) ->
+                new ShedLockRow(
+                    resultSet.getObject("lock_until", LocalDateTime.class),
+                    resultSet.getObject("locked_at", LocalDateTime.class),
+                    resultSet.getString("locked_by")),
+            lockName)
+        .stream()
+        .findFirst();
+  }
+
+  /**
+   * Reads the current database time in UTC.
+   *
+   * @return {@code now() AT TIME ZONE 'utc'} from the database server
+   */
+  public LocalDateTime currentDatabaseUtcTime() {
+    return jdbcTemplate.queryForObject("SELECT now() AT TIME ZONE 'utc'", LocalDateTime.class);
+  }
+
+  /**
+   * ShedLock table row.
+   *
+   * @param lockUntil lock expiration timestamp
+   * @param lockedAt lock acquisition timestamp
+   * @param lockedBy lock holder identifier
+   */
+  public record ShedLockRow(LocalDateTime lockUntil, LocalDateTime lockedAt, String lockedBy) {}
 }

@@ -4,8 +4,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.containers.RabbitMQContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.rabbitmq.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -19,7 +19,7 @@ import org.testcontainers.utility.DockerImageName;
  *   <li>RabbitMQ container for event-driven messaging
  * </ul>
  *
- * <p>Uses Spring Boot 3.1+ {@code @ServiceConnection} for automatic container property binding,
+ * <p>Uses Spring Boot's {@code @ServiceConnection} for automatic container property binding,
  * eliminating the need for {@code @DynamicPropertySource} for TestContainers.
  *
  * <p>Container reuse is enabled via testcontainers.reuse.enable=true system property for faster
@@ -51,8 +51,8 @@ public class TestContainersConfig {
    * <p>Flyway migrations are automatically applied on startup. Schema version is validated against
    * migration scripts.
    */
-  static PostgreSQLContainer<?> postgresContainer =
-      new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+  static PostgreSQLContainer postgresContainer =
+      new PostgreSQLContainer(DockerImageName.parse("postgres:15-alpine"))
           .withCommand(
               "postgres", "-c", "max_connections=50") // prevent tests from overflowing hikari
           .withDatabaseName("currency_test")
@@ -74,15 +74,15 @@ public class TestContainersConfig {
   /**
    * RabbitMQ container for event-driven messaging.
    *
-   * <p>Used by Spring Modulith transactional outbox pattern for guaranteed message delivery. Events
-   * are published to {@code exchange-rate.import.requested} topic.
+   * <p>Used by the Spring Modulith transactional outbox listener to send import request messages.
+   * Events are published to {@code exchange-rate.import.requested} topic.
    */
   static RabbitMQContainer rabbitMQContainer =
       new RabbitMQContainer(DockerImageName.parse("rabbitmq:3-management-alpine")).withReuse(true);
 
   @Bean
   @ServiceConnection
-  PostgreSQLContainer<?> postgresContainer() {
+  PostgreSQLContainer postgresContainer() {
     return postgresContainer;
   }
 

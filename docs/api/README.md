@@ -1,347 +1,299 @@
-# Currency Service - API Documentation
+# Currency Service - API Reference
 
-**Service:** currency-service
-**Base URL (Local):** http://localhost:8084
-**Gateway URL:** http://localhost:8080/api/v1
-**API Version:** v1
+This service exposes REST endpoints for the currency series catalog and for USD-based exchange
+rates imported from FRED (Federal Reserve Economic Data).
 
-## Overview
+The generated OpenAPI document is the authoritative contract for request and response schemas.
+This page summarizes routes, permissions, validation, and behavior that the schema alone does not
+explain.
 
-This service provides RESTful APIs for currency series and exchange rate management. Includes automated import from FRED (Federal Reserve Economic Data).
+## Paths and Entry Points
 
-## Quick Start
+All controller routes live under `/v1`. The service runs on port `8084` with the servlet context
+path `/currency-service`. The two ways to reach a route therefore differ only in prefix:
 
-### Access API Documentation
+| Access | Example |
+|---|---|
+| Gateway (browser and frontend) | `https://app.budgetanalyzer.localhost/api/v1/currencies` |
+| Direct to the service | `http://localhost:8084/currency-service/v1/currencies` |
 
-**Swagger UI (Interactive):**
-```bash
-# Start service
-./gradlew bootRun
+The gateway maps the resource path `/api/v1/...` to `/currency-service/v1/...` on this service. See
+the orchestration
+[resource-based routing pattern](https://github.com/budgetanalyzer/orchestration/blob/main/docs/architecture/resource-routing-pattern.md)
+for how routing works and where the routes are defined.
 
-# Open browser
-open http://localhost:8084/swagger-ui.html
-```
+Generated documentation, served directly by the service:
 
-**OpenAPI Spec:**
-```bash
-# View spec
-curl http://localhost:8084/v3/api-docs
+| Resource | URL |
+|---|---|
+| OpenAPI JSON | `http://localhost:8084/currency-service/v3/api-docs` |
+| Swagger UI | `http://localhost:8084/currency-service/swagger-ui.html` |
+| Health check | `http://localhost:8084/currency-service/actuator/health` |
 
-# Download spec
-curl http://localhost:8084/v3/api-docs > openapi.json
-```
+The ecosystem-wide API docs surface is `https://app.budgetanalyzer.localhost/api-docs`. See the
+orchestration
+[getting-started guide](https://github.com/budgetanalyzer/orchestration/blob/main/docs/development/getting-started.md).
 
-### Test Endpoints
+## Authentication and Authorization
 
-```bash
-# Health check
-curl http://localhost:8084/actuator/health
+The service uses service-common's claims-header security. It reads the `X-User-Id`,
+`X-Permissions`, and `X-Roles` headers that the platform's ingress external-auth path sets after it
+validates the session. Clients must not supply these headers themselves. Call the API through the
+gateway; a direct call without claims headers returns `401`. Health and OpenAPI routes are public.
 
-# List currency series
-curl http://localhost:8080/api/v1/currencies
+Every endpoint enforces one permission with `@PreAuthorize`:
 
-# Get exchange rates
-curl "http://localhost:8080/api/v1/exchange-rates?seriesId={id}&startDate=2025-01-01&endDate=2025-11-10"
-```
+| Permission | Endpoints |
+|---|---|
+| `currencies:read` | `GET /v1/currencies`, `GET /v1/currencies/{id}`, `GET /v1/exchange-rates` |
+| `currencies:write` | `POST /v1/currencies`, `PUT /v1/currencies/{id}`, `POST /v1/exchange-rates/import` |
 
-## API Endpoints
+Missing authentication returns `401 UNAUTHORIZED`. Missing the required permission returns
+`403 FORBIDDEN`. The permission-service owns roles and permission assignment.
 
-### Currency Series
+## Endpoints
 
-**List Currency Series**
-```
-GET /api/v1/currencies
-Query params: active (true/false)
-Response: List<CurrencySeries>
-```
+| Method | Path | Permission | Success |
+|---|---|---|---|
+| `GET` | `/v1/currencies` | `currencies:read` | `200` list of `CurrencySeriesResponse` |
+| `POST` | `/v1/currencies` | `currencies:write` | `201` `CurrencySeriesResponse` with a `Location` header |
+| `GET` | `/v1/currencies/{id}` | `currencies:read` | `200` `CurrencySeriesResponse` |
+| `PUT` | `/v1/currencies/{id}` | `currencies:write` | `200` `CurrencySeriesResponse` |
+| `GET` | `/v1/exchange-rates` | `currencies:read` | `200` list of `ExchangeRateResponse` |
+| `POST` | `/v1/exchange-rates/import` | `currencies:write` | `200` list of `ExchangeRateImportResultResponse` |
 
-**Get Currency Series**
-```
-GET /api/v1/currencies/{id}
-Response: CurrencySeries
-```
+### `GET /v1/currencies`
 
-**Create Currency Series**
-```
-POST /api/v1/currencies
-Body: CurrencySeriesRequest
-Response: CurrencySeries (201 Created)
-```
+Lists currency series.
 
-**Update Currency Series**
-```
-PUT /api/v1/currencies/{id}
-Body: CurrencySeriesRequest
-Response: CurrencySeries
-```
+| Query parameter | Type | Required | Default | Meaning |
+|---|---|---|---|---|
+| `enabledOnly` | boolean | No | `false` | `true` returns only enabled series; `false` returns all series |
 
-**Delete Currency Series**
-```
-DELETE /api/v1/currencies/{id}
-Response: 204 No Content
-```
+Flyway migration `V6` seeds 23 FRED-backed currencies, all disabled. Enable one with
+`PUT /v1/currencies/{id}`.
 
-**Activate/Deactivate Series**
-```
-PATCH /api/v1/currencies/{id}/active
-Body: {"active": true}
-Response: CurrencySeries
-```
+### `POST /v1/currencies`
 
-### Exchange Rates
+Creates a currency series. The 23 seeded currencies already exist, so this endpoint is for currency
+pairs that FRED adds later.
 
-**Query Exchange Rates**
-```
-GET /api/v1/exchange-rates
-Query params: seriesId (required), startDate, endDate
-Response: List<ExchangeRate>
-```
-
-**Get Latest Rate**
-```
-GET /api/v1/exchange-rates/latest/{seriesId}
-Response: ExchangeRate
-```
-
-**Import Rates (Manual Trigger)**
-```
-POST /api/v1/exchange-rates/import/{seriesId}
-Query params: startDate, endDate
-Response: ImportResponse
-```
-
-### Admin Endpoints
-
-**Trigger Import for All Active Series**
-```
-POST /api/v1/admin/import-all
-Response: BulkImportResponse
-```
-
-**View Import Status**
-```
-GET /api/v1/admin/import-status
-Response: ImportStatusResponse
-```
-
-**Clear Cache**
-```
-POST /api/v1/admin/cache/clear
-Query params: pattern (optional)
-Response: CacheClearResponse
-```
-
-## Request/Response Examples
-
-### CurrencySeriesRequest
+Request body (`CurrencySeriesCreateRequest`):
 
 ```json
 {
-  "seriesCode": "DEXTHUS",
-  "sourceCurrency": "THB",
-  "targetCurrency": "USD",
-  "name": "Thailand Baht to US Dollar Exchange Rate",
-  "provider": "FRED",
-  "active": true
+  "currencyCode": "EUR",
+  "providerSeriesId": "DEXUSEU",
+  "enabled": true
 }
 ```
 
-### CurrencySeries Response
+The service checks `currencyCode` against ISO 4217 and asks the exchange-rate provider whether
+`providerSeriesId` exists. If the new series is enabled, the service publishes a
+`CurrencyCreatedEvent`, which requests an asynchronous import of its full rate history. See
+[domain-model.md](../domain-model.md#domain-events).
+
+| Status | Error type | When |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | `currencyCode` or `providerSeriesId` fails a Bean Validation rule |
+| `400` | `INVALID_REQUEST` | `enabled` is missing or `null`, or the body is not valid JSON (see [Validation Rules](#validation-rules)) |
+| `422` | `APPLICATION_ERROR`, code `INVALID_ISO_4217_CODE` | `currencyCode` is three uppercase letters but not an ISO 4217 code |
+| `422` | `APPLICATION_ERROR`, code `INVALID_PROVIDER_SERIES_ID` | The provider reports that the series does not exist |
+| `422` | `APPLICATION_ERROR`, code `DUPLICATE_CURRENCY_CODE` | Any unique-constraint violation on insert, including a duplicate `providerSeriesId` |
+| `503` | `SERVICE_UNAVAILABLE` | The provider could not be reached to validate `providerSeriesId` |
+
+### `GET /v1/currencies/{id}`
+
+Returns one currency series by its numeric `id`. An unknown `id` returns `404 NOT_FOUND`.
+
+### `PUT /v1/currencies/{id}`
+
+Updates the `enabled` flag. `currencyCode` and `providerSeriesId` cannot be changed.
+
+Request body (`CurrencySeriesUpdateRequest`):
 
 ```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "seriesCode": "DEXTHUS",
-  "sourceCurrency": "THB",
-  "targetCurrency": "USD",
-  "name": "Thailand Baht to US Dollar Exchange Rate",
-  "provider": "FRED",
-  "active": true,
-  "lastImportDate": "2025-11-10",
-  "createdAt": "2025-01-01T00:00:00Z",
-  "updatedAt": "2025-11-10T06:00:00Z"
+  "enabled": true
 }
 ```
 
-### ExchangeRate Response
+If a disabled series becomes enabled, the service publishes a `CurrencyUpdatedEvent`, which
+requests an asynchronous import from the day after the latest stored rate (or the full history if
+none is stored). Disabling a series publishes nothing and keeps its stored rates.
+
+An unknown `id` returns `404 NOT_FOUND`. A missing or `null` `enabled` returns `400 INVALID_REQUEST`
+(see [Validation Rules](#validation-rules)) and leaves the series unchanged.
+
+### `GET /v1/exchange-rates`
+
+Returns one rate per calendar day, quoted as units of `targetCurrency` per 1 USD.
+
+| Query parameter | Type | Required | Meaning |
+|---|---|---|---|
+| `targetCurrency` | ISO 4217 code | Yes | Currency to quote against USD |
+| `startDate` | ISO date (`yyyy-MM-dd`) | No | First day to return; defaults to the earliest stored rate in range |
+| `endDate` | ISO date (`yyyy-MM-dd`) | No | Last day to return; defaults to the latest stored rate in range |
+
+Response behavior:
+
+- FRED does not publish rates for weekends and holidays. Each missing day carries the most recent
+  earlier published rate, and `publishedDate` gives the date that rate was published.
+- `baseCurrency` is always `USD`. Rates from "USD per foreign currency" series (`DEXUS*`) are
+  inverted and rounded to 4 decimal places.
+- A valid range that contains no stored rates returns `200` with an empty list.
 
 ```json
-{
-  "id": "987e6543-e21b-12d3-a456-426614174000",
-  "seriesId": "123e4567-e89b-12d3-a456-426614174000",
-  "rateDate": "2025-11-10",
-  "rate": 0.02857,
-  "provider": "FRED",
-  "importedAt": "2025-11-10T06:00:00Z"
-}
+[
+  {
+    "baseCurrency": "USD",
+    "targetCurrency": "THB",
+    "date": "2025-11-02",
+    "rate": 32.68,
+    "publishedDate": "2025-10-31"
+  }
+]
 ```
 
-### ImportResponse
+| Status | Error type | When |
+|---|---|---|
+| `400` | `INVALID_REQUEST` | `targetCurrency` is missing or not an ISO 4217 code, a date is not an ISO date, or `startDate` is after `endDate` |
+| `422` | `APPLICATION_ERROR`, code `CURRENCY_NOT_ENABLED` | No enabled series exists for `targetCurrency` |
+| `422` | `APPLICATION_ERROR`, code `NO_EXCHANGE_RATE_DATA_AVAILABLE` | The series is enabled but no rates are stored yet |
+| `422` | `APPLICATION_ERROR`, code `START_DATE_OUT_OF_RANGE` | `startDate` is before the earliest stored rate |
 
-```json
-{
-  "seriesId": "123e4567-e89b-12d3-a456-426614174000",
-  "seriesCode": "DEXTHUS",
-  "imported": 45,
-  "skipped": 5,
-  "failed": 0,
-  "startDate": "2025-09-01",
-  "endDate": "2025-11-10",
-  "durationMs": 1234
-}
-```
+### `POST /v1/exchange-rates/import`
 
-## Error Handling
+Runs the same import as the daily job, synchronously, for every enabled series. For each series it
+fetches rates from the day after the latest stored rate, or the full history if none is stored. It
+takes no request body or parameters.
 
-**Pattern**: Standardized error response format with HTTP status codes, error types, and field-level validation messages.
+Each response element (`ExchangeRateImportResultResponse`) reports `currencyCode`,
+`providerSeriesId`, `newRecords`, `updatedRecords`, `skippedRecords`, the nullable
+`earliestExchangeRateDate` and `latestExchangeRateDate`, and the `timestamp` of the import. The list
+is empty when no series is enabled.
 
-All documented error responses use the shared `ApiErrorResponse` schema. Standard method-specific
-`400` and `404` responses are supplied by service-common; endpoints document those statuses locally
-only when they require response details beyond the shared defaults.
-
-**When to consult @service-common/docs/error-handling.md**:
-- Understanding error response format → See ApiErrorResponse Format
-- Choosing correct exception type → Review Exception Hierarchy
-- Implementing business rule violations → Check BusinessException examples
-- Handling validation errors → See Bean Validation Integration
-
-**Standard HTTP Status Codes:**
-- `200 OK` - Successful GET/PUT/PATCH
-- `201 Created` - Successful POST
-- `204 No Content` - Successful DELETE
-- `400 Bad Request` - Validation error or invalid request
-- `404 Not Found` - Resource not found
-- `422 Unprocessable Entity` - Business rule violation (includes error code)
-- `500 Internal Server Error` - Server error
-- `503 Service Unavailable` - External provider unavailable
-
-**Quick reference**:
-- `ResourceNotFoundException` → 404 (entity not found)
-- `InvalidRequestException` → 400 (bad input)
-- `BusinessException` → 422 (business rule violation with error code)
-- `ServiceUnavailableException` → 503 (FRED API down)
-- All exceptions auto-converted to standardized format by `DefaultApiExceptionHandler`
-
-**Error Response Example:**
-```json
-{
-  "type": "APPLICATION_ERROR",
-  "message": "Currency series not found",
-  "code": "SERIES_NOT_FOUND"
-}
-```
-
-**For complete error handling patterns: @service-common/docs/error-handling.md**
-
-## Authentication & Authorization
-
-**Status:** Not yet implemented
-
-**Future:**
-- Admin endpoints require authentication
-- Read-only access for regular users
-- API keys for programmatic access
-
-**Current:** All endpoints publicly accessible (local dev only)
-
-## Rate Limiting
-
-**FRED API Limits:**
-- 120 requests per minute
-- Handled internally with retry + backoff
-
-**Service Limits:**
-- Not yet implemented
-- Future: Per-user rate limits
-
-## Caching
-
-**Pattern**: Redis distributed cache (cache-aside) for high-performance queries.
-
-**When to consult @service-common/docs/advanced-patterns.md#redis-distributed-caching**:
-- Understanding cache strategy → See Redis Caching section
-- Adjusting TTL values → Review Configuration
-- Adding new cached endpoints → Check Service Layer Annotations
-
-**Cached Endpoints:**
-- `GET /api/v1/exchange-rates` - 1 hour TTL
-- `GET /api/v1/exchange-rates/latest/{seriesId}` - 30 minutes TTL
-- `GET /api/v1/currencies` - 6 hours TTL
-
-**Cache Headers:**
-```
-Cache-Control: max-age=3600
-ETag: "{hash}"
-```
-
-**Cache Invalidation:**
-- Automatic on import
-- Manual via admin endpoint
-- TTL expiration
-
-**Quick reference**:
-- `@Cacheable` on GET endpoints
-- `@CacheEvict(allEntries = true)` after imports
-- Expected hit rate: 80-95%
+This endpoint does not take the ShedLock lock that the scheduled job uses.
 
 ## Validation Rules
 
-### CurrencySeries
+Request shape is validated at the API boundary. Business rules are enforced in the service layer
+and return `422 APPLICATION_ERROR` with a `code`.
 
-- `seriesCode` - Required, 1-50 characters, unique
-- `sourceCurrency` - Required, valid ISO 4217 code
-- `targetCurrency` - Required, valid ISO 4217 code, ≠ sourceCurrency
-- `name` - Required, 1-200 characters
-- `provider` - Required, must be "FRED"
-- `active` - Required, boolean
+| Field | Rules | Failure |
+|---|---|---|
+| `currencyCode` (create) | Required, not blank, exactly 3 characters, matches `^[A-Z]{3}$` | `400 VALIDATION_ERROR` |
+| `currencyCode` (create) | Must be an ISO 4217 code | `422 INVALID_ISO_4217_CODE` |
+| `currencyCode` (create) | Must be unique | `422 DUPLICATE_CURRENCY_CODE` |
+| `providerSeriesId` (create) | Required, not blank, at most 50 characters | `400 VALIDATION_ERROR` |
+| `providerSeriesId` (create) | Must exist at the provider and be unique | `422 INVALID_PROVIDER_SERIES_ID` or `422 DUPLICATE_CURRENCY_CODE` |
+| `enabled` (create and update) | Required boolean; there is no default | `400 INVALID_REQUEST` |
+| `targetCurrency` (query) | Required ISO 4217 code | `400 INVALID_REQUEST` |
+| `startDate`, `endDate` (query) | Optional ISO dates, `startDate` not after `endDate` | `400 INVALID_REQUEST` |
 
-### ExchangeRate
+**`enabled` is required.** Both request records declare it as a primitive `boolean`, and the
+OpenAPI schema lists it as required. Jackson 3 rejects a missing or `null` value
+(`FAIL_ON_NULL_FOR_PRIMITIVES`) instead of defaulting it to `false`, so the request is never
+processed. The service-common exception handler maps the resulting
+`HttpMessageNotReadableException` to `400 INVALID_REQUEST`, with no `fieldErrors`. Malformed JSON
+bodies get the same response. Before Jackson 3, a missing `enabled` silently became `false`, which
+disabled the series on update. Clients must now send it explicitly.
 
-- `seriesId` - Required, valid UUID, series must exist
-- `rateDate` - Required, not in future
-- `rate` - Required, positive number (> 0)
+## Error Responses
 
-## Scheduled Operations
+Every error body uses the shared `ApiErrorResponse` schema with `type` and `message`, plus `code`
+for `APPLICATION_ERROR` and `fieldErrors` for `VALIDATION_ERROR`:
 
-### Daily Import
-
-**Schedule:** 6:00 AM UTC
-**Duration:** ~5-10 minutes (depends on active series count)
-**Behavior:**
-- Imports last 30 days for all active series
-- Skips existing dates (idempotent)
-- Uses ShedLock to prevent concurrent runs
-
-**Monitoring:**
-```bash
-# View last import status
-curl http://localhost:8084/api/v1/admin/import-status
-
-# Trigger manual import (testing)
-curl -X POST http://localhost:8084/api/v1/admin/import-all
+```json
+{
+  "type": "APPLICATION_ERROR",
+  "message": "Currency is not enabled: EUR",
+  "code": "CURRENCY_NOT_ENABLED"
+}
 ```
+
+The service-specific `code` values come from `CurrencyServiceError`. For the full list of error
+types, the exception-to-status mapping, and the standard OpenAPI error responses, see
+[service-common error handling](https://github.com/budgetanalyzer/service-common/blob/main/docs/error-handling.md).
+
+## Caching
+
+Only `GET /v1/exchange-rates` is cached. `ExchangeRateService.getExchangeRates` is `@Cacheable` in
+the Redis cache `exchangeRates`:
+
+- **Key:** `currency-service:exchangeRates::{targetCurrency}:{startDate}:{endDate}`. An omitted
+  date appears as `null`, for example `currency-service:exchangeRates::EUR:null:null`.
+- **TTL:** one hour from when the entry is written. See
+  [configuration.md](../configuration.md#caching) for why.
+- **Eviction:** every import method evicts all `exchangeRates` entries with
+  `@CacheEvict(allEntries = true)`. The cache manager is transaction-aware, so eviction runs only
+  after the import transaction commits.
+- Requests that end in an error are not cached.
+
+The cache is server-side only. The service sets no caching or validation headers of its own (no
+`ETag`); responses carry Spring Security's default no-store cache-control headers. See
+[advanced-patterns-usage.md](../advanced-patterns-usage.md#redis-distributed-caching) and
+[configuration.md](../configuration.md) for details.
+
+## Rate Limiting
+
+This service does not rate-limit requests. The platform applies general per-client API rate
+limiting at the Istio ingress, as described in the orchestration
+[resource-based routing pattern](https://github.com/budgetanalyzer/orchestration/blob/main/docs/architecture/resource-routing-pattern.md).
+For FRED's own limits, see [fred-integration.md](../fred-integration.md#fred-api-rate-limits).
+
+## Scheduled and Startup Imports
+
+**Daily import.** `ExchangeRateImportScheduler.importDailyRates` runs
+`importLatestExchangeRates()`, the same import as `POST /v1/exchange-rates/import`:
+
+- **Schedule:** cron `currency-service.exchange-rate-import.cron`, default `0 0 23 * * ?`
+  (23:00 UTC), zone `UTC`.
+- **Lock:** ShedLock lock `exchangeRateImport` with `lockAtMostFor = 15m` and `lockAtLeastFor = 1m`,
+  so one pod runs the job per trigger.
+- **Retry:** a failed run is retried up to `currency-service.exchange-rate-import.retry.max-attempts`
+  total attempts (default 3), `retry.delay-minutes` apart (default 1). Retries run on the task
+  scheduler outside the ShedLock lock.
+
+**Startup import.** When `currency-service.exchange-rate-import.import-on-startup` is `true` (the
+default), the same import runs once on `ApplicationReadyEvent`. If it fails, startup fails.
+
+Imports are idempotent. Dates already stored with the same rate are counted as `skippedRecords`.
+A stored rate that changed upstream is overwritten and counted as `updatedRecords`.
 
 ## Discovery Commands
 
+Run these from the repository root:
+
 ```bash
-# Find all controllers
-grep -r "@RestController" src/main/java
+# Controllers and routes
+rg -n '@RestController|@RequestMapping|@(Get|Post|Put|Patch|Delete)Mapping' src/main/java
 
-# Find all endpoints
-grep -r "@GetMapping\|@PostMapping\|@PutMapping\|@DeleteMapping" src/main/java
+# Endpoint permissions
+rg -n '@PreAuthorize' src/main/java
 
-# View scheduled jobs
-grep -r "@Scheduled" src/main/java
+# Request validation rules
+rg -n '@NotBlank|@NotNull|@Size|@Pattern' src/main/java/org/budgetanalyzer/currency/api
 
-# Check Redis cache keys
-docker exec redis redis-cli KEYS "exchange-rates:*"
+# Business error codes
+rg -n 'CurrencyServiceError\.' src/main/java
+
+# Cache reads and evictions
+rg -n '@Cacheable|@CacheEvict' src/main/java
+
+# Scheduled jobs and locks
+rg -n '@Scheduled|@SchedulerLock' src/main/java
+
+# Generated contract (service running locally)
+curl -s http://localhost:8084/currency-service/v3/api-docs
 ```
 
 ## References
 
-- **Swagger UI:** http://localhost:8084/swagger-ui.html (when service running)
-- **OpenAPI Spec:** http://localhost:8084/v3/api-docs
-- **Domain Model:** [../domain-model.md](../domain-model.md)
-- **Database Schema:** [../database-schema.md](../database-schema.md) (not yet created)
-- **Error Handling:** @service-common/docs/error-handling.md
-- **Advanced Patterns:** @service-common/docs/advanced-patterns.md
+- [Domain model](../domain-model.md)
+- [Configuration](../configuration.md)
+- [FRED integration](../fred-integration.md)
+- [Advanced patterns usage](../advanced-patterns-usage.md)
+- [Local development](../local-development.md)
+- [service-common error handling](https://github.com/budgetanalyzer/service-common/blob/main/docs/error-handling.md)
+- [service-common advanced patterns](https://github.com/budgetanalyzer/service-common/blob/main/docs/advanced-patterns.md)

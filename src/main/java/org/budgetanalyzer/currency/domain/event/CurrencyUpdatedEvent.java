@@ -6,8 +6,8 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  * Domain event published when a currency series is enabled.
  *
  * <p>This event is published within the same database transaction as the currency series update.
- * Spring Modulith automatically stores this event in the event_publication table for guaranteed
- * delivery via the transactional outbox pattern.
+ * Spring Modulith stores a publication for this event in the event_publication table as part of
+ * that transaction, implementing the transactional outbox pattern.
  *
  * <p><b>Event Flow:</b>
  *
@@ -18,6 +18,9 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  *   <li>Spring Modulith asynchronously processes event via @ApplicationModuleListener
  *   <li>Event listener publishes external message to RabbitMQ to trigger exchange rate import
  *   <li>Event marked as completed in event_publication table
+ *   <li>On failure, the publication is marked failed and stays incomplete; nothing resubmits it.
+ *       The next startup or daily scheduled import reconciles the series from its latest stored
+ *       rate
  * </ol>
  *
  * <p><b>Messaging Decision Logic:</b>

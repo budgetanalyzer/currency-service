@@ -47,14 +47,14 @@ dependencies {
     implementation(libs.service.web)
 
     // Stack-specific dependencies (required since service-web uses compileOnly)
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.springdoc.openapi)
 
     // Service-specific base
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.security)
-    implementation(libs.flyway.core)
+    implementation(libs.spring.boot.starter.flyway)
     implementation(libs.flyway.database.postgresql)
 
     // Add-ons: WebClient, Redis, Messaging, Modulith, ShedLock
@@ -70,8 +70,9 @@ dependencies {
 
     runtimeOnly(libs.postgresql)
 
-    testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.spring.security.test)
+    testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.boot.starter.data.jpa.test)
+    testImplementation(libs.spring.boot.starter.security.test)
     testImplementation(libs.spring.boot.testcontainers)
     testImplementation(libs.spring.modulith.starter.test)
     testImplementation(libs.testcontainers)
@@ -80,7 +81,6 @@ dependencies {
     testImplementation(libs.testcontainers.rabbitmq)
     testImplementation(libs.wiremock.standalone)
     testImplementation(libs.awaitility)
-    testRuntimeOnly(libs.h2)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

@@ -11,9 +11,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
+
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.budgetanalyzer.currency.config.WireMockConfig;
 
@@ -55,7 +56,7 @@ import org.budgetanalyzer.currency.config.WireMockConfig;
  */
 public final class FredApiStubs {
 
-  private static final ObjectMapper objectMapper = new ObjectMapper();
+  private static final JsonMapper jsonMapper = JsonMapper.builder().build();
 
   /** FRED API base path for series metadata endpoint. */
   private static final String FRED_API_PATH_SERIES = "/series";
@@ -631,8 +632,8 @@ public final class FredApiStubs {
             .toList());
 
     try {
-      return objectMapper.writeValueAsString(response);
-    } catch (JsonProcessingException e) {
+      return jsonMapper.writeValueAsString(response);
+    } catch (JacksonException e) {
       throw new RuntimeException("Failed to serialize FRED response", e);
     }
   }
@@ -648,8 +649,8 @@ public final class FredApiStubs {
     var errorResponse = Map.of("error_code", errorCode, "error_message", errorMessage);
 
     try {
-      return objectMapper.writeValueAsString(errorResponse);
-    } catch (JsonProcessingException e) {
+      return jsonMapper.writeValueAsString(errorResponse);
+    } catch (JacksonException e) {
       throw new RuntimeException("Failed to serialize FRED error response", e);
     }
   }

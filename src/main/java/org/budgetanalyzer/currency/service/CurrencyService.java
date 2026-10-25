@@ -64,7 +64,7 @@ public class CurrencyService {
    * (FRED), persists the currency series to the database, and publishes a {@link
    * CurrencyCreatedEvent} domain event when the currency is enabled. The event is automatically
    * persisted to the event_publication table by Spring Modulith within the same database
-   * transaction, ensuring guaranteed delivery via the transactional outbox pattern.
+   * transaction, implementing the transactional outbox pattern.
    *
    * <p><b>Typical Use Case:</b> This endpoint is intended for adding new currencies when FRED adds
    * support for additional currency pairs. Most users will not need to use this endpoint, as 23
@@ -88,9 +88,10 @@ public class CurrencyService {
    * <p>The event is stored in the same database transaction as the currency entity, guaranteeing:
    *
    * <ul>
-   *   <li>No lost events - Event survives application crashes since it's persisted in database
-   *   <li>Exactly-once semantics - Event and entity are saved atomically, preventing dual-write
-   *       issues
+   *   <li>Durable event - The event row survives a crash after commit, but the resulting import
+   *       message can still be lost; the startup and daily imports reconcile the series
+   *   <li>No dual-write issues - Event and entity are saved atomically, and no message is sent for
+   *       a rolled-back change
    *   <li>Async processing - HTTP request returns immediately after transaction commit without
    *       waiting for RabbitMQ publishing
    * </ul>

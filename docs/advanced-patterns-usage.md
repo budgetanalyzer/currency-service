@@ -1,492 +1,428 @@
 # Advanced Patterns Usage Guide
 
-This service implements ALL advanced patterns from service-common. This guide provides implementation details and usage examples specific to the currency service.
+This guide shows how the currency service applies the shared service-common patterns: provider
+abstraction, ShedLock, Redis caching, and the Spring Modulith transactional outbox. Code blocks are
+abridged excerpts from the real classes. Property values and defaults are owned by
+[configuration.md](configuration.md).
 
-For complete pattern documentation, see [service-common/docs/advanced-patterns.md](../../service-common/docs/advanced-patterns.md).
+For the cross-service pattern documentation, see
+[service-common advanced patterns](https://github.com/budgetanalyzer/service-common/blob/main/docs/advanced-patterns.md).
 
 ## Provider Abstraction Pattern
 
 ### Overview
 
-Service layer depends on `ExchangeRateProvider` interface, never on concrete FRED implementation. This decouples the service from the external data provider and allows switching providers without service layer changes.
-
-### Architecture
+The service layer depends on the `ExchangeRateProvider` interface, never on the FRED
+implementation. Two services use it:
 
 ```
-CurrencyService
-    ↓ (depends on interface)
-ExchangeRateProvider (interface)
-    ↑ (implements)
-FredExchangeRateProvider
-    ↓ (uses)
-FredClient (HTTP communication)
+CurrencyService (validates provider series IDs)     ExchangeRateImportService (imports rates)
+            \                                                    /
+             '------------> ExchangeRateProvider (interface) <--'
+                                      ^ implements
+                            FredExchangeRateProvider
+                                      | uses
+                            FredClient (HTTP to the FRED API)
+```
+
+The interface has two methods:
+
+```java
+public interface ExchangeRateProvider {
+
+  Map<LocalDate, BigDecimal> getExchangeRates(CurrencySeries currencySeries, LocalDate startDate);
+
+  boolean validateSeriesExists(String providerSeriesId);
+}
 ```
 
 ### Dependency Rules
 
-✅ **Allowed:**
-- `CurrencyService` imports `ExchangeRateProvider` interface
-- `FredExchangeRateProvider` implements `ExchangeRateProvider`
-- `FredClient` handles HTTP calls to FRED API
+**Allowed:**
+- `CurrencyService` and `ExchangeRateImportService` inject `ExchangeRateProvider`.
+- `FredExchangeRateProvider` implements `ExchangeRateProvider` and uses `FredClient`.
+- `FredClient` (in `client.fred`) handles HTTP calls to the FRED API.
 
-❌ **Forbidden:**
-- `CurrencyService` importing `FredExchangeRateProvider` directly
-- `CurrencyService` importing anything from `client.fred` package
-- Service layer code mentioning "FRED" or any provider name
+**Forbidden:**
+- A service in `service` importing `FredExchangeRateProvider`, `FredClient`, or anything from
+  `client.fred`.
+- FRED-specific types in service method signatures.
 
-### Implementation Example
+### Implementation
 
-**Service Layer (Good):**
+`CurrencyService` validates a new series against the provider and maps provider failures to a
+service error:
+
 ```java
-@Service
-public class CurrencyServiceImpl implements CurrencyService {
-    private final ExchangeRateProvider exchangeRateProvider;  // Interface only
+private final ExchangeRateProvider exchangeRateProvider;
 
-    public void importExchangeRates(String currencyCode) {
-        List<ExchangeRate> rates = exchangeRateProvider.fetchRates(currencyCode);
-        // Process rates...
-    }
+private void validateProviderSeriesId(String providerSeriesId) {
+  boolean exists;
+  try {
+    exists = exchangeRateProvider.validateSeriesExists(providerSeriesId);
+  } catch (ClientException e) {
+    throw new ServiceUnavailableException(
+        "Unable to validate provider series ID due to external provider API error: "
+            + e.getMessage(),
+        e);
+  }
+  // ...throws BusinessException INVALID_PROVIDER_SERIES_ID when !exists
 }
 ```
 
-**Service Layer (Bad):**
-```java
-@Service
-public class CurrencyServiceImpl implements CurrencyService {
-    private final FredExchangeRateProvider fredProvider;  // ❌ Concrete implementation
+`ExchangeRateImportService` fetches rates for one series from a start date (`null` means full
+history):
 
-    public void importExchangeRates(String currencyCode) {
-        List<ExchangeRate> rates = fredProvider.fetchRates(currencyCode);  // ❌ Tight coupling
-        // Process rates...
-    }
-}
+```java
+var dateRateMap = exchangeRateProvider.getExchangeRates(currencySeries, startDate);
 ```
+
+See [fred-integration.md](fred-integration.md) for how imports choose the start date and handle
+FRED errors.
 
 ### Adding a New Provider
 
-To add ECB, Bloomberg, or other provider:
+1. Add a client for the new source in its own package under `client/`.
+2. Implement `ExchangeRateProvider` in `service/provider/` using that client. Map the source's
+   failures to `ClientException`, which is what the services expect.
+3. Add the provider's settings to `CurrencyServiceProperties` and `application.yml`.
+4. Make sure exactly one `ExchangeRateProvider` bean exists at runtime, because the services inject
+   a single provider. Activate each implementation conditionally, for example with `@Profile` or
+   `@ConditionalOnProperty`, including `FredExchangeRateProvider`.
 
-1. **Create provider implementation:**
-```java
-@Component
-@Profile("ecb")  // Activate with spring.profiles.active=ecb
-public class EcbExchangeRateProvider implements ExchangeRateProvider {
-    private final EcbClient ecbClient;
-
-    @Override
-    public List<ExchangeRate> fetchRates(String currencyCode) {
-        // ECB-specific implementation
-    }
-}
-```
-
-2. **Create client:**
-```java
-@Component
-public class EcbClient {
-    private final RestTemplate restTemplate;
-
-    public EcbResponse fetchExchangeRates(String currency) {
-        // HTTP calls to ECB API
-    }
-}
-```
-
-3. **Add configuration:**
-```yaml
-currency-service:
-  ecb:
-    base-url: https://api.ecb.europa.eu
-    api-key: ${ECB_API_KEY}
-```
-
-4. **No service layer changes needed** - service already uses interface
+The services need no changes.
 
 ### Discovery Commands
 
 ```bash
-# View provider interface
-cat src/main/java/org/budgetanalyzer/currency/service/provider/ExchangeRateProvider.java
+# Provider interface and implementations
+find src/main/java -type f -name '*Provider.java'
 
-# View FRED implementation
-cat src/main/java/org/budgetanalyzer/currency/service/provider/FredExchangeRateProvider.java
-
-# View FRED client
+# FRED client
 cat src/main/java/org/budgetanalyzer/currency/client/fred/FredClient.java
 
-# Verify service uses interface only
-grep -r "ExchangeRateProvider" src/main/java/*/service/impl/
+# Services that depend on the provider interface
+rg -n 'ExchangeRateProvider' src/main/java/org/budgetanalyzer/currency/service/*.java
+
+# Services must not reference FRED types (expect no output)
+rg -n 'client\.fred|FredExchangeRateProvider|FredClient' \
+  src/main/java/org/budgetanalyzer/currency/service/*.java
 ```
 
 ## ShedLock Distributed Locking
 
 ### Overview
 
-Daily scheduled import runs exactly once across all pods using database-backed distributed lock. Prevents duplicate imports in multi-pod Kubernetes deployments.
+The daily import runs once per trigger across all pods, coordinated by a database lock in the
+PostgreSQL `shedlock` table (created by `V2__add_shedlock_table.sql`).
 
-### Configuration
-
-**Schedule:** Daily at 11 PM UTC
-
-**Lock Parameters:**
-- `lockAtMostFor: 15m` - Safety timeout (task takes ~30 seconds)
-- `lockAtLeastFor: 1m` - Prevents rapid re-execution
-
-**Lock Storage:** PostgreSQL (table: `shedlock`)
-
-### Implementation Example
+### Implementation
 
 ```java
-@Component
-public class ExchangeRateImportScheduler {
-
-    @Scheduled(cron = "0 0 23 * * *")  // 11 PM UTC daily
-    @SchedulerLock(
-        name = "importExchangeRates",
-        lockAtMostFor = "15m",
-        lockAtLeastFor = "1m"
-    )
-    public void importDailyExchangeRates() {
-        currencyService.importAllCurrencyRates();
-    }
+@Scheduled(cron = "${currency-service.exchange-rate-import.cron:0 0 23 * * ?}", zone = "UTC")
+@SchedulerLock(name = "exchangeRateImport", lockAtMostFor = "15m", lockAtLeastFor = "1m")
+public void importDailyRates() {
+  // ...
+  executeImport(1);
 }
 ```
+
+`executeImport` calls `ExchangeRateImportService.importLatestExchangeRates()`. If it throws and
+attempts remain, it schedules the next attempt on the `TaskScheduler` bean:
+
+```java
+taskScheduler.schedule(
+    () -> {
+      log.info("Executing retry attempt {} (scheduled retry)", attemptNumber);
+      executeImport(attemptNumber);
+    },
+    retryTime);
+```
+
+`ShedLockConfig` registers a `JdbcTemplateLockProvider` configured with `usingDbTime()` and sets
+`@EnableSchedulerLock(defaultLockAtMostFor = "10m")`. With database time, ShedLock computes
+`locked_at` and `lock_until` in SQL from the PostgreSQL server clock in UTC, not from each pod's
+clock, so clock skew between pods does not change when a lock is acquired or expires. The
+schedule, lock, and retry values are listed in
+[configuration.md](configuration.md#scheduled-tasks).
 
 ### How It Works
 
-1. Scheduler triggers on all pods at 11 PM UTC
-2. First pod to execute acquires lock in database
-3. Other pods see lock exists and skip execution
-4. Lock auto-releases after task completes
-5. If pod crashes, lock expires after 15 minutes (safety timeout)
+1. The cron trigger fires on every pod at 23:00 UTC.
+2. The first pod to write the `exchangeRateImport` row in `shedlock` runs the import.
+3. Other pods find the lock held and skip that trigger.
+4. When the method returns, the lock is released, but it is held for at least 1 minute.
+5. If the pod dies, the lock expires 15 minutes after it was taken.
+
+Retries are scheduled on the pod whose attempt failed. They run outside the ShedLock lock, because
+only the `@Scheduled` method is locked.
+
+Each import runs in one transaction across all enabled series. A failure in any series rolls back
+the whole import, and the retry starts over.
+
+The scheduler records Micrometer metrics: `exchange.rate.import.duration`,
+`exchange.rate.import.executions`, `exchange.rate.import.retry.scheduled`, and
+`exchange.rate.import.exhausted`.
 
 ### Lock Duration Guidelines
 
-**lockAtMostFor** (maximum lock duration):
-- Should be longer than expected task duration
-- Safety mechanism for crashed pods
-- Current: 15m for 30-second task (30x buffer)
-
-**lockAtLeastFor** (minimum lock duration):
-- Prevents rapid re-execution if task completes early
-- Should be less than schedule interval
-- Current: 1m minimum between executions
-
-### Multi-Pod Behavior
-
-**Expected (one pod acquires lock):**
-```
-Pod 1: Lock acquired, importing rates...
-Pod 2: Lock already held, skipping
-Pod 3: Lock already held, skipping
-Pod 1: Import complete, lock released
-```
-
-**Crash Recovery:**
-```
-Pod 1: Lock acquired, importing rates...
-Pod 1: [CRASHES]
-[15 minutes later - lock expires]
-Next scheduled run:
-Pod 2: Lock expired, acquiring and importing...
-```
+- `lockAtMostFor` must exceed the longest expected run. It only matters when a pod dies while
+  holding the lock.
+- `lockAtLeastFor` must be shorter than the schedule interval. The database clock is authoritative
+  for lock times, so its remaining purpose is to stop another pod from re-running a trigger that
+  finished quickly, for example a pod whose trigger fires slightly later than the others.
+- Give every scheduled task its own lock name.
 
 ### Adding New Scheduled Tasks
 
-1. **Create scheduled method:**
+Add `@SchedulerLock` with a unique name to any `@Scheduled` method that must run once across pods:
+
 ```java
-@Scheduled(cron = "0 0 2 * * *")  // 2 AM UTC daily
-@SchedulerLock(
-    name = "cleanupExpiredData",  // Must be unique
-    lockAtMostFor = "10m",
-    lockAtLeastFor = "30s"
-)
-public void cleanupExpiredData() {
-    // Task implementation
+@Scheduled(cron = "0 0 2 * * *", zone = "UTC")
+@SchedulerLock(name = "uniqueTaskName", lockAtMostFor = "10m", lockAtLeastFor = "30s")
+public void runTask() {
+  // Delegate to a service
 }
-```
-
-2. **Choose lock duration:**
-- `lockAtMostFor` = expected duration × 10-30
-- `lockAtLeastFor` = 10-20% of schedule interval
-
-3. **Test multi-pod:**
-```bash
-# Start multiple instances
-./gradlew bootRun --args='--server.port=8084'
-./gradlew bootRun --args='--server.port=8085'
-
-# Verify only one executes (check logs)
 ```
 
 ### Discovery Commands
 
 ```bash
-# Find scheduled tasks
-grep -r "@Scheduled" src/main/java/*/scheduler/
+# Scheduled tasks and their locks
+rg -n '@Scheduled|@SchedulerLock' src/main/java
 
-# View lock configuration
-cat src/main/resources/application.yml | grep -A 5 "shedlock"
+# Lock provider configuration
+rg -n 'EnableSchedulerLock|LockProvider' src/main/java/org/budgetanalyzer/currency/config
 
-# Check lock table
-psql -d budget_analyzer -c "SELECT * FROM shedlock;"
+# Current locks (local database)
+psql -d currency -c "SELECT * FROM shedlock;"
 ```
 
 ## Redis Distributed Caching
 
 ### Overview
 
-Exchange rate queries cached with 1-hour TTL. Dramatically improves response times: cache hit 1-3ms vs. cache miss 50-200ms.
+`GET /v1/exchange-rates` is the only cached read. Entries expire one hour after they are written,
+and every import evicts all of them after it commits. The full cache rules and the reasons for the
+TTL are in [configuration.md](configuration.md#caching).
 
-### Performance Impact
+### Cached Read
 
-- **Cache Hit:** 1-3ms (from Redis)
-- **Cache Miss:** 50-200ms (PostgreSQL query)
-- **Expected Hit Rate:** 80-95% for typical usage
-- **Speedup:** 50-200x faster on cache hit
-
-### Implementation Example
-
-**Query Method (Cached):**
 ```java
-@Service
-public class CurrencyServiceImpl implements CurrencyService {
-
-    @Cacheable(value = "exchangeRates", key = "#targetCurrency + ':' + #startDate + ':' + #endDate")
-    public List<ExchangeRate> getExchangeRates(
-        String targetCurrency,
-        LocalDate startDate,
-        LocalDate endDate
-    ) {
-        return exchangeRateRepository.findByCurrencySeriesAndDateRange(
-            targetCurrency, startDate, endDate
-        );
-    }
+@Transactional(readOnly = true)
+@Cacheable(
+    cacheNames = CacheConfig.EXCHANGE_RATES_CACHE,
+    key = "#targetCurrency.currencyCode + ':' + #startDate + ':' + #endDate")
+public List<ExchangeRateData> getExchangeRates(
+    Currency targetCurrency, LocalDate startDate, LocalDate endDate) {
+  // ...business validation, query...
+  if (definedRates.isEmpty()) {
+    return Collections.emptyList();
+  }
+  // ...builds and returns an ArrayList with one rate per day
 }
 ```
 
-**Update Method (Cache Eviction):**
+Requests that throw, such as a disabled currency, are not cached.
+
+### Eviction After Import
+
+Each import method in `ExchangeRateImportService` evicts all entries:
+
 ```java
-@CacheEvict(value = "exchangeRates", allEntries = true)
-public void importExchangeRates(String currencyCode) {
-    // Import new rates from provider
-    // Cache automatically cleared after method completes
+@Transactional
+@CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
+public List<ExchangeRateImportResult> importLatestExchangeRates() {
+  var seriesToImport = getAllEnabledSeries();
+  return importExchangeRatesForSeries(seriesToImport);
 }
 ```
+
+Evicting everything keeps the code simple: an import can change rates for any currency, and imports
+are rare. Because the cache manager is transaction-aware, the eviction runs after the import
+commits; a rolled-back import leaves the cache unchanged.
 
 ### Cache Key Strategy
 
-**Format:** `{targetCurrency}:{startDate}:{endDate}`
+**Format:** `{currencyCode}:{startDate}:{endDate}`, stored as
+`currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}`.
 
 **Examples:**
-- `USD:2024-01-01:2024-12-31` - Full year USD rates
-- `EUR:2024-11-01:2024-11-15` - Two weeks EUR rates
-- `THB:2024-11-15:2024-11-15` - Single day THB rate
-
-**Why this format:**
-- Natural key for rate queries
-- Avoids cache collision across currencies
-- Supports range queries efficiently
+- `currency-service:exchangeRates::EUR:2024-01-01:2024-01-31`
+- `currency-service:exchangeRates::THB:2024-06-01:null` (no end date)
+- `currency-service:exchangeRates::JPY:null:null` (all available data)
 
 ### Cache Configuration
 
-```yaml
-spring:
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-  cache:
-    type: redis
-    redis:
-      time-to-live: 3600000  # 1 hour in milliseconds
+`CacheConfig` builds the cache configuration in code, not from `spring.cache.redis.*`:
+
+```java
+@Bean
+public RedisCacheConfiguration cacheConfiguration(
+    GenericJacksonJsonRedisSerializer redisSerializer) {
+  return RedisCacheConfiguration.defaultCacheConfig()
+      .entryTtl(EXCHANGE_RATES_TTL)
+      .disableCachingNullValues()
+      .serializeKeysWith(
+          RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+      .serializeValuesWith(
+          RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer))
+      .prefixCacheNameWith("currency-service:");
+}
+
+@Bean
+public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
+    RedisConnectionFactory redisConnectionFactory) {
+  return builder ->
+      builder
+          .cacheWriter(
+              RedisCacheWriter.create(
+                  redisConnectionFactory, configurer -> configurer.immediateWrites()))
+          .transactionAware();
+}
 ```
+
+- **One-hour TTL:** `EXCHANGE_RATES_TTL` is `Duration.ofHours(1)`. It bounds how long a stale
+  entry, cached by a read that raced an import, survives the import's eviction. See
+  [configuration.md](configuration.md#caching).
+- **Synchronous writer:** `immediateWrites()` makes puts, evictions, and clears finish before the
+  cache call returns, instead of the asynchronous Lettuce default in Spring Data Redis 4.
+- **Typed JSON values:** the value serializer is a copy of the application `JsonMapper` with
+  `DefaultTyping.NON_FINAL`, restricted by a `BasicPolymorphicTypeValidator` that accepts only
+  subtypes from `org.budgetanalyzer`, `java.util`, `java.time`, and `java.math`.
+
+### Immutable Collections Must Not Be Cached
+
+Values of final classes are written without a type id. Jackson reads most of them back as their
+natural JSON type, but a JDK immutable collection, such as the result of `List.of()` or
+`Stream.toList()`, is written as a bare JSON array and fails to deserialize on the next cache read.
+Return `ArrayList` or `Collections.emptyList()` from `@Cacheable` methods. This is why
+`getExchangeRates` returns `Collections.emptyList()` for a range with no rates.
 
 ### When to Cache
 
-✅ **Good candidates:**
-- Frequently accessed data (exchange rates queried often)
-- Slow to compute/fetch (database queries)
-- Changes infrequently (rates imported once daily)
-- Same parameters used repeatedly (date ranges)
+**Good candidates:** reads that are repeated with the same parameters and change only on a known
+write path that can evict them, such as exchange rates that change only on import.
 
-❌ **Bad candidates:**
-- Data changes frequently (real-time data)
-- Unique queries (never repeated)
-- Large result sets (memory concerns)
-- Security-sensitive data (risk of stale permissions)
-
-### Cache Eviction Strategies
-
-**1. Evict all entries (current approach):**
-```java
-@CacheEvict(value = "exchangeRates", allEntries = true)
-public void importExchangeRates(String currencyCode) {
-    // Clears entire cache
-}
-```
-
-**When to use:** Data changes affect many cache entries (our case: new imports invalidate all ranges)
-
-**2. Evict specific key:**
-```java
-@CacheEvict(value = "exchangeRates", key = "#currencyCode + ':*'")
-public void updateCurrency(String currencyCode) {
-    // Clears only this currency (requires key pattern matching)
-}
-```
-
-**When to use:** Targeted updates affecting specific entries only
-
-**3. Time-based expiration (automatic):**
-- TTL: 1 hour configured in application.yml
-- Redis automatically removes expired entries
-- No code changes needed
-
-### Monitoring Cache Performance
-
-**Enable cache statistics:**
-```yaml
-spring:
-  cache:
-    cache-names: exchangeRates
-    redis:
-      enable-statistics: true
-```
-
-**Check cache metrics:**
-```bash
-# Via actuator (if enabled)
-curl http://localhost:8084/actuator/metrics/cache.gets?tag=name:exchangeRates
-curl http://localhost:8084/actuator/metrics/cache.evictions?tag=name:exchangeRates
-```
-
-**Expected metrics:**
-- Hit rate: 80-95%
-- Miss rate: 5-20%
-- Evictions: 1x daily (after import)
+**Bad candidates:** data that changes outside an evicting write path, rarely repeated queries, very
+large results, and anything used for authorization decisions.
 
 ### Discovery Commands
 
 ```bash
-# Find cached methods
-grep -r "@Cacheable" src/main/java/
+# Cached methods and eviction points
+rg -n '^\s*@(Cacheable|CacheEvict)\b' src/main/java
 
-# Find cache eviction points
-grep -r "@CacheEvict" src/main/java/
+# Cache manager, serializer, and type allowlist
+cat src/main/java/org/budgetanalyzer/currency/config/CacheConfig.java
 
-# View cache configuration
-cat src/main/resources/application.yml | grep -A 10 "redis"
-
-# Check Redis connection
-redis-cli -h localhost -p 6379 ping
+# Redis connection and cache type
+rg -n 'redis:|cache:' src/main/resources/application.yml
 ```
 
 ## Event-Driven Messaging
 
 ### Overview
 
-Transactional outbox ensures 100% guaranteed message delivery. Events persisted in database atomically with business data, then published to RabbitMQ asynchronously.
+Creating an enabled currency or enabling a disabled one requests an exchange-rate import through
+RabbitMQ. The Spring Modulith transactional outbox makes the request durable: the publication is
+stored in `event_publication` in the same transaction as the currency change.
 
 ### Why Transactional Outbox
 
-**Problem without outbox:**
+Sending to RabbitMQ inside the database transaction can lose the message when the send fails after
+the commit, or send a message for a change that later rolls back. The outbox stores the intent with
+the business data and sends the message after commit.
+
+### Implementation
+
+**1. Domain events** (`domain/event/`) are records:
+
 ```java
-// ❌ Unreliable - can lose messages
-@Transactional
-public void createCurrency(Currency currency) {
-    currencyRepository.save(currency);  // Succeeds
-    rabbitTemplate.send(event);         // Fails - message lost!
+public record CurrencyCreatedEvent(
+    Long currencySeriesId, String currencyCode, boolean enabled, String correlationId) {}
+```
+
+`CurrencyUpdatedEvent` has the same fields.
+
+**2. `CurrencyService` publishes them** inside its transaction, and only when an import is needed:
+
+```java
+var saved = currencySeriesRepository.save(currencySeries);
+var correlationId = MDC.get(CorrelationIdFilter.CORRELATION_ID_MDC_KEY);
+
+if (saved.isEnabled()) {
+  eventPublisher.publishEvent(
+      new CurrencyCreatedEvent(
+          saved.getId(), saved.getCurrencyCode(), saved.isEnabled(), correlationId));
 }
 ```
 
-**Solution with outbox:**
+`update` publishes `CurrencyUpdatedEvent` only when a series changes from disabled to enabled.
+
+**3. `MessagingEventListener` bridges each event to RabbitMQ** after commit:
+
 ```java
-// ✅ Reliable - guaranteed delivery
-@Transactional
-public void createCurrency(Currency currency) {
-    currencyRepository.save(currency);
-    applicationEventPublisher.publishEvent(new CurrencyCreatedEvent(currency));
-    // Both persisted in same transaction
-    // Message delivered asynchronously even if we crash
+@ApplicationModuleListener
+void onCurrencyCreated(CurrencyCreatedEvent event) {
+  MDC.put(CorrelationIdFilter.CORRELATION_ID_MDC_KEY, event.correlationId());
+  MDC.put("eventType", "currency_created");
+
+  try {
+    exchangeRateImportMessagePublisher.publishExchangeRateImportRequested(
+        new ExchangeRateImportRequestedMessage(
+            event.currencySeriesId(), event.currencyCode(), event.correlationId()));
+  } catch (Exception e) {
+    // logged, then rethrown so Spring Modulith marks the publication failed
+    throw e;
+  } finally {
+    MDC.clear();
+  }
 }
 ```
 
-### Implementation Example
+`ExchangeRateImportMessagePublisher` sends the message with
+`streamBridge.send("exchangeRateImportRequested-out-0", message)`. The service never injects the
+publisher.
 
-**1. Define domain event:**
+**4. `ExchangeRateImportConsumer` imports the series:**
+
 ```java
-public class CurrencyCreatedEvent {
-    private final String currencyCode;
-    private final String currencyName;
-    // Constructor, getters
-}
-```
+@Bean
+public Consumer<ExchangeRateImportRequestedMessage> importExchangeRates() {
+  return message -> {
+    MDC.put(CorrelationIdFilter.CORRELATION_ID_MDC_KEY, message.correlationId());
+    MDC.put("eventType", "exchange_rate_import_requested");
 
-**2. Publish event from service:**
-```java
-@Service
-public class CurrencyServiceImpl implements CurrencyService {
-    private final ApplicationEventPublisher eventPublisher;
-
-    @Transactional
-    public CurrencyCreated createCurrency(CreateCurrencyRequest request) {
-        var currency = currencyRepository.save(newCurrency);
-
-        // Event persisted in event_publication table (same transaction)
-        eventPublisher.publishEvent(
-            new CurrencyCreatedEvent(currency.getCode(), currency.getName())
-        );
-
-        return currency;
+    try {
+      var result =
+          exchangeRateImportService.importExchangeRatesForSeries(message.currencySeriesId());
+      // ...logs the result
+    } finally {
+      MDC.clear();
     }
+  };
 }
 ```
 
-**3. Bridge to external message broker:**
-```java
-@Component
-public class CurrencyEventListener {
-
-    private final StreamBridge streamBridge;
-
-    @ApplicationModuleListener
-    void on(CurrencyCreatedEvent event) {
-        // Convert domain event to an import request message
-        var message = new ExchangeRateImportRequestedMessage(
-            event.getCurrencySeriesId(),
-            event.getCurrencyCode(),
-            event.getCorrelationId()
-        );
-
-        // Publish to RabbitMQ through Spring Cloud Stream
-        streamBridge.send("exchangeRateImportRequested-out-0", message);
-    }
-}
-```
-
-**4. Consumer:**
-```java
-@Configuration
-public class ExchangeRateImportConsumer {
-
-    @Bean
-    public Consumer<ExchangeRateImportRequestedMessage> importExchangeRates() {
-        return message ->
-            exchangeRateImportService.importExchangeRatesForSeries(message.currencySeriesId());
-    }
-}
-```
+Exceptions propagate to Spring Cloud Stream, which retries the message and then sends it to the
+dead-letter queue. See [configuration.md](configuration.md#consumer-retry-and-dead-letters) for the
+retry policy.
 
 ### Event Flow
 
-1. **Service publishes domain event** (in transaction)
-2. **Spring Modulith persists to `event_publication` table** (same transaction)
-3. **Transaction commits** (both business data and event saved)
-4. **Spring Modulith polls `event_publication` table** (async)
-5. **Listener receives event** and publishes to RabbitMQ
-6. **RabbitMQ delivers** to subscribed services
-7. **Event marked complete** in `event_publication` table
+1. `CurrencyService` publishes a domain event inside its transaction.
+2. Spring Modulith stores a publication for the listener in `event_publication` in the same
+   transaction.
+3. The transaction commits the currency change and the publication together.
+4. After commit, Spring Modulith invokes the `@ApplicationModuleListener` method asynchronously on
+   the task executor.
+5. The listener sends `ExchangeRateImportRequestedMessage` to `exchange-rate.import.requested`.
+6. When the listener returns, Spring Modulith marks the publication completed
+   (`status = 'COMPLETED'`, `completion_date` set). The row is kept permanently as an audit trail.
+   Spring Modulith invokes the listener once per publication. If it throws, the publication is
+   marked `FAILED` and nothing resubmits it.
+7. A consumer in the `exchange-rate-import-service` group imports rates for the series.
 
 ### Operational Logging
 
@@ -500,46 +436,67 @@ Currency enablement and import-trigger messaging emit info-level breadcrumbs acr
 3. `ExchangeRateImportConsumer` logs the matching inbound consumption with the currency series ID
    and currency code before running the import.
 
-### Guaranteed Delivery
+The correlation ID from the original HTTP request travels in the event and the message and is put
+in the MDC on both sides.
 
-**Scenario 1: Normal operation**
-```
-1. Save currency + persist event (transaction)
-2. Commit transaction
-3. Publish to RabbitMQ
-4. Mark event complete
-✅ Message delivered
-```
+### Delivery Guarantees
 
-**Scenario 2: Crash before RabbitMQ publish**
+**Normal operation:**
 ```
-1. Save currency + persist event (transaction)
-2. Commit transaction
-3. [APPLICATION CRASHES]
-4. [RESTART]
-5. Spring Modulith finds unpublished events
-6. Publishes to RabbitMQ
-7. Mark event complete
-✅ Message delivered after restart
+1. Save currency + store publication (one transaction)
+2. Commit
+3. Listener sends the message to RabbitMQ
+4. Publication marked completed and kept
 ```
 
-**Scenario 3: RabbitMQ publish fails**
+**Crash after commit, before the listener completes:**
 ```
-1. Save currency + persist event (transaction)
-2. Commit transaction
-3. Publish to RabbitMQ → FAILS
-4. Event remains in event_publication
-5. Spring Modulith retries automatically
-6. Eventually succeeds
-✅ Message delivered after retry
+1. Save currency + store publication, commit
+2. [APPLICATION STOPS]
+3. Publication stays PUBLISHED or PROCESSING; nothing resubmits it
+4. Next startup import (or the 23:00 UTC import) imports the series from its latest stored rate
 ```
+
+**Listener fails (for example, RabbitMQ unavailable):**
+```
+1. Save currency + store publication, commit
+2. Listener throws; publication marked FAILED and stays incomplete
+3. Nothing resubmits it
+4. Next startup import (or the 23:00 UTC import) imports the series from its latest stored rate
+```
+
+The outbox records the import request atomically and never sends for a rolled-back change.
+Delivery of a failed send relies on import reconciliation: the startup and daily imports cover every
+enabled series. With `import-on-startup: false`, a lost request waits for the scheduled run. See
+[configuration.md](configuration.md#outbox-recovery) for why the service does not republish
+publications on restart.
+
+Publisher confirms are not configured, so a `COMPLETED` publication means `StreamBridge.send`
+returned, not that the broker accepted and routed the message. A send lost after that point leaves
+no `FAILED` row and is recovered by the same reconciliation. See
+[configuration.md](configuration.md#transactional-outbox).
+
+Spring Cloud Stream consumer retries and the dead-letter queue cover only messages that reached
+RabbitMQ. They never retry a failed outbox send.
+
+A message-driven import and a scheduled or startup import can overlap for the same series. See
+[domain-model.md](domain-model.md#domain-events) for overlapping-import and concurrency behavior.
+
+### Publication Retention
+
+Completed publications are kept permanently in `event_publication` as an audit trail. This uses
+Spring Modulith's default `completion-mode` (`update`) and is deliberate: nothing deletes or
+archives completed rows. Incomplete publications also stay, as a record of failed or interrupted
+sends; nothing resubmits them. See [configuration.md](configuration.md#transactional-outbox) for the
+growth rate and the V8 and U8 schema scripts.
 
 ### RabbitMQ Configuration
 
-**Spring Cloud Stream Bindings:**
 ```yaml
 spring:
   cloud:
+    function:
+      definition: importExchangeRates
     stream:
       bindings:
         exchangeRateImportRequested-out-0:
@@ -547,68 +504,46 @@ spring:
         importExchangeRates-in-0:
           destination: exchange-rate.import.requested
           group: exchange-rate-import-service
+      rabbit:
+        bindings:
+          importExchangeRates-in-0:
+            consumer:
+              auto-bind-dlq: true
+              republish-to-dlq: true
 ```
-
-The external message contract is `ExchangeRateImportRequestedMessage`. `CurrencyService` only
-publishes import-triggering domain events for enabled creates and disabled-to-enabled updates, so
-the listener translates every received domain event into an external import request.
 
 ### Adding New Events
 
-1. **Define event class:**
-```java
-public class CurrencyUpdatedEvent {
-    private final String currencyCode;
-    private final String newName;
-    // Constructor, getters
-}
-```
-
-2. **Publish from service:**
-```java
-@Transactional
-public void updateCurrency(String code, String newName) {
-    var currency = currencyRepository.findById(code)
-        .orElseThrow(() -> new ResourceNotFoundException("Currency not found"));
-
-    currency.setName(newName);
-    currencyRepository.save(currency);
-
-    eventPublisher.publishEvent(new CurrencyUpdatedEvent(code, newName));
-}
-```
-
-3. **Add listener:**
-```java
-@ApplicationModuleListener
-void on(CurrencyUpdatedEvent event) {
-    var message = new CurrencyMessage(event.getCurrencyCode(), event.getNewName());
-    streamBridge.send("currencyUpdated-out-0", message);
-}
-```
-
-4. **Consumers automatically receive** (if bound to the matching destination)
+1. Add a record to `domain/event/`.
+2. Publish it from a service method with `ApplicationEventPublisher`, inside the transaction that
+   changes the data.
+3. Add an `@ApplicationModuleListener` method in `messaging/listener/` that converts it to an
+   external message record in `messaging/message/` and sends it through a publisher in
+   `messaging/publisher/`.
+4. Add the output binding and destination to `application.yml`, and document the new message.
 
 ### Discovery Commands
 
 ```bash
-# Find domain events
-find src/main/java -type f -path "*/domain/event/*.java"
+# Domain events
+find src/main/java -type f -path '*/domain/event/*.java'
 
-# Find event publishers
-grep -r "publishEvent" src/main/java/*/service/
+# Event publishers in services
+rg -n 'publishEvent' src/main/java/org/budgetanalyzer/currency/service
 
-# Find event listeners
-grep -r "@ApplicationModuleListener" src/main/java/*/messaging/
+# Outbox listeners, message sends, and consumers
+rg -n '^\s*@ApplicationModuleListener|streamBridge\.send|Consumer<' \
+  src/main/java/org/budgetanalyzer/currency/messaging
 
-# Find Spring Cloud Stream consumers
-grep -r "Consumer<" src/main/java/*/messaging/
+# Stream and Rabbit configuration, and Modulith settings (test configuration only)
+rg -n -A 19 '^  cloud:' src/main/resources/application.yml
+rg -n 'modulith' src/main/resources/application.yml src/test/resources/application.yml
 
-# View RabbitMQ configuration
-cat src/main/resources/application.yml | grep -A 10 "rabbitmq"
+# Recent event publications (local database)
+psql -d currency -c "SELECT event_type, status, publication_date, completion_date FROM event_publication ORDER BY publication_date DESC LIMIT 10;"
 
-# Check event publication table
-psql -d budget_analyzer -c "SELECT * FROM event_publication ORDER BY publication_date DESC LIMIT 10;"
+# Failed or interrupted publications (local database)
+psql -d currency -c "SELECT event_type, status, publication_date FROM event_publication WHERE status <> 'COMPLETED' ORDER BY publication_date DESC;"
 ```
 
 ## Testing Advanced Patterns
@@ -618,34 +553,36 @@ Follow the
 before adding or changing tests. Keep application-owned providers, services, repositories,
 listeners, consumers, and schedulers real. Use the infrastructure boundary that matches the
 behavior: Testcontainers for PostgreSQL, Redis, and RabbitMQ; WireMock for FRED HTTP responses.
+Test fixtures live in `src/test/java/org/budgetanalyzer/currency/fixture/`.
 
 ### Provider Abstraction Testing
 
 Run the real provider and FRED client against WireMock. Assert the provider result or mapped error,
-not calls between application beans. The shared `AbstractWireMockTest` also supplies the
+not calls between application beans. `AbstractWireMockTest` supplies the WireMock server and the
 Testcontainers application context.
 
 ```java
 class FredExchangeRateProviderIntegrationTest extends AbstractWireMockTest {
 
-    @Autowired
-    private ExchangeRateProvider exchangeRateProvider;
+  @Autowired private FredExchangeRateProvider fredExchangeRateProvider;
 
-    @Test
-    void shouldFetchRatesFromFredResponse() {
-        FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
-        var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
+  @Test
+  void shouldFetchFullHistoryWhenStartDateIsNull() {
+    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
 
-        var rates = exchangeRateProvider.getExchangeRates(currencySeries, null);
+    var rates = fredExchangeRateProvider.getExchangeRates(eurSeries, null);
 
-        assertThat(rates).hasSize(8);
-    }
+    // Sample data has 10 days; the two weekend observations are "." and are filtered out
+    assertThat(rates).hasSize(8);
+  }
 }
 ```
 
 See
 [`FredExchangeRateProviderIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/service/provider/FredExchangeRateProviderIntegrationTest.java)
-for success, transformation, missing-data, and provider-error coverage.
+for transformation, missing-data, and provider-error coverage, and
+[`FredClientIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/client/fred/FredClientIntegrationTest.java)
+for HTTP error mapping.
 
 ### ShedLock Testing
 
@@ -654,74 +591,92 @@ count. Test scheduler-owned import and retry outcomes with the real application 
 Testcontainers PostgreSQL, controlled WireMock responses, persisted rates, and metrics. When retry
 timing must be deterministic, use a focused recording implementation of Spring's `TaskScheduler`
 that exposes the scheduled task and time; do not replace the application import service.
+[`ExchangeRateImportSchedulerIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/scheduler/ExchangeRateImportSchedulerIntegrationTest.java)
+does this with its `RecordingTaskScheduler`.
 
-The full application integration context validates that the JDBC lock provider and Flyway-managed
-`shedlock` table can start together. Multi-pod lock coordination belongs to deployed-system
+[`ExchangeRateImportSchedulerLockIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/scheduler/ExchangeRateImportSchedulerLockIntegrationTest.java)
+checks the application's lock configuration (the `ShedLockConfig` provider plus the
+`@SchedulerLock` annotation) against the Flyway-managed `shedlock` table. It calls the
+application's ShedLock-proxied `ExchangeRateImportScheduler` bean with FRED stubbed for one enabled
+series, then asserts that the `exchangeRateImport` row's `locked_at` is within a few seconds of
+`now() AT TIME ZONE 'utc'` from the same database and that `lock_until` is one minute
+(`lockAtLeastFor`) after `locked_at`. A second immediate call is skipped: the FRED request count
+and the lock row stay unchanged. Multi-pod lock coordination belongs to deployed-system
 verification.
 
 ### Redis Caching Testing
 
-Enable the real Redis cache only in cache-specific tests. Drive the mutation through the real API or
-service and assert the affected cache entry or returned data.
+The test configuration sets `spring.cache.type: none`. Enable the real Redis cache only in
+cache-specific tests, drive reads and mutations through the real API or service, and assert the
+cache entry or the returned data.
 
 ```java
 @TestPropertySource(properties = "spring.cache.type=redis")
 class ExchangeRateImportCacheIntegrationTest extends AbstractControllerTest {
 
-    @Autowired
-    private CacheManager cacheManager;
+  @Test
+  void shouldEvictCacheAfterImport() throws Exception {
+    currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().build());
+    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
+    cache.put("EUR:2024-01-01:2024-01-05", "some cached data");
+    FredApiStubs.stubSuccessWithObservations(
+        TestConstants.FRED_SERIES_EUR,
+        List.of(new FredApiStubs.Observation("2024-01-01", "0.8500")));
 
-    @Test
-    void shouldEvictCacheAfterImport() throws Exception {
-        var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
-        cache.put("EUR:2024-01-01:2024-01-05", "cached data");
-        FredApiStubs.stubSuccessWithObservations(
-            TestConstants.FRED_SERIES_EUR,
-            List.of(new FredApiStubs.Observation("2024-01-01", "0.8500")));
+    performPost("/v1/exchange-rates/import", "").andExpect(status().isOk());
 
-        performPost("/v1/exchange-rates/import", "").andExpect(status().isOk());
-
-        assertThat(cache.get("EUR:2024-01-01:2024-01-05")).isNull();
-    }
+    assertThat(cache.get("EUR:2024-01-01:2024-01-05")).isNull();
+  }
 }
 ```
 
 See
 [`ExchangeRateImportCacheIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/api/ExchangeRateImportCacheIntegrationTest.java)
-for the complete persisted setup and authenticated API request.
+for eviction, cached empty and non-empty results read back from Redis, the `currency-service:` key
+namespace, and an entry expiry that is positive and at most `CacheConfig.EXCHANGE_RATES_TTL`.
+[`ExchangeRateImportServiceIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/service/ExchangeRateImportServiceIntegrationTest.java)
+covers eviction for each import method and an unchanged cache after rollback.
 
 ### Event-Driven Messaging Testing
 
 Run the real listener, publisher, RabbitMQ binding, consumer, import service, and repositories.
-Assert completed outbox events and imported database rows instead of publisher invocation counts.
+Assert completed outbox publications and imported database rows instead of publisher invocation
+counts.
 
 ```java
 class EventListenerIntegrationTest extends AbstractWireMockTest {
 
-    @Autowired
-    private CurrencyService currencyService;
+  @Test
+  void shouldOnlyPublishImportEventForEnabledCurrency() {
+    FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
+    FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
+    // ...same stubs for GBP
+    var createdEnabled =
+        currencyService.create(CurrencySeriesTestBuilder.defaultEur().enabled(true).build());
+    var createdDisabled =
+        currencyService.create(CurrencySeriesTestBuilder.defaultGbp().enabled(false).build());
 
-    @Autowired
-    private ExchangeRateRepository exchangeRateRepository;
-
-    @Test
-    void shouldOnlyPublishImportEventForEnabledCurrency() {
-        FredApiStubs.stubSeriesExistsSuccess(TestConstants.FRED_SERIES_EUR);
-        FredApiStubs.stubSuccessWithSampleData(TestConstants.FRED_SERIES_EUR);
-        var currencySeries = CurrencySeriesTestBuilder.defaultEur().build();
-
-        var created = currencyService.create(currencySeries);
-
-        await().untilAsserted(() -> {
-            assertThat(testDatabaseHelper.countCompletedEvents()).isOne();
-            assertThat(exchangeRateRepository.countByCurrencySeries(created)).isEqualTo(8);
-        });
-    }
+    await()
+        .atMost(WAIT_TIME, SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(testDatabaseHelper.countCompletedEvents()).isEqualTo(1L);
+              assertThat(exchangeRateRepository.countByCurrencySeries(createdEnabled))
+                  .isEqualTo(8L);
+              assertThat(exchangeRateRepository.countByCurrencySeries(createdDisabled))
+                  .isEqualTo(0L);
+            });
+  }
 }
 ```
 
+The test configuration keeps completed publications (`completion-mode: update`) so tests can count
+them.
+
 See [`EventListenerIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/messaging/EventListenerIntegrationTest.java)
-for enabled/disabled event filtering and
+for enabled and disabled event filtering,
+[`MessageConsumerIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/messaging/MessageConsumerIntegrationTest.java)
+for consumer behavior, and
 [`EndToEndMessagingFlowIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/integration/EndToEndMessagingFlowIntegrationTest.java)
 for broker-driven consumption, concurrency, and imported-rate outcomes.
 
@@ -729,54 +684,46 @@ for broker-driven consumption, concurrency, and imported-rate outcomes.
 
 ### Provider Pattern
 
-✅ **Do:**
-- Service depends on interface only
-- Provider names never in service layer
-- Use Spring profiles for provider selection
+**Do:**
+- Depend on `ExchangeRateProvider` in services.
+- Keep FRED-specific types in `client.fred` and `FredExchangeRateProvider`.
+- Map provider failures to `ClientException`.
 
-❌ **Don't:**
-- Service importing concrete provider
-- Hardcode provider logic in service
-- Mix provider concerns with business logic
+**Don't:**
+- Import a concrete provider or client into a service.
+- Mix provider response handling with business rules.
 
 ### Distributed Locking
 
-✅ **Do:**
-- Use database-backed locks (PostgreSQL)
-- Set `lockAtMostFor` = task duration × 10-30
-- Set `lockAtLeastFor` = 10-20% of interval
-- Use unique lock names per task
+**Do:**
+- Use the PostgreSQL-backed lock provider with database time (`usingDbTime()`).
+- Set `lockAtMostFor` above the longest expected run and `lockAtLeastFor` below the schedule
+  interval.
+- Use a unique lock name per task.
 
-❌ **Don't:**
-- Use in-memory locks (not distributed)
-- Set timeout shorter than task duration
-- Reuse lock names across different tasks
-- Forget to test multi-pod behavior
+**Don't:**
+- Rely on in-memory locks.
+- Reuse lock names across tasks.
 
 ### Caching
 
-✅ **Do:**
-- Cache slow queries with repeated parameters
-- Use meaningful cache keys
-- Evict cache when data changes
-- Monitor cache hit rates
+**Do:**
+- Cache repeated reads that change only on a known write path.
+- Evict on every write path that changes cached data.
+- Return mutable `ArrayList` or `Collections.emptyList()` from cacheable methods.
 
-❌ **Don't:**
-- Cache fast operations
-- Cache frequently changing data
-- Forget to evict on updates
-- Use cache for security decisions
+**Don't:**
+- Return `List.of()` or `Stream.toList()` results from cacheable methods.
+- Use the cache for security decisions.
 
 ### Messaging
 
-✅ **Do:**
-- Use transactional outbox for reliability
-- Publish domain events from service
-- Bridge to external broker in listener
-- Make consumers idempotent
+**Do:**
+- Publish domain events from services inside the transaction.
+- Bridge events to the broker in listeners.
+- Make consumers tolerate duplicate messages.
 
-❌ **Don't:**
-- Publish directly to RabbitMQ in transaction
-- Put broker logic in service layer
-- Assume exactly-once delivery
-- Couple services via synchronous calls
+**Don't:**
+- Send to RabbitMQ from inside a service transaction.
+- Inject message publishers into services.
+- Assume exactly-once delivery.
