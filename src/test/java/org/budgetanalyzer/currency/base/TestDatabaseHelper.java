@@ -83,6 +83,18 @@ public class TestDatabaseHelper {
   }
 
   /**
+   * Counts the Spring Modulith event publications in a lifecycle status.
+   *
+   * @param status the {@code event_publication.status} value, such as {@code COMPLETED} or {@code
+   *     FAILED}
+   * @return the count of publications in the status
+   */
+  public Long countEventsByStatus(String status) {
+    var sql = "SELECT COUNT(*) FROM event_publication WHERE status = ?";
+    return jdbcTemplate.queryForObject(sql, Long.class, status);
+  }
+
+  /**
    * Finds the ShedLock row for a lock name.
    *
    * @param lockName the {@code shedlock.name} value

@@ -381,9 +381,35 @@ void onCurrencyCreated(CurrencyCreatedEvent event) {
 }
 ```
 
-`ExchangeRateImportMessagePublisher` sends the message with
-`streamBridge.send("exchangeRateImportRequested-out-0", message)`. The service never injects the
-publisher.
+`ExchangeRateImportMessagePublisher` sends the message with a per-message `CorrelationData` and
+waits for the broker's publisher confirm (abridged):
+
+```java
+var correlationData = new CorrelationData(UUID.randomUUID().toString());
+var outboundMessage =
+    MessageBuilder.withPayload(message)
+        .setHeader(AmqpHeaders.PUBLISH_CONFIRM_CORRELATION, correlationData)
+        .build();
+
+if (!streamBridge.send(EXCHANGE_RATE_IMPORT_REQUESTED_BINDING, outboundMessage)) {
+  throw new MessagePublishException("Binding rejected message: ...");
+}
+
+// awaitBrokerConfirm(correlationData, publishConfirmTimeout):
+var confirm = correlationData.getFuture().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+if (correlationData.getReturned() != null) {
+  throw new MessagePublishException("Broker returned unroutable message: ...");
+}
+if (!confirm.ack()) {
+  throw new MessagePublishException("Broker nacked message: ...");
+}
+```
+
+A timeout, an interrupt, or a failed confirm future also throws `MessagePublishException`. The
+returned message is checked first, because the broker returns an unroutable mandatory message and
+then acks it. The exception fails the listener, so the publication becomes `FAILED`. See
+[configuration.md](configuration.md#publisher-confirms) for the confirm properties, the timeout,
+and where the wait runs. The service never injects the publisher.
 
 **4. `ExchangeRateImportConsumer` imports the series:**
 
@@ -417,11 +443,13 @@ retry policy.
 3. The transaction commits the currency change and the publication together.
 4. After commit, Spring Modulith invokes the `@ApplicationModuleListener` method asynchronously on
    the task executor.
-5. The listener sends `ExchangeRateImportRequestedMessage` to `exchange-rate.import.requested`.
-6. When the listener returns, Spring Modulith marks the publication completed
-   (`status = 'COMPLETED'`, `completion_date` set). The row is kept permanently as an audit trail.
-   Spring Modulith invokes the listener once per publication. If it throws, the publication is
-   marked `FAILED` and nothing resubmits it.
+5. The listener sends `ExchangeRateImportRequestedMessage` to `exchange-rate.import.requested`
+   and waits on the task-executor thread for the broker's publisher confirm.
+6. When the broker confirms and routes the message, the listener returns and Spring Modulith marks
+   the publication completed (`status = 'COMPLETED'`, `completion_date` set). The row is kept
+   permanently as an audit trail. Spring Modulith invokes the listener once per publication. If the
+   send fails, or the broker nacks, returns, or does not confirm the message in time, the listener
+   throws, the publication is marked `FAILED`, and nothing resubmits it.
 7. A consumer in the `exchange-rate-import-service` group imports rates for the series.
 
 ### Operational Logging
@@ -445,8 +473,9 @@ in the MDC on both sides.
 ```
 1. Save currency + store publication (one transaction)
 2. Commit
-3. Listener sends the message to RabbitMQ
-4. Publication marked completed and kept
+3. Listener sends the message to RabbitMQ and waits for the publisher confirm
+4. Broker confirms and routes the message
+5. Publication marked completed and kept
 ```
 
 **Crash after commit, before the listener completes:**
@@ -465,16 +494,21 @@ in the MDC on both sides.
 4. Next startup import (or the 23:00 UTC import) imports the series from its latest stored rate
 ```
 
+**Broker rejects or cannot route the message:**
+```
+1. Save currency + store publication, commit
+2. Listener sends the message; the broker nacks it, returns it as unroutable,
+   or sends no confirm within the timeout
+3. Publisher throws MessagePublishException; publication marked FAILED and stays incomplete
+4. Nothing resubmits it
+5. Next startup import (or the 23:00 UTC import) imports the series from its latest stored rate
+```
+
 The outbox records the import request atomically and never sends for a rolled-back change.
 Delivery of a failed send relies on import reconciliation: the startup and daily imports cover every
 enabled series. With `import-on-startup: false`, a lost request waits for the scheduled run. See
 [configuration.md](configuration.md#outbox-recovery) for why the service does not republish
 publications on restart.
-
-Publisher confirms are not configured, so a `COMPLETED` publication means `StreamBridge.send`
-returned, not that the broker accepted and routed the message. A send lost after that point leaves
-no `FAILED` row and is recovered by the same reconciliation. See
-[configuration.md](configuration.md#transactional-outbox).
 
 Spring Cloud Stream consumer retries and the dead-letter queue cover only messages that reached
 RabbitMQ. They never retry a failed outbox send.
@@ -506,11 +540,24 @@ spring:
           group: exchange-rate-import-service
       rabbit:
         bindings:
+          exchangeRateImportRequested-out-0:
+            producer:
+              use-confirm-header: true
           importExchangeRates-in-0:
             consumer:
               auto-bind-dlq: true
               republish-to-dlq: true
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+currency-service:
+  messaging:
+    publish-confirm-timeout-seconds: 10
 ```
+
+See [configuration.md](configuration.md#publisher-confirms) for what each confirm key does and how
+correlated confirms affect the DLQ republish.
 
 ### Adding New Events
 
@@ -520,7 +567,12 @@ spring:
 3. Add an `@ApplicationModuleListener` method in `messaging/listener/` that converts it to an
    external message record in `messaging/message/` and sends it through a publisher in
    `messaging/publisher/`.
-4. Add the output binding and destination to `application.yml`, and document the new message.
+4. Make the publisher use the same confirm pattern as `ExchangeRateImportMessagePublisher`: attach
+   a unique `CorrelationData`, wait for the confirm with a bounded timeout, and throw on a nack, a
+   returned message, or a timeout so that the listener fails and the publication is marked
+   `FAILED`. Do not let a publisher return before the broker confirms.
+5. Add the output binding and destination to `application.yml`, set `use-confirm-header: true` on
+   its Rabbit producer binding, and document the new message.
 
 ### Discovery Commands
 
@@ -536,8 +588,13 @@ rg -n '^\s*@ApplicationModuleListener|streamBridge\.send|Consumer<' \
   src/main/java/org/budgetanalyzer/currency/messaging
 
 # Stream and Rabbit configuration, and Modulith settings (test configuration only)
-rg -n -A 19 '^  cloud:' src/main/resources/application.yml
+rg -n -A 23 '^  cloud:' src/main/resources/application.yml
 rg -n 'modulith' src/main/resources/application.yml src/test/resources/application.yml
+
+# Publisher confirm configuration and the confirm wait
+rg -n 'publisher-confirm-type|publisher-returns|use-confirm-header|publish-confirm-timeout' \
+  src/main/resources/application.yml src/test/resources/application.yml
+rg -n 'PUBLISH_CONFIRM_CORRELATION|awaitBrokerConfirm|MessagePublishException' src/main/java
 
 # Recent event publications (local database)
 psql -d currency -c "SELECT event_type, status, publication_date, completion_date FROM event_publication ORDER BY publication_date DESC LIMIT 10;"
@@ -675,6 +732,11 @@ them.
 
 See [`EventListenerIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/messaging/EventListenerIntegrationTest.java)
 for enabled and disabled event filtering,
+[`PublisherConfirmIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/messaging/PublisherConfirmIntegrationTest.java)
+for broker outcomes against the real broker (a routed message completes the publication; an
+unroutable or nacked one leaves it `FAILED`),
+[`ExchangeRateImportMessagePublisherTest`](../src/test/java/org/budgetanalyzer/currency/messaging/publisher/ExchangeRateImportMessagePublisherTest.java)
+for every confirm-wait branch, including the timeout,
 [`MessageConsumerIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/messaging/MessageConsumerIntegrationTest.java)
 for consumer behavior, and
 [`EndToEndMessagingFlowIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/integration/EndToEndMessagingFlowIntegrationTest.java)
@@ -721,6 +783,8 @@ for broker-driven consumption, concurrency, and imported-rate outcomes.
 **Do:**
 - Publish domain events from services inside the transaction.
 - Bridge events to the broker in listeners.
+- Wait for a publisher confirm, and fail the listener on a nack, a returned message, or a confirm
+  timeout.
 - Make consumers tolerate duplicate messages.
 
 **Don't:**

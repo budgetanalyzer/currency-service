@@ -15,6 +15,7 @@ import org.budgetanalyzer.core.logging.Sensitive;
 public class CurrencyServiceProperties {
 
   @Valid private ExchangeRateImport exchangeRateImport = new ExchangeRateImport();
+  @Valid private Messaging messaging = new Messaging();
 
   public ExchangeRateImport getExchangeRateImport() {
     return exchangeRateImport;
@@ -22,6 +23,30 @@ public class CurrencyServiceProperties {
 
   public void setExchangeRateImport(ExchangeRateImport exchangeRateImport) {
     this.exchangeRateImport = exchangeRateImport;
+  }
+
+  public Messaging getMessaging() {
+    return messaging;
+  }
+
+  public void setMessaging(Messaging messaging) {
+    this.messaging = messaging;
+  }
+
+  public static class Messaging {
+
+    /** Maximum time in seconds to wait for a RabbitMQ publisher confirm. */
+    @Min(1)
+    @Max(60)
+    private int publishConfirmTimeoutSeconds = 10;
+
+    public int getPublishConfirmTimeoutSeconds() {
+      return publishConfirmTimeoutSeconds;
+    }
+
+    public void setPublishConfirmTimeoutSeconds(int publishConfirmTimeoutSeconds) {
+      this.publishConfirmTimeoutSeconds = publishConfirmTimeoutSeconds;
+    }
   }
 
   public static class ExchangeRateImport {

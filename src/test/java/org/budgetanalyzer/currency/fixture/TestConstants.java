@@ -1,6 +1,7 @@
 package org.budgetanalyzer.currency.fixture;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Currency;
 
@@ -233,6 +234,66 @@ public final class TestConstants {
 
   /** HTTP 500 Internal Server Error. */
   public static final int HTTP_INTERNAL_SERVER_ERROR = 500;
+
+  // ===========================================================================================
+  // RabbitMQ Publisher Confirms
+  // ===========================================================================================
+
+  /** Correlation id for a publisher-confirm test message. */
+  public static final String PUBLISH_CORRELATION_ID = "test-correlation-id";
+
+  /** Exchange used by the exchange rate import requested binding. */
+  public static final String EXCHANGE_RATE_IMPORT_REQUESTED_EXCHANGE =
+      "exchange-rate.import.requested";
+
+  /** Routing key for a publisher-confirm test message. */
+  public static final String PUBLISH_ROUTING_KEY = "exchange-rate.import.requested";
+
+  /** AMQP reply code for an unroutable mandatory message. */
+  public static final int AMQP_REPLY_CODE_NO_ROUTE = 312;
+
+  /** AMQP reply text for an unroutable mandatory message. */
+  public static final String AMQP_REPLY_TEXT_NO_ROUTE = "NO_ROUTE";
+
+  /** Reason reported with a broker nack. */
+  public static final String PUBLISH_NACK_REASON = "broker internal error";
+
+  /** Confirm wait long enough for an already-completed confirm future. */
+  public static final Duration PUBLISH_CONFIRM_TIMEOUT = Duration.ofSeconds(1);
+
+  /** Short confirm wait for a confirm future that never completes. */
+  public static final Duration PUBLISH_CONFIRM_TIMEOUT_SHORT = Duration.ofMillis(50);
+
+  /** Prefix of the per-run producer destination used by publisher-confirm broker tests. */
+  public static final String PUBLISH_CONFIRM_TEST_DESTINATION_PREFIX =
+      "exchange-rate.import.requested.confirm-test-";
+
+  /** Prefix of the queues that publisher-confirm broker tests bind to the test destination. */
+  public static final String PUBLISH_CONFIRM_TEST_QUEUE_PREFIX = "publisher-confirm-test-";
+
+  /** Topic binding key that routes every message published to an exchange. */
+  public static final String TOPIC_ROUTING_KEY_ALL = "#";
+
+  /** RabbitMQ queue argument that limits the number of ready messages. */
+  public static final String RABBIT_ARG_MAX_LENGTH = "x-max-length";
+
+  /** RabbitMQ queue argument that selects the overflow behavior. */
+  public static final String RABBIT_ARG_OVERFLOW = "x-overflow";
+
+  /** Overflow behavior that makes the broker nack publishes to a full queue. */
+  public static final String RABBIT_OVERFLOW_REJECT_PUBLISH = "reject-publish";
+
+  /** Queue length limit that makes every publish overflow. */
+  public static final int RABBIT_MAX_LENGTH_ZERO = 0;
+
+  /** Spring Modulith publication status for a completed listener. */
+  public static final String EVENT_PUBLICATION_STATUS_COMPLETED = "COMPLETED";
+
+  /** Spring Modulith publication status for a failed listener. */
+  public static final String EVENT_PUBLICATION_STATUS_FAILED = "FAILED";
+
+  /** Maximum wait for a broker confirm or return to settle an outbox publication. */
+  public static final Duration PUBLISH_OUTCOME_WAIT = Duration.ofSeconds(5);
 
   private TestConstants() {
     throw new UnsupportedOperationException("Utility class - do not instantiate");
