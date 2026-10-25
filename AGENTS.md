@@ -132,6 +132,11 @@ rg -n 'renovate|dependency-submission|upload-artifact' renovate.json .github/wor
   service layer must never reference FRED-specific clients or types.
 - Publish domain events from services. Do not inject message publishers into
   services; bridge domain events to external messages in listeners.
+- Make every RabbitMQ outbox publisher wait for a publisher confirm, and throw
+  on a nack, a returned message, or a confirm timeout so the publication is
+  marked `FAILED`. Never treat a returned `StreamBridge.send` as delivery.
+  Before adding or changing a publisher, read the confirm pattern in
+  [docs/advanced-patterns-usage.md](docs/advanced-patterns-usage.md#event-driven-messaging).
 - Apply `@SchedulerLock` to scheduled work that must execute once across pods.
 - Cache read paths only where the documented cache strategy calls for it, and
   evict affected cache entries after imports or mutations.

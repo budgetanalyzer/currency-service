@@ -84,12 +84,18 @@ spring:
 
       rabbit:
         bindings:
+          exchangeRateImportRequested-out-0:
+            producer:
+              use-confirm-header: true          # Confirm and return via CorrelationData header
+
           importExchangeRates-in-0:
             consumer:
               auto-bind-dlq: true              # Dead letter queue
               republish-to-dlq: true            # Preserve original message
 
   rabbitmq:
+    publisher-confirm-type: correlated  # Broker confirms each publish
+    publisher-returns: true             # Broker returns unroutable mandatory messages
     host: ${SPRING_RABBITMQ_HOST:${RABBITMQ_HOST:localhost}}
     port: ${SPRING_RABBITMQ_PORT:${RABBITMQ_PORT:5671}}
     username: ${SPRING_RABBITMQ_USERNAME:${RABBITMQ_USERNAME:currency-service}}
@@ -138,6 +144,9 @@ currency-service:
       max-attempts: 3
       # Delay between retries in minutes
       delay-minutes: 1
+
+  messaging:
+    publish-confirm-timeout-seconds: 10  # Max wait for a RabbitMQ publisher confirm
 
 budgetanalyzer:
   service:

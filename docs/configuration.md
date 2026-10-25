@@ -81,6 +81,12 @@ Redis, and RabbitMQ require them.
 | `retry.max-attempts` | `3` | Total scheduled-import attempts, including the first, 1 to 10 |
 | `retry.delay-minutes` | `1` | Delay between scheduled-import attempts, 1 to 60. The Java default is 5; `application.yml` sets 1. |
 
+`currency-service.messaging.*` also binds to `CurrencyServiceProperties`:
+
+| Property | `application.yml` value | Notes |
+|---|---|---|
+| `publish-confirm-timeout-seconds` | `10` | Longest wait for the RabbitMQ publisher confirm of an import request, 1 to 60. See [Publisher Confirms](#publisher-confirms). |
+
 `budgetanalyzer.service.http-logging.*` configures service-common's HTTP request logging. It logs
 request bodies, not response bodies, at `DEBUG`, up to 10000 bytes. Actuator, Swagger UI, and
 OpenAPI paths are excluded by default.
@@ -156,6 +162,35 @@ distributed locking details.
 
 All pods share the consumer group, so each import request is consumed by one pod.
 
+### Publisher Confirms
+
+Import request sends use RabbitMQ publisher confirms and returns:
+
+| Property | Value | Effect |
+|---|---|---|
+| `spring.rabbitmq.publisher-confirm-type` | `correlated` | The broker confirms each publish, and Spring AMQP completes the message's `CorrelationData` with an ack or a nack. |
+| `spring.rabbitmq.publisher-returns` | `true` | The broker returns an unroutable mandatory message, and Spring AMQP attaches it to its `CorrelationData`. |
+| `spring.cloud.stream.rabbit.bindings.exchangeRateImportRequested-out-0.producer.use-confirm-header` | `true` | The binder publishes the message as mandatory and correlates the confirm and return through the `CorrelationData` in the message's `AmqpHeaders.PUBLISH_CONFIRM_CORRELATION` header. |
+
+No producer `error-channel-enabled` or `confirm-ack-channel` is set. `PublisherConfirmIntegrationTest`
+shows that these three keys alone correlate acks, nacks, and returns.
+
+`ExchangeRateImportMessagePublisher` waits for the confirm for at most
+`currency-service.messaging.publish-confirm-timeout-seconds`. It returns only when the broker acked
+the message and did not return it. Otherwise it throws `MessagePublishException`.
+
+- **Where the wait runs:** only on the Spring Modulith task-executor thread (`async-task-*`) that
+  runs the outbox listener after the currency transaction commits. HTTP responses never wait for
+  RabbitMQ.
+- **How long it lasts:** a healthy broker confirms within milliseconds. A persistent message on a
+  durable queue can take tens of milliseconds while the broker writes it to disk. The timeout
+  bounds the wait only when the broker is unhealthy.
+- **Why each message is awaited:** import requests are low volume, one per enabled currency create
+  or enablement. Waiting on each message limits throughput to hundreds of messages per second,
+  which this service never approaches.
+- **Nack reason:** a nack can arrive without a reason. For example, RabbitMQ gives none when a
+  `x-overflow: reject-publish` queue is full.
+
 ### Consumer Retry and Dead Letters
 
 No retry properties are set, so Spring Cloud Stream's consumer defaults apply: 3 attempts, 1 s
@@ -165,26 +200,33 @@ binder republishes the message to the dead-letter queue (`auto-bind-dlq: true`,
 set `spring.cloud.stream.bindings.importExchangeRates-in-0.consumer.max-attempts` and the
 `back-off-*` keys beside it.
 
+Because the connection factory uses correlated confirms, the binder's DLQ republish also waits up
+to 10 s, a value fixed in the binder, for its own confirm. If the broker nacks or returns the
+republished message, or the wait times out, the binder rejects the original message without
+requeueing it instead of acknowledging it.
+
 ### Transactional Outbox
 
 - Spring Modulith stores each domain-event publication in `event_publication` in the same
   transaction as the currency change.
 - When the listener succeeds, the publication is completed in the default `completion-mode`
-  (`update`): it gets a `completion_date` and `status = 'COMPLETED'`.
+  (`update`): it gets a `completion_date` and `status = 'COMPLETED'`. **`COMPLETED` means the
+  broker confirmed and routed the import request message.**
 - **Every completed publication is kept permanently as an audit trail.** This is deliberate. There
   is no time-based cleanup or archiving, so `event_publication` grows by one row for each
   import-triggering currency create or update, which is one row per import request sent.
 - Spring Modulith invokes the listener once per publication. A listener that throws leaves the
   publication `FAILED` and incomplete. A crash after commit but before the listener completes
   leaves it `PUBLISHED` or `PROCESSING`. Nothing resubmits either one.
-- A send fails the listener only when `StreamBridge.send` throws, for example when the RabbitMQ
-  connection is unavailable. Publisher confirms and returns are not configured, so an unroutable
-  message, an asynchronous broker refusal, or a broker failure before persistence still leaves the
-  publication `COMPLETED` with no record of the loss. Import reconciliation recovers these the same
-  way as a `FAILED` send. See
-  [rabbitmq-publisher-confirms.md](issues/rabbitmq-publisher-confirms.md) for the planned fix.
+- The listener fails, and the publication is marked `FAILED`, in any of these cases:
+  - The send cannot reach RabbitMQ, for example because the connection is unavailable.
+  - The broker nacks the message.
+  - The broker returns the message as unroutable.
+  - No confirm arrives within the [confirm timeout](#publisher-confirms).
 - Incomplete publications stay in `event_publication` as a record of failed or interrupted sends.
-  Find them with `status <> 'COMPLETED'` or `completion_date IS NULL`.
+  Find them with `status <> 'COMPLETED'` or `completion_date IS NULL`. Because confirms make the
+  statuses accurate, this finds every failed send. The exception is a crash during the confirm wait,
+  which leaves the publication `PROCESSING`.
 - [Consumer retries and the dead-letter queue](#consumer-retry-and-dead-letters) cover only
   messages that reached RabbitMQ. They never retry a failed outbox send.
 

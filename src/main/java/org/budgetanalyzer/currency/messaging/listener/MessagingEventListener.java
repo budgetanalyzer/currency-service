@@ -33,15 +33,17 @@ import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
  *       where data is saved but the import request is never recorded.
  *   <li><b>Async Processing:</b> After the transaction commits, Spring Modulith invokes the
  *       listener method asynchronously on a background thread.
- *   <li><b>External Publishing:</b> The listener method publishes the message to RabbitMQ.
+ *   <li><b>External Publishing:</b> The listener method publishes the message to RabbitMQ and waits
+ *       for the broker's publisher confirm, bounded by {@code
+ *       currency-service.messaging.publish-confirm-timeout-seconds}.
  *   <li><b>Completion:</b> When the listener returns normally, the publication is marked completed
- *       ({@code status = 'COMPLETED'} with a {@code completion_date}). With the default {@code
- *       completion-mode} of {@code update}, the completed row is kept permanently as an intentional
- *       audit trail. Publisher confirms are not configured, so {@code COMPLETED} means {@code
- *       StreamBridge.send} returned, not that the broker accepted and routed the message.
- *   <li><b>Failure:</b> Spring Modulith invokes the listener once per publication. When the
- *       listener throws, the publication is marked {@code FAILED} and stays incomplete (no {@code
- *       completion_date}). Nothing resubmits it.
+ *       ({@code status = 'COMPLETED'} with a {@code completion_date}). {@code COMPLETED} means the
+ *       broker confirmed and routed the message. With the default {@code completion-mode} of {@code
+ *       update}, the completed row is kept permanently as an intentional audit trail.
+ *   <li><b>Failure:</b> Spring Modulith invokes the listener once per publication. When the send
+ *       fails, or the broker nacks the message, returns it as unroutable, or does not confirm it
+ *       within the timeout, the listener throws. The publication is marked {@code FAILED} and stays
+ *       incomplete (no {@code completion_date}). Nothing resubmits it.
  *   <li><b>Interruption:</b> A crash after commit but before the listener completes leaves the
  *       publication {@code PUBLISHED} or {@code PROCESSING}. Nothing resubmits it either.
  *   <li><b>Recovery:</b> The startup import and the daily scheduled import each load every enabled
@@ -60,7 +62,7 @@ import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
  *   <li><b>Decoupled Services:</b> Service layer publishes domain events without knowledge of
  *       external messaging infrastructure
  *   <li><b>Async HTTP Responses:</b> HTTP requests return immediately after database commit without
- *       waiting for RabbitMQ publishing
+ *       waiting for RabbitMQ publishing or the publisher confirm
  *   <li><b>Audit Trail:</b> Completed publications remain in the {@code event_publication} table
  * </ul>
  *
@@ -68,14 +70,18 @@ import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
  *
  * <p>Listener methods are invoked on background threads managed by Spring Modulith's event
  * publication executor. MDC (Mapped Diagnostic Context) is used to propagate correlation IDs across
- * thread boundaries for distributed tracing.
+ * thread boundaries for distributed tracing. The publisher-confirm wait blocks only that executor
+ * thread, after the business transaction commits and never on the HTTP request thread, and lasts at
+ * most the configured confirm timeout.
  *
  * <p><b>Error Handling:</b>
  *
- * <p>Exceptions thrown from listener methods mark the publication {@code FAILED}. The incomplete
- * publication remains in the {@code event_publication} table as a record of the failed send. The
- * service intentionally does not republish outstanding publications on restart and adds no
- * resubmission code; the startup and daily imports reconcile every enabled series instead.
+ * <p>Exceptions thrown from listener methods mark the publication {@code FAILED}. This includes the
+ * {@link org.budgetanalyzer.currency.messaging.publisher.MessagePublishException} that the
+ * publisher throws on a nack, a returned message, or a confirm timeout. The incomplete publication
+ * remains in the {@code event_publication} table as a record of the failed send. The service
+ * intentionally does not republish outstanding publications on restart and adds no resubmission
+ * code; the startup and daily imports reconcile every enabled series instead.
  *
  * @see CurrencyCreatedEvent
  * @see ExchangeRateImportMessagePublisher
@@ -118,11 +124,13 @@ public class MessagingEventListener {
    *       with the event payload
    *   <li>Correlation ID is set in MDC for distributed tracing
    *   <li>An import request message is published to RabbitMQ via {@link
-   *       ExchangeRateImportMessagePublisher}
-   *   <li>On success, Spring Modulith marks the publication completed and keeps it as an audit
-   *       record
-   *   <li>On failure, Spring Modulith marks the publication failed and does not resubmit it; the
-   *       next startup or scheduled import reconciles the series
+   *       ExchangeRateImportMessagePublisher}, which waits at most the configured confirm timeout
+   *       for the broker to confirm it
+   *   <li>When the broker confirms and routes the message, Spring Modulith marks the publication
+   *       completed and keeps it as an audit record
+   *   <li>When the send fails, or the broker nacks, returns, or does not confirm the message in
+   *       time, Spring Modulith marks the publication failed and does not resubmit it; the next
+   *       startup or scheduled import reconciles the series
    * </ol>
    *
    * <p><b>Distributed Tracing:</b>
@@ -134,10 +142,11 @@ public class MessagingEventListener {
    *
    * <p><b>Error Handling:</b>
    *
-   * <p>Exceptions are logged and rethrown so Spring Modulith marks the publication failed. The
-   * incomplete publication remains in the {@code event_publication} table and is not resubmitted;
-   * the next startup or scheduled import reconciles the series. MDC is always cleared in the
-   * finally block to prevent memory leaks in the thread pool.
+   * <p>Exceptions, including a missing or negative broker confirm, are logged and rethrown so
+   * Spring Modulith marks the publication failed. The incomplete publication remains in the {@code
+   * event_publication} table and is not resubmitted; the next startup or scheduled import
+   * reconciles the series. MDC is always cleared in the finally block to prevent memory leaks in
+   * the thread pool.
    *
    * <p><b>Thread Safety:</b>
    *
@@ -206,11 +215,13 @@ public class MessagingEventListener {
    *       with the event payload
    *   <li>Correlation ID is set in MDC for distributed tracing
    *   <li>An import request message is published to RabbitMQ via {@link
-   *       ExchangeRateImportMessagePublisher}
-   *   <li>On success, Spring Modulith marks the publication completed and keeps it as an audit
-   *       record
-   *   <li>On failure, Spring Modulith marks the publication failed and does not resubmit it; the
-   *       next startup or scheduled import reconciles the series
+   *       ExchangeRateImportMessagePublisher}, which waits at most the configured confirm timeout
+   *       for the broker to confirm it
+   *   <li>When the broker confirms and routes the message, Spring Modulith marks the publication
+   *       completed and keeps it as an audit record
+   *   <li>When the send fails, or the broker nacks, returns, or does not confirm the message in
+   *       time, Spring Modulith marks the publication failed and does not resubmit it; the next
+   *       startup or scheduled import reconciles the series
    * </ol>
    *
    * <p><b>Note:</b>

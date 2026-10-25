@@ -137,10 +137,12 @@ series, or imports the full history if none is stored.
 
 Publication lifecycle:
 
-- When the listener succeeds, the publication is marked completed and kept permanently as an audit
-  record. This is Spring Modulith's default `completion-mode` (`update`). No cleanup or archiving
-  is configured.
-- When the listener fails, the publication is marked `FAILED` and stays incomplete. A crash after
+- The listener succeeds only after RabbitMQ confirms and routes the import request message. The
+  publication is then marked `COMPLETED` and kept permanently as an audit record. This is Spring
+  Modulith's default `completion-mode` (`update`). No cleanup or archiving is configured.
+- When the listener fails, the publication is marked `FAILED` and stays incomplete. A failed send,
+  a broker nack, a returned unroutable message, or a missing confirm within the timeout each fail
+  the listener. See [configuration.md](configuration.md#publisher-confirms). A crash after
   commit but before the listener completes leaves it `PUBLISHED` or `PROCESSING`. Nothing
   resubmits either one; the row stays in `event_publication` as a record of the failed or
   interrupted send.

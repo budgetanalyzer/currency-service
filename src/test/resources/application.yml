@@ -74,6 +74,10 @@ spring:
 
       rabbit:
         bindings:
+          exchangeRateImportRequested-out-0:
+            producer:
+              use-confirm-header: true          # Confirm and return via CorrelationData header
+
           importExchangeRates-in-0:
             consumer:
               auto-bind-dlq: true               # Dead letter queue
@@ -85,6 +89,11 @@ spring:
               acknowledge-mode: auto
               # Prefetch for testing
               prefetch: 1
+
+  # Publisher confirms and returns (mirrors main config; this file replaces it on the test classpath)
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
 
   # Spring Modulith configuration for tests
   modulith:
