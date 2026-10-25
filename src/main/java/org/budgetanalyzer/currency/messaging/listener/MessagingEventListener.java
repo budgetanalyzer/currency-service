@@ -30,19 +30,23 @@ import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
  *       transaction as the business data (e.g., currency series creation).
  *   <li><b>Atomic Commit:</b> Both the business entity and the publication are committed
  *       atomically: either both succeed or both fail. This eliminates the "dual-write" problem
- *       where data is saved but the message is never sent.
+ *       where data is saved but the import request is never recorded.
  *   <li><b>Async Processing:</b> After the transaction commits, Spring Modulith invokes the
  *       listener method asynchronously on a background thread.
  *   <li><b>External Publishing:</b> The listener method publishes the message to RabbitMQ.
  *   <li><b>Completion:</b> When the listener returns normally, the publication is marked completed
  *       ({@code status = 'COMPLETED'} with a {@code completion_date}). With the default {@code
  *       completion-mode} of {@code update}, the completed row is kept permanently as an intentional
- *       audit trail.
- *   <li><b>Failure:</b> When the listener throws, the publication is marked {@code FAILED} and
- *       stays incomplete (no {@code completion_date}). It is not retried while the application
- *       keeps running.
- *   <li><b>Resubmission:</b> With {@code republish-outstanding-events-on-restart: true}, every
- *       incomplete publication is resubmitted to its listener at application startup.
+ *       audit trail. Publisher confirms are not configured, so {@code COMPLETED} means {@code
+ *       StreamBridge.send} returned, not that the broker accepted and routed the message.
+ *   <li><b>Failure:</b> Spring Modulith invokes the listener once per publication. When the
+ *       listener throws, the publication is marked {@code FAILED} and stays incomplete (no {@code
+ *       completion_date}). Nothing resubmits it.
+ *   <li><b>Interruption:</b> A crash after commit but before the listener completes leaves the
+ *       publication {@code PUBLISHED} or {@code PROCESSING}. Nothing resubmits it either.
+ *   <li><b>Recovery:</b> The startup import and the daily scheduled import each load every enabled
+ *       series from the day after its latest stored rate, or full history when none is stored. A
+ *       currency whose import request was lost catches up at the next of those runs.
  * </ol>
  *
  * <p><b>Benefits Over Direct Message Publishing:</b>
@@ -50,9 +54,9 @@ import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
  * <ul>
  *   <li><b>Durable Intent:</b> Publications survive application crashes since they're persisted in
  *       the database before the transaction commits
- *   <li><b>At-Least-Once Delivery:</b> A message can be sent more than once, for example when a
- *       publication is resubmitted after RabbitMQ accepted the message but before completion was
- *       recorded. Consumers must tolerate duplicate messages.
+ *   <li><b>Atomic Intent:</b> The outbox records the import request atomically with the currency
+ *       change and never sends for a rolled-back change. Delivery of a failed send relies on import
+ *       reconciliation, not on outbox resubmission.
  *   <li><b>Decoupled Services:</b> Service layer publishes domain events without knowledge of
  *       external messaging infrastructure
  *   <li><b>Async HTTP Responses:</b> HTTP requests return immediately after database commit without
@@ -69,19 +73,9 @@ import org.budgetanalyzer.service.servlet.http.CorrelationIdFilter;
  * <p><b>Error Handling:</b>
  *
  * <p>Exceptions thrown from listener methods mark the publication {@code FAILED}. The incomplete
- * publication remains in the {@code event_publication} table until it is resubmitted at the next
- * startup and its listener succeeds.
- *
- * <p><b>Configuration:</b>
- *
- * <p>Spring Modulith event processing behavior is configured in {@code application.yml}:
- *
- * <pre>
- * spring:
- *   modulith:
- *     events:
- *       republish-outstanding-events-on-restart: true
- * </pre>
+ * publication remains in the {@code event_publication} table as a record of the failed send. The
+ * service intentionally does not republish outstanding publications on restart and adds no
+ * resubmission code; the startup and daily imports reconcile every enabled series instead.
  *
  * @see CurrencyCreatedEvent
  * @see ExchangeRateImportMessagePublisher
@@ -127,8 +121,8 @@ public class MessagingEventListener {
    *       ExchangeRateImportMessagePublisher}
    *   <li>On success, Spring Modulith marks the publication completed and keeps it as an audit
    *       record
-   *   <li>On failure, Spring Modulith marks the publication failed; it is resubmitted at the next
-   *       startup
+   *   <li>On failure, Spring Modulith marks the publication failed and does not resubmit it; the
+   *       next startup or scheduled import reconciles the series
    * </ol>
    *
    * <p><b>Distributed Tracing:</b>
@@ -141,9 +135,9 @@ public class MessagingEventListener {
    * <p><b>Error Handling:</b>
    *
    * <p>Exceptions are logged and rethrown so Spring Modulith marks the publication failed. The
-   * incomplete publication remains in the {@code event_publication} table and is resubmitted at the
-   * next startup. MDC is always cleared in the finally block to prevent memory leaks in the thread
-   * pool.
+   * incomplete publication remains in the {@code event_publication} table and is not resubmitted;
+   * the next startup or scheduled import reconciles the series. MDC is always cleared in the
+   * finally block to prevent memory leaks in the thread pool.
    *
    * <p><b>Thread Safety:</b>
    *
@@ -178,7 +172,7 @@ public class MessagingEventListener {
           event.currencyCode());
 
     } catch (Exception e) {
-      // Log error - the publication stays incomplete for resubmission at startup
+      // Log error - the publication stays incomplete; import reconciliation recovers it
       log.error(
           "Failed to publish exchange rate import requested message: currencyCode={}",
           event.currencyCode(),
@@ -215,8 +209,8 @@ public class MessagingEventListener {
    *       ExchangeRateImportMessagePublisher}
    *   <li>On success, Spring Modulith marks the publication completed and keeps it as an audit
    *       record
-   *   <li>On failure, Spring Modulith marks the publication failed; it is resubmitted at the next
-   *       startup
+   *   <li>On failure, Spring Modulith marks the publication failed and does not resubmit it; the
+   *       next startup or scheduled import reconciles the series
    * </ol>
    *
    * <p><b>Note:</b>
@@ -253,7 +247,7 @@ public class MessagingEventListener {
           event.currencyCode());
 
     } catch (Exception e) {
-      // Log error - the publication stays incomplete for resubmission at startup
+      // Log error - the publication stays incomplete; import reconciliation recovers it
       log.error(
           "Failed to publish exchange rate import requested message: currencyCode={}",
           event.currencyCode(),

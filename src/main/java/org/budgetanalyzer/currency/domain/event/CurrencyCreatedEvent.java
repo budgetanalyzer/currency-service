@@ -20,8 +20,9 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  *   <li>Event listener publishes external message to RabbitMQ to trigger exchange rate import
  *   <li>On success, the publication is marked completed and kept permanently as an audit record
  *       (default {@code completion-mode} of {@code update})
- *   <li>On failure, the publication is marked failed and stays incomplete until it is resubmitted
- *       at the next startup ({@code republish-outstanding-events-on-restart: true})
+ *   <li>On failure, the publication is marked failed and stays incomplete; nothing resubmits it.
+ *       The next startup or daily scheduled import reconciles the series from its latest stored
+ *       rate
  * </ol>
  *
  * <p><b>Transactional Outbox Pattern Benefits:</b>
@@ -30,8 +31,8 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  *   <li><b>Durable intent</b> - Event survives application crashes since it's persisted in the
  *       database alongside the currency entity in the same transaction
  *   <li><b>No dual-write problem</b> - Events are stored atomically with business data
- *   <li><b>At-least-once delivery</b> - Resubmission can send the import request more than once, so
- *       consumers must tolerate duplicates
+ *   <li><b>No send for rolled-back changes</b> - The import request is recorded only when the
+ *       currency change commits; delivery of a failed send relies on import reconciliation
  *   <li><b>Async processing</b> - HTTP requests don't wait for message publishing to RabbitMQ
  *   <li><b>Audit trail</b> - Completed publications remain in the event_publication table
  * </ul>

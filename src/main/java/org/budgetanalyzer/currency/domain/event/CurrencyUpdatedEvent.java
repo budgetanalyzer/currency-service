@@ -18,6 +18,9 @@ import org.budgetanalyzer.currency.service.CurrencyService;
  *   <li>Spring Modulith asynchronously processes event via @ApplicationModuleListener
  *   <li>Event listener publishes external message to RabbitMQ to trigger exchange rate import
  *   <li>Event marked as completed in event_publication table
+ *   <li>On failure, the publication is marked failed and stays incomplete; nothing resubmits it.
+ *       The next startup or daily scheduled import reconciles the series from its latest stored
+ *       rate
  * </ol>
  *
  * <p><b>Messaging Decision Logic:</b>

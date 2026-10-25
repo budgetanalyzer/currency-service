@@ -100,12 +100,6 @@ spring:
       validate-server-certificate: ${SPRING_RABBITMQ_SSL_VALIDATE_SERVER_CERTIFICATE:true}
       verify-hostname: ${SPRING_RABBITMQ_SSL_VERIFY_HOSTNAME:true}
 
-  # Spring Modulith event processing configuration
-  modulith:
-    events:
-      # Republish outstanding events on application restart
-      republish-outstanding-events-on-restart: true
-
   # Task execution configuration for async processing
   task:
     execution:

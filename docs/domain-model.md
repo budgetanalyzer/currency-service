@@ -140,14 +140,18 @@ Publication lifecycle:
 - When the listener succeeds, the publication is marked completed and kept permanently as an audit
   record. This is Spring Modulith's default `completion-mode` (`update`). No cleanup or archiving
   is configured.
-- When the listener fails, the publication stays incomplete. Nothing retries it while the
-  application runs. `republish-outstanding-events-on-restart: true` resubmits every incomplete
-  publication at the next startup.
-- Delivery is therefore at least once, and the consumer must tolerate duplicate import requests. A
-  duplicate processed after an earlier import committed starts after the latest stored rate and
-  skips dates already stored with the same rate. Duplicates processed concurrently can collide on
-  `uk_exchange_rate_currency_date`, in which case the losing import fails and its transaction
-  rolls back.
+- When the listener fails, the publication is marked `FAILED` and stays incomplete. A crash after
+  commit but before the listener completes leaves it `PUBLISHED` or `PROCESSING`. Nothing
+  resubmits either one; the row stays in `event_publication` as a record of the failed or
+  interrupted send.
+- A lost import request is recovered by reconciliation: the startup import and the daily scheduled
+  import cover every enabled series from its latest stored rate. See
+  [configuration.md](configuration.md#outbox-recovery) for the recovery path and the rationale.
+- Imports for the same series can overlap: a message-driven import and a scheduled or startup
+  import can target the same series. An import that runs after an earlier one committed starts
+  after the latest stored rate and skips dates already stored with the same rate. Imports that run
+  concurrently can collide on `uk_exchange_rate_currency_date`, in which case the losing import
+  fails and its transaction rolls back.
 
 See [advanced-patterns-usage.md](advanced-patterns-usage.md#event-driven-messaging) for the
 messaging configuration.
@@ -159,7 +163,8 @@ messaging configuration.
 
 - **Key:** `currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}`. An omitted date
   appears as `null`.
-- **TTL:** none. Entries stay until they are evicted.
+- **TTL:** one hour from when the entry is written. The reasons are in
+  [configuration.md](configuration.md#caching).
 - **Eviction:** each `ExchangeRateImportService` import method evicts every `exchangeRates` entry
   (`@CacheEvict(allEntries = true)`). The cache manager is transaction-aware, so eviction happens
   only after the import commits.

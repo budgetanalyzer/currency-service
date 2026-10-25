@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,8 +30,8 @@ import org.budgetanalyzer.service.security.test.ClaimsHeaderTestBuilder;
 /**
  * Integration tests for the Redis-backed exchange rate cache.
  *
- * <p>Requires Redis cache to be enabled to verify cache reads, writes, key namespacing, and
- * eviction after import through the API.
+ * <p>Requires Redis cache to be enabled to verify cache reads, writes, key namespacing, entry
+ * expiry, and eviction after import through the API.
  */
 @TestPropertySource(properties = "spring.cache.type=redis")
 class ExchangeRateImportCacheIntegrationTest extends AbstractControllerTest {
@@ -133,6 +134,21 @@ class ExchangeRateImportCacheIntegrationTest extends AbstractControllerTest {
             stringRedisTemplate.keys(
                 "*" + cacheKey(TestConstants.DATE_2024_JAN_01, TestConstants.DATE_2024_JAN_05)))
         .containsExactly("currency-service:exchangeRates::EUR:2024-01-01:2024-01-05");
+  }
+
+  @Test
+  void shouldExpireCacheEntryWithinConfiguredTtl() throws Exception {
+    var startDate = TestConstants.DATE_2024_JAN_01;
+    var endDate = TestConstants.DATE_2024_JAN_05;
+    saveEurRates(startDate, endDate);
+
+    performGetEurExchangeRates(startDate, endDate).andExpect(status().isOk());
+
+    var expirySeconds =
+        stringRedisTemplate.getExpire(eurRedisKey(startDate, endDate), TimeUnit.SECONDS);
+    assertThat(expirySeconds)
+        .isPositive()
+        .isLessThanOrEqualTo(CacheConfig.EXCHANGE_RATES_TTL.toSeconds());
   }
 
   private void saveEurRates(LocalDate startDate, LocalDate endDate) {

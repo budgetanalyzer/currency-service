@@ -74,7 +74,7 @@ public class TestContainersConfig {
   /**
    * RabbitMQ container for event-driven messaging.
    *
-   * <p>Used by Spring Modulith transactional outbox pattern for at-least-once message delivery.
+   * <p>Used by the Spring Modulith transactional outbox listener to send import request messages.
    * Events are published to {@code exchange-rate.import.requested} topic.
    */
   static RabbitMQContainer rabbitMQContainer =

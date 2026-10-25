@@ -88,10 +88,10 @@ public class CurrencyService {
    * <p>The event is stored in the same database transaction as the currency entity, guaranteeing:
    *
    * <ul>
-   *   <li>No lost events - Event survives application crashes since it's persisted in database
-   *   <li>No dual-write issues - Event and entity are saved atomically
-   *   <li>At-least-once delivery - The resulting import request can be sent more than once, so
-   *       consumers must tolerate duplicates
+   *   <li>Durable event - The event row survives a crash after commit, but the resulting import
+   *       message can still be lost; the startup and daily imports reconcile the series
+   *   <li>No dual-write issues - Event and entity are saved atomically, and no message is sent for
+   *       a rolled-back change
    *   <li>Async processing - HTTP request returns immediately after transaction commit without
    *       waiting for RabbitMQ publishing
    * </ul>

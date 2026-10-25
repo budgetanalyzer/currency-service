@@ -90,7 +90,6 @@ spring:
   modulith:
     events:
       completion-mode: update  # Keep completed events in db for test verification
-      republish-outstanding-events-on-restart: false  # Don't republish on test restart
 
   # HikariCP configuration for tests - fast failure to prevent 30s hangs on shutdown
   datasource:

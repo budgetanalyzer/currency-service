@@ -14,7 +14,7 @@ Spring Boot microservice that automates exchange rate imports from the [Federal 
 - **Currency series management** - Create, read, and update exchange rate time series ([API docs](docs/api/README.md))
 - **Historical rate queries** - Date range filtering with gap-filled daily rates and Redis caching
 - **Distributed coordination** - Multi-pod safe scheduling with ShedLock
-- **Event-driven architecture** - At-least-once import requests via Spring Modulith transactional outbox + RabbitMQ
+- **Event-driven architecture** - Import requests via Spring Modulith transactional outbox + RabbitMQ, reconciled by the startup and daily imports ([details](docs/configuration.md#outbox-recovery))
 
 ## Quick Start
 

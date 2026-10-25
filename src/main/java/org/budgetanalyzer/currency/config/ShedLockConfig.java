@@ -4,6 +4,7 @@ import javax.sql.DataSource;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import net.javacrumbs.shedlock.core.LockProvider;
 import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider;
@@ -24,6 +25,10 @@ import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
  *   <li>If the lock is already held by another instance, the task is skipped
  *   <li>Locks are time-based and automatically released after the configured duration
  * </ul>
+ *
+ * <p><strong>Lock time source:</strong> The provider uses database time ({@code usingDbTime()}).
+ * Lock timestamps come from the PostgreSQL server clock in UTC, not from each pod's clock, so clock
+ * skew between pods does not affect lock acquisition or expiry.
  *
  * <p><strong>Lock configuration:</strong>
  *
@@ -68,15 +73,16 @@ public class ShedLockConfig {
    * Creates a JDBC-based lock provider for ShedLock.
    *
    * <p>The lock provider uses the application's PostgreSQL database to store lock information in
-   * the {@code shedlock} table.
+   * the {@code shedlock} table. With {@code usingDbTime()}, ShedLock computes every lock timestamp
+   * in SQL from the database clock in UTC instead of sending the pod's clock as a parameter.
    *
    * <p><strong>Lock storage:</strong>
    *
    * <ul>
    *   <li>Lock name: Stored in {@code name} column (e.g., "exchangeRateImport")
-   *   <li>Lock expiration: Stored in {@code lock_until} column
+   *   <li>Lock expiration: Stored in {@code lock_until} column (PostgreSQL server time, UTC)
    *   <li>Lock holder: Stored in {@code locked_by} column (hostname + thread)
-   *   <li>Lock timestamp: Stored in {@code locked_at} column
+   *   <li>Lock timestamp: Stored in {@code locked_at} column (PostgreSQL server time, UTC)
    * </ul>
    *
    * @param dataSource The application's data source (auto-configured by Spring)
@@ -84,6 +90,10 @@ public class ShedLockConfig {
    */
   @Bean
   public LockProvider lockProvider(DataSource dataSource) {
-    return new JdbcTemplateLockProvider(dataSource);
+    return new JdbcTemplateLockProvider(
+        JdbcTemplateLockProvider.Configuration.builder()
+            .withJdbcTemplate(new JdbcTemplate(dataSource))
+            .usingDbTime()
+            .build());
   }
 }

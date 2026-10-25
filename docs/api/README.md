@@ -223,7 +223,8 @@ the Redis cache `exchangeRates`:
 
 - **Key:** `currency-service:exchangeRates::{targetCurrency}:{startDate}:{endDate}`. An omitted
   date appears as `null`, for example `currency-service:exchangeRates::EUR:null:null`.
-- **No TTL:** entries do not expire.
+- **TTL:** one hour from when the entry is written. See
+  [configuration.md](../configuration.md#caching) for why.
 - **Eviction:** every import method evicts all `exchangeRates` entries with
   `@CacheEvict(allEntries = true)`. The cache manager is transaction-aware, so eviction runs only
   after the import transaction commits.

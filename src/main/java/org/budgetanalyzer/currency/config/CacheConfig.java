@@ -24,8 +24,11 @@ import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
  * RedisCacheConfiguration} defined here:
  *
  * <ul>
- *   <li><b>No TTL:</b> Entries never expire. Exchange rates only change during imports, and every
- *       import evicts all entries with {@code @CacheEvict(allEntries = true)}.
+ *   <li><b>One-hour TTL:</b> Entries expire {@link #EXCHANGE_RATES_TTL} after they are written. A
+ *       read whose query started before an import committed can cache its stale result after that
+ *       import's eviction; the TTL bounds how long such an entry survives. It also bounds Redis
+ *       memory used by arbitrary date-range keys. Imports still evict all entries with
+ *       {@code @CacheEvict(allEntries = true)} after they commit.
  *   <li><b>Eviction after commit:</b> The cache manager is transaction-aware, so evictions run in
  *       the after-commit phase. A rolled-back import leaves the cache unchanged.
  *   <li><b>Synchronous writes:</b> Writes, evictions, and clears complete before the cache call
@@ -45,6 +48,9 @@ public class CacheConfig {
 
   /** Cache name for exchange rate queries. */
   public static final String EXCHANGE_RATES_CACHE = "exchangeRates";
+
+  /** Time-to-live for exchange rate cache entries, counted from when each entry is written. */
+  public static final Duration EXCHANGE_RATES_TTL = Duration.ofHours(1);
 
   /**
    * Creates the JSON serializer for cached values with allowlisted polymorphic typing.
@@ -104,9 +110,9 @@ public class CacheConfig {
   /**
    * Default Redis cache configuration applied to all caches.
    *
-   * <p>Sets no TTL, disables caching null values, serializes keys as strings, serializes values
-   * with {@link #redisSerializer(JsonMapper)}, and prefixes every key with {@code
-   * currency-service:}.
+   * <p>Sets a TTL of {@link #EXCHANGE_RATES_TTL}, disables caching null values, serializes keys as
+   * strings, serializes values with {@link #redisSerializer(JsonMapper)}, and prefixes every key
+   * with {@code currency-service:}.
    *
    * @param redisSerializer configured serializer with type information
    * @return default cache configuration
@@ -115,7 +121,7 @@ public class CacheConfig {
   public RedisCacheConfiguration cacheConfiguration(
       GenericJacksonJsonRedisSerializer redisSerializer) {
     return RedisCacheConfiguration.defaultCacheConfig()
-        .entryTtl(Duration.ZERO)
+        .entryTtl(EXCHANGE_RATES_TTL)
         .disableCachingNullValues()
         .serializeKeysWith(
             RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))

@@ -93,10 +93,20 @@ OpenAPI paths are excluded by default.
 - **Key:** `currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}`. An omitted date
   appears as `null`. The `currency-service:` prefix keeps the service's keys apart from other
   services that share the Redis instance.
-- **TTL:** none. Entries stay until they are evicted.
+- **TTL:** one hour (`CacheConfig.EXCHANGE_RATES_TTL`), counted from when each entry is written.
+  The TTL exists for two reasons:
+  - A cache-aside read whose query started before an import committed can write its stale result
+    after that import's after-commit eviction. Without a TTL, that entry would stay until the next
+    import, up to 24 hours later. The TTL limits it to one hour.
+  - Keys include arbitrary date ranges, so the TTL also bounds the Redis memory the cache uses.
+
+  Spring Data Redis writes each entry with a single `SET … PX`, which the service's Redis ACL
+  (`+set`) allows. The TTL is fixed in code, not a configuration property, and there is no
+  time-to-idle: refreshing expiry on read needs `GETEX`, which the ACL does not grant.
 - **Eviction:** every `ExchangeRateImportService` import method evicts all `exchangeRates` entries
-  (`@CacheEvict(allEntries = true)`). The cache manager is `transactionAware`, so the eviction runs
-  only after the import transaction commits. A rolled-back import leaves the cache unchanged.
+  (`@CacheEvict(allEntries = true)`), regardless of the TTL. The cache manager is
+  `transactionAware`, so the eviction runs only after the import transaction commits. A rolled-back
+  import leaves the cache unchanged.
 - **Writes:** the cache writer uses `immediateWrites`, so puts, evictions, and clears finish before
   the cache call returns.
 - **Values:** JSON with Jackson default typing for non-final types. On read, type ids are accepted
@@ -118,8 +128,10 @@ are off. See
 | `ExchangeRateImportScheduler.importDailyRates` | `0 0 23 * * ?` in UTC (23:00 UTC daily), from `currency-service.exchange-rate-import.cron` | ShedLock `exchangeRateImport`, `lockAtMostFor = 15m`, `lockAtLeastFor = 1m` | In process, from `currency-service.exchange-rate-import.retry.*` |
 
 - The task imports the latest rates for every **enabled** currency series.
-- ShedLock stores locks in the PostgreSQL `shedlock` table. `@EnableSchedulerLock` sets a default
-  `lockAtMostFor` of `10m` for locks that do not set their own.
+- ShedLock stores locks in the PostgreSQL `shedlock` table and uses database time
+  (`usingDbTime()`): lock timestamps come from the PostgreSQL server clock in UTC, not pod clocks.
+  `@EnableSchedulerLock` sets a default `lockAtMostFor` of `10m` for locks that do not set their
+  own.
 - When an attempt throws, the scheduler schedules the next attempt `retry.delay-minutes` later on
   its own `TaskScheduler`, until `retry.max-attempts` attempts have run. Retries run on the pod that
   ran the failed attempt and do not take the ShedLock lock.
@@ -162,9 +174,46 @@ set `spring.cloud.stream.bindings.importExchangeRates-in-0.consumer.max-attempts
 - **Every completed publication is kept permanently as an audit trail.** This is deliberate. There
   is no time-based cleanup or archiving, so `event_publication` grows by one row for each
   import-triggering currency create or update, which is one row per import request sent.
-- A failed listener leaves its publication incomplete. Nothing retries it while the application
-  runs. `republish-outstanding-events-on-restart: true` resubmits every incomplete publication at
-  startup. Delivery is therefore at least once.
+- Spring Modulith invokes the listener once per publication. A listener that throws leaves the
+  publication `FAILED` and incomplete. A crash after commit but before the listener completes
+  leaves it `PUBLISHED` or `PROCESSING`. Nothing resubmits either one.
+- A send fails the listener only when `StreamBridge.send` throws, for example when the RabbitMQ
+  connection is unavailable. Publisher confirms and returns are not configured, so an unroutable
+  message, an asynchronous broker refusal, or a broker failure before persistence still leaves the
+  publication `COMPLETED` with no record of the loss. Import reconciliation recovers these the same
+  way as a `FAILED` send. See
+  [rabbitmq-publisher-confirms.md](issues/rabbitmq-publisher-confirms.md) for the planned fix.
+- Incomplete publications stay in `event_publication` as a record of failed or interrupted sends.
+  Find them with `status <> 'COMPLETED'` or `completion_date IS NULL`.
+- [Consumer retries and the dead-letter queue](#consumer-retry-and-dead-letters) cover only
+  messages that reached RabbitMQ. They never retry a failed outbox send.
+
+#### Outbox Recovery
+
+The outbox records the import request atomically with the currency change and never sends for a
+rolled-back change. Delivery of a failed or lost send relies on import reconciliation:
+
+- The startup import (`import-on-startup`, default `true`) and the daily scheduled import (23:00
+  UTC) each import every enabled series from the day after its latest stored rate, or the full
+  history when none is stored.
+- A currency whose import request was lost therefore catches up at the next startup or 23:00 UTC
+  run. With `import-on-startup: false`, it waits for the scheduled run.
+
+The service does not set `spring.modulith.events.republish-outstanding-events-on-restart`, and it
+intentionally adds no application-written resubmission code (no `FailedEventPublications` or
+`IncompleteEventPublications` calls and no scheduled resubmission job):
+
+- The
+  [Spring Modulith property reference](https://docs.spring.io/spring-modulith/reference/appendix.html)
+  says restart republication is usually not recommended in multi-instance deployments, because
+  other instances might still be processing events. In Spring Modulith 2.1.x the startup path
+  resubmits every incomplete publication, including ones another pod is still processing.
+- A single publication that cannot be deserialized makes startup fail on every restart
+  ([spring-modulith#1904](https://github.com/spring-projects/spring-modulith/issues/1904), open).
+- Upstream proposes deprecating the property in favor of application-written resubmission
+  ([spring-modulith#1916](https://github.com/spring-projects/spring-modulith/issues/1916)).
+- The reconciliation imports already cover every import request a resubmitted publication would
+  send.
 
 ### Event Publication Schema
 

@@ -139,9 +139,12 @@ taskScheduler.schedule(
     retryTime);
 ```
 
-`ShedLockConfig` registers a `JdbcTemplateLockProvider` and sets
-`@EnableSchedulerLock(defaultLockAtMostFor = "10m")`. The schedule, lock, and retry values are
-listed in [configuration.md](configuration.md#scheduled-tasks).
+`ShedLockConfig` registers a `JdbcTemplateLockProvider` configured with `usingDbTime()` and sets
+`@EnableSchedulerLock(defaultLockAtMostFor = "10m")`. With database time, ShedLock computes
+`locked_at` and `lock_until` in SQL from the PostgreSQL server clock in UTC, not from each pod's
+clock, so clock skew between pods does not change when a lock is acquired or expires. The
+schedule, lock, and retry values are listed in
+[configuration.md](configuration.md#scheduled-tasks).
 
 ### How It Works
 
@@ -165,8 +168,9 @@ The scheduler records Micrometer metrics: `exchange.rate.import.duration`,
 
 - `lockAtMostFor` must exceed the longest expected run. It only matters when a pod dies while
   holding the lock.
-- `lockAtLeastFor` must be shorter than the schedule interval. It prevents another pod from running
-  the same trigger when the task finishes quickly or pod clocks differ slightly.
+- `lockAtLeastFor` must be shorter than the schedule interval. The database clock is authoritative
+  for lock times, so its remaining purpose is to stop another pod from re-running a trigger that
+  finished quickly, for example a pod whose trigger fires slightly later than the others.
 - Give every scheduled task its own lock name.
 
 ### Adding New Scheduled Tasks
@@ -198,8 +202,9 @@ psql -d currency -c "SELECT * FROM shedlock;"
 
 ### Overview
 
-`GET /v1/exchange-rates` is the only cached read. Entries have no TTL; every import evicts all of
-them after it commits. The full cache rules are in [configuration.md](configuration.md#caching).
+`GET /v1/exchange-rates` is the only cached read. Entries expire one hour after they are written,
+and every import evicts all of them after it commits. The full cache rules and the reasons for the
+TTL are in [configuration.md](configuration.md#caching).
 
 ### Cached Read
 
@@ -256,7 +261,7 @@ commits; a rolled-back import leaves the cache unchanged.
 public RedisCacheConfiguration cacheConfiguration(
     GenericJacksonJsonRedisSerializer redisSerializer) {
   return RedisCacheConfiguration.defaultCacheConfig()
-      .entryTtl(Duration.ZERO)
+      .entryTtl(EXCHANGE_RATES_TTL)
       .disableCachingNullValues()
       .serializeKeysWith(
           RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
@@ -277,6 +282,9 @@ public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
 }
 ```
 
+- **One-hour TTL:** `EXCHANGE_RATES_TTL` is `Duration.ofHours(1)`. It bounds how long a stale
+  entry, cached by a read that raced an import, survives the import's eviction. See
+  [configuration.md](configuration.md#caching).
 - **Synchronous writer:** `immediateWrites()` makes puts, evictions, and clears finish before the
   cache call returns, instead of the asynchronous Lettuce default in Spring Data Redis 4.
 - **Typed JSON values:** the value serializer is a copy of the application `JsonMapper` with
@@ -412,6 +420,8 @@ retry policy.
 5. The listener sends `ExchangeRateImportRequestedMessage` to `exchange-rate.import.requested`.
 6. When the listener returns, Spring Modulith marks the publication completed
    (`status = 'COMPLETED'`, `completion_date` set). The row is kept permanently as an audit trail.
+   Spring Modulith invokes the listener once per publication. If it throws, the publication is
+   marked `FAILED` and nothing resubmits it.
 7. A consumer in the `exchange-rate-import-service` group imports rates for the series.
 
 ### Operational Logging
@@ -443,28 +453,41 @@ in the MDC on both sides.
 ```
 1. Save currency + store publication, commit
 2. [APPLICATION STOPS]
-3. [RESTART] republish-outstanding-events-on-restart resubmits the incomplete publication
-4. Listener sends the message, publication marked completed
+3. Publication stays PUBLISHED or PROCESSING; nothing resubmits it
+4. Next startup import (or the 23:00 UTC import) imports the series from its latest stored rate
 ```
 
 **Listener fails (for example, RabbitMQ unavailable):**
 ```
 1. Save currency + store publication, commit
 2. Listener throws; publication marked FAILED and stays incomplete
-3. Nothing retries it while the application keeps running
-4. At the next startup the publication is resubmitted
+3. Nothing resubmits it
+4. Next startup import (or the 23:00 UTC import) imports the series from its latest stored rate
 ```
 
-A failed publication therefore waits for a restart. Delivery is at least once: a publication can be
-resubmitted after RabbitMQ already accepted its message, so the consumer must tolerate duplicates.
-A duplicate processed after the first import committed starts after the latest stored rate. See
-[domain-model.md](domain-model.md#domain-events) for duplicate and concurrency behavior.
+The outbox records the import request atomically and never sends for a rolled-back change.
+Delivery of a failed send relies on import reconciliation: the startup and daily imports cover every
+enabled series. With `import-on-startup: false`, a lost request waits for the scheduled run. See
+[configuration.md](configuration.md#outbox-recovery) for why the service does not republish
+publications on restart.
+
+Publisher confirms are not configured, so a `COMPLETED` publication means `StreamBridge.send`
+returned, not that the broker accepted and routed the message. A send lost after that point leaves
+no `FAILED` row and is recovered by the same reconciliation. See
+[configuration.md](configuration.md#transactional-outbox).
+
+Spring Cloud Stream consumer retries and the dead-letter queue cover only messages that reached
+RabbitMQ. They never retry a failed outbox send.
+
+A message-driven import and a scheduled or startup import can overlap for the same series. See
+[domain-model.md](domain-model.md#domain-events) for overlapping-import and concurrency behavior.
 
 ### Publication Retention
 
 Completed publications are kept permanently in `event_publication` as an audit trail. This uses
 Spring Modulith's default `completion-mode` (`update`) and is deliberate: nothing deletes or
-archives completed rows. See [configuration.md](configuration.md#transactional-outbox) for the
+archives completed rows. Incomplete publications also stay, as a record of failed or interrupted
+sends; nothing resubmits them. See [configuration.md](configuration.md#transactional-outbox) for the
 growth rate and the V8 and U8 schema scripts.
 
 ### RabbitMQ Configuration
@@ -512,12 +535,15 @@ rg -n 'publishEvent' src/main/java/org/budgetanalyzer/currency/service
 rg -n '^\s*@ApplicationModuleListener|streamBridge\.send|Consumer<' \
   src/main/java/org/budgetanalyzer/currency/messaging
 
-# Stream, Rabbit, and Modulith configuration
+# Stream and Rabbit configuration, and Modulith settings (test configuration only)
 rg -n -A 19 '^  cloud:' src/main/resources/application.yml
-rg -n -A 4 '^  modulith:' src/main/resources/application.yml
+rg -n 'modulith' src/main/resources/application.yml src/test/resources/application.yml
 
 # Recent event publications (local database)
 psql -d currency -c "SELECT event_type, status, publication_date, completion_date FROM event_publication ORDER BY publication_date DESC LIMIT 10;"
+
+# Failed or interrupted publications (local database)
+psql -d currency -c "SELECT event_type, status, publication_date FROM event_publication WHERE status <> 'COMPLETED' ORDER BY publication_date DESC;"
 ```
 
 ## Testing Advanced Patterns
@@ -568,8 +594,14 @@ that exposes the scheduled task and time; do not replace the application import 
 [`ExchangeRateImportSchedulerIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/scheduler/ExchangeRateImportSchedulerIntegrationTest.java)
 does this with its `RecordingTaskScheduler`.
 
-The full application integration context validates that the JDBC lock provider and Flyway-managed
-`shedlock` table can start together. Multi-pod lock coordination belongs to deployed-system
+[`ExchangeRateImportSchedulerLockIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/scheduler/ExchangeRateImportSchedulerLockIntegrationTest.java)
+checks the application's lock configuration (the `ShedLockConfig` provider plus the
+`@SchedulerLock` annotation) against the Flyway-managed `shedlock` table. It calls the
+application's ShedLock-proxied `ExchangeRateImportScheduler` bean with FRED stubbed for one enabled
+series, then asserts that the `exchangeRateImport` row's `locked_at` is within a few seconds of
+`now() AT TIME ZONE 'utc'` from the same database and that `lock_until` is one minute
+(`lockAtLeastFor`) after `locked_at`. A second immediate call is skipped: the FRED request count
+and the lock row stay unchanged. Multi-pod lock coordination belongs to deployed-system
 verification.
 
 ### Redis Caching Testing
@@ -600,8 +632,8 @@ class ExchangeRateImportCacheIntegrationTest extends AbstractControllerTest {
 
 See
 [`ExchangeRateImportCacheIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/api/ExchangeRateImportCacheIntegrationTest.java)
-for eviction, cached empty and non-empty results read back from Redis, and the
-`currency-service:` key namespace.
+for eviction, cached empty and non-empty results read back from Redis, the `currency-service:` key
+namespace, and an entry expiry that is positive and at most `CacheConfig.EXCHANGE_RATES_TTL`.
 [`ExchangeRateImportServiceIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/service/ExchangeRateImportServiceIntegrationTest.java)
 covers eviction for each import method and an unchanged cache after rollback.
 
@@ -639,7 +671,7 @@ class EventListenerIntegrationTest extends AbstractWireMockTest {
 ```
 
 The test configuration keeps completed publications (`completion-mode: update`) so tests can count
-them, and turns off resubmission on restart.
+them.
 
 See [`EventListenerIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/messaging/EventListenerIntegrationTest.java)
 for enabled and disabled event filtering,
@@ -664,7 +696,7 @@ for broker-driven consumption, concurrency, and imported-rate outcomes.
 ### Distributed Locking
 
 **Do:**
-- Use the PostgreSQL-backed lock provider.
+- Use the PostgreSQL-backed lock provider with database time (`usingDbTime()`).
 - Set `lockAtMostFor` above the longest expected run and `lockAtLeastFor` below the schedule
   interval.
 - Use a unique lock name per task.
