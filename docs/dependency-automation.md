@@ -93,6 +93,34 @@ not evidence that the dependency is absent. Do not add
 `pull_request_target` or expose package credentials to untrusted dependency
 branches to bypass that boundary.
 
+### Image build check
+
+`.github/workflows/image-build-check.yml` runs on pull requests targeting `main`
+that change `Dockerfile`, `gradlew`, anything under `gradle/`,
+`build.gradle.kts`, `settings.gradle.kts`, or the workflow itself, and on
+manual dispatch. Application source is excluded because `build.yml` already
+compiles and tests it on every pull request.
+
+The check builds the same `./Dockerfile` and context as `publish-release.yml`
+for `linux/arm64` under QEMU, with `push: false` and `outputs: type=cacheonly`.
+A pass proves the release image still builds for `linux/arm64`, including that
+every pinned base image provides an arm64 manifest and that dependency
+resolution and `bootJar` succeed inside the builder. It does not log in to a
+registry, tag, push, or cache the image, and it does not prove runtime behavior
+or scan the image for vulnerabilities. Emulated builds are slow; the job has a
+60-minute timeout.
+
+The builder receives only the `github_actor` and `github_token` BuildKit
+secrets that the release workflow passes, sourced from
+`SERVICE_COMMON_PACKAGES_USERNAME` and `SERVICE_COMMON_PACKAGES_READ_TOKEN`.
+The package-secret boundary above applies unchanged: fork pull requests without
+secrets fail to resolve `service-common`, and that failure is an
+unavailable-secret condition.
+
+Do not make `Image Build Check` a required status check while it is
+path-filtered. Pull requests that touch no filtered path never start it, so a
+required check would leave them waiting indefinitely.
+
 Graph generation failures are failures, not clean security results. Preserve
 dependency-resolution and submission errors for triage; do not omit
 configurations or the internal dependency to make the workflow pass.
