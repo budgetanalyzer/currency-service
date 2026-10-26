@@ -96,10 +96,20 @@ branches to bypass that boundary.
 ### Image build check
 
 `.github/workflows/image-build-check.yml` runs on pull requests targeting `main`
-that change `Dockerfile`, `gradlew`, anything under `gradle/`,
+that change `Dockerfile`, `gradlew`, anything under `gradle/wrapper/`,
 `build.gradle.kts`, `settings.gradle.kts`, or the workflow itself, and on
 manual dispatch. Application source is excluded because `build.yml` already
-compiles and tests it on every pull request.
+compiles and tests it on every pull request. The version catalog
+`gradle/libs.versions.toml` is also excluded: `build.yml` compiles, tests and
+checks catalog-only dependency and tool updates, and the image check would only
+rebuild the same JAR under slow emulation. `build.gradle.kts` stays in the
+filter because it owns the GitHub Packages repository and credential wiring
+that the BuildKit secrets exercise inside the builder.
+
+A catalog-only pull request therefore does not prove in-container dependency
+resolution. When a catalog change warrants that proof, such as a
+`service-common` or Spring Boot major update, run the workflow manually with
+`workflow_dispatch` on the pull-request branch.
 
 The check builds the same `./Dockerfile` and context as `publish-release.yml`
 for `linux/arm64` under QEMU, with `push: false` and `outputs: type=cacheonly`.
