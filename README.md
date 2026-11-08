@@ -59,6 +59,7 @@ currency-service/
 ├── src/main/java/              # Java source code
 ├── src/main/resources/
 │   ├── application.yml
+│   ├── application-debug-logging.yml  # Opt-in TRACE and body logging, synthetic data only
 │   └── db/migration/           # Flyway migrations
 ├── src/test/java/              # Unit and integration tests
 └── docs/                       # Detailed documentation
@@ -69,7 +70,7 @@ currency-service/
 | Document | Description |
 |---|---|
 | [Local Development](docs/local-development.md) | Running locally, TLS setup, building, API access |
-| [Configuration](docs/configuration.md) | Environment variables, properties, caching, scheduling, messaging, security |
+| [Configuration](docs/configuration.md) | Environment variables, properties, logging, health probes, caching, scheduling, messaging, security |
 | [FRED Integration](docs/fred-integration.md) | Data source, API key, provider architecture, import behavior, rate limits |
 | [API Reference](docs/api/README.md) | Endpoints, request/response examples, validation rules |
 | [Domain Model](docs/domain-model.md) | Entities, aggregates, domain events, business rules |

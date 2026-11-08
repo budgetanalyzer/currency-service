@@ -295,6 +295,36 @@ public final class TestConstants {
   /** Maximum wait for a broker confirm or return to settle an outbox publication. */
   public static final Duration PUBLISH_OUTCOME_WAIT = Duration.ofSeconds(5);
 
+  // ===========================================================================================
+  // Runtime Security and Configuration
+  // ===========================================================================================
+
+  /** Internal user ID of a test caller allowed to change currencies. */
+  public static final String WRITER_USER_ID = "usr_writer";
+
+  /** Permission required to change currencies. */
+  public static final String PERMISSION_CURRENCIES_WRITE = "currencies:write";
+
+  /** FRED API key for tests that load the main application configuration. */
+  public static final String FRED_TEST_API_KEY = "test-key";
+
+  // ===========================================================================================
+  // Redis ACL
+  // ===========================================================================================
+
+  /** Redis username the service connects as. */
+  public static final String REDIS_CURRENCY_SERVICE_USER = "currency-service";
+
+  /** Redis password for the ACL-restricted test user. */
+  public static final String REDIS_CURRENCY_SERVICE_TEST_PASSWORD = "currency-service-test";
+
+  /**
+   * Redis ACL rules for the service user, matching the orchestration grant without {@code +keys}.
+   */
+  public static final String REDIS_CURRENCY_SERVICE_RULES_WITHOUT_KEYS =
+      "~currency-service:* +get +set +del +scan +ping +auth +hello +info +ttl +pttl +expire"
+          + " +exists +type +object";
+
   private TestConstants() {
     throw new UnsupportedOperationException("Utility class - do not instantiate");
   }

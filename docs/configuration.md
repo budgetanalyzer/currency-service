@@ -87,9 +87,50 @@ Redis, and RabbitMQ require them.
 |---|---|---|
 | `publish-confirm-timeout-seconds` | `10` | Longest wait for the RabbitMQ publisher confirm of an import request, 1 to 60. See [Publisher Confirms](#publisher-confirms). |
 
-`budgetanalyzer.service.http-logging.*` configures service-common's HTTP request logging. It logs
-request bodies, not response bodies, at `DEBUG`, up to 10000 bytes. Actuator, Swagger UI, and
-OpenAPI paths are excluded by default.
+`budgetanalyzer.service.http-logging.*` configures service-common's HTTP request logging. See
+[Logging](#logging).
+
+## Logging
+
+Application logging defaults to `INFO` for `org.budgetanalyzer`, with the root logger at `WARN`.
+HTTP metadata logging stays enabled at `DEBUG`, but `application.yml` sets neither body flag, so
+service-common's defaults apply and request and response bodies are not logged. Actuator, Swagger
+UI, and OpenAPI paths are excluded by default.
+
+The opt-in `debug-logging` Spring profile
+([`application-debug-logging.yml`](../src/main/resources/application-debug-logging.yml)) raises
+application logging to `TRACE` and turns on request and response body capture. Use it only for
+local debugging with synthetic data.
+
+```bash
+SPRING_PROFILES_ACTIVE=debug-logging ./gradlew bootRun
+```
+
+service-common emits one structured audit event at `INFO` on the dedicated `budgetanalyzer.audit`
+logger for each `POST`, `PUT`, `PATCH`, and `DELETE` that maps to a handler. An event holds the
+actor, the route pattern, path-variable values, and the response status; it holds no request or
+response body. `application.yml` enables that logger explicitly, because the root logger is at
+`WARN`.
+
+## Health Probes
+
+`management.endpoint.health.probes.enabled` is `true`, so the liveness and readiness groups exist
+in every environment, not only in Kubernetes.
+
+- `/actuator/health/liveness` contains only Spring's `livenessState`. It never includes a
+  dependency, so an infrastructure outage does not restart the pod.
+- `/actuator/health/readiness` contains `readinessState`, `db`, and `redis`, and reports
+  unavailable when PostgreSQL or Redis cannot be reached.
+
+PostgreSQL holds every currency series and exchange rate, so no request can be served without it.
+Redis is in readiness because the exchange-rate cache has no fallback: no `CacheErrorHandler` is
+configured, so Spring's default rethrows Redis errors, and `GET /v1/exchange-rates` fails instead of
+reading the database. If the cache is changed to fall back to the database on Redis errors, remove `redis` from
+the readiness group.
+
+RabbitMQ is not a readiness dependency. Request handlers only write Spring Modulith publications to
+PostgreSQL; the outbox listener delivers them asynchronously, and the consumer recovers its broker
+connection independently. The FRED API is a downstream service and is also excluded.
 
 ## Caching
 
@@ -113,6 +154,12 @@ OpenAPI paths are excluded by default.
   (`@CacheEvict(allEntries = true)`), regardless of the TTL. The cache manager is
   `transactionAware`, so the eviction runs only after the import transaction commits. A rolled-back
   import leaves the cache unchanged.
+- **Clearing:** the cache writer clears a cache with `SCAN MATCH currency-service:exchangeRates::*`
+  and `DEL`, in batches of `CacheConfig.CACHE_CLEAR_BATCH_SIZE` (1000), instead of Spring Data
+  Redis's default single `KEYS` pass. ext-authz reads sessions from the same Redis instance on
+  every request, and each short `SCAN` or `DEL` call lets those reads run between batches. Clearing
+  needs `+scan` and `+del`, not `+keys`. Like `KEYS`, a clear is not a point-in-time delete: an
+  entry written by a read that races the scan can survive, bounded by the one-hour TTL.
 - **Writes:** the cache writer uses `immediateWrites`, so puts, evictions, and clears finish before
   the cache call returns.
 - **Values:** JSON with Jackson default typing for non-final types. On read, type ids are accepted
@@ -274,7 +321,10 @@ and event flow.
 The service uses service-common's claims-header security. It trusts the `X-User-Id`,
 `X-Permissions`, and `X-Roles` headers only as set by the platform's validated gateway path, and
 every endpoint enforces a `currencies:read` or `currencies:write` permission with `@PreAuthorize`.
-Health, Swagger UI, and OpenAPI paths are public. See
+Health, Swagger UI, and OpenAPI paths are public. `RuntimeSecurityIntegrationTest` fails the build
+if any application request handler lacks a method- or class-level `@PreAuthorize`; its exception
+list is empty. The rule keeps a new endpoint from falling back to plain authentication, and it does
+not check ownership. See
 [api/README.md](api/README.md#authentication-and-authorization) for the endpoint permissions and the
 orchestration
 [security architecture](https://github.com/budgetanalyzer/orchestration/blob/main/docs/architecture/security-architecture.md)
