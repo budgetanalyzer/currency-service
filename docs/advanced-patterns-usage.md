@@ -277,7 +277,11 @@ public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
       builder
           .cacheWriter(
               RedisCacheWriter.create(
-                  redisConnectionFactory, configurer -> configurer.immediateWrites()))
+                  redisConnectionFactory,
+                  configurer ->
+                      configurer
+                          .immediateWrites()
+                          .batchStrategy(BatchStrategies.scan(CACHE_CLEAR_BATCH_SIZE))))
           .transactionAware();
 }
 ```
@@ -287,6 +291,10 @@ public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
   [configuration.md](configuration.md#caching).
 - **Synchronous writer:** `immediateWrites()` makes puts, evictions, and clears finish before the
   cache call returns, instead of the asynchronous Lettuce default in Spring Data Redis 4.
+- **`SCAN` clears:** `BatchStrategies.scan(CACHE_CLEAR_BATCH_SIZE)` makes `allEntries` evictions
+  walk the cache's keys with `SCAN` and delete them with `DEL`, 1000 keys at a time, instead of the
+  default `KEYS` strategy. The service's Redis user needs no `+keys` grant. See
+  [configuration.md](configuration.md#caching).
 - **Typed JSON values:** the value serializer is a copy of the application `JsonMapper` with
   `DefaultTyping.NON_FINAL`, restricted by a `BasicPolymorphicTypeValidator` that accepts only
   subtypes from `org.budgetanalyzer`, `java.util`, `java.time`, and `java.math`.

@@ -6,7 +6,8 @@ server:
 logging:
   level:
     root: WARN
-    org.budgetanalyzer: TRACE
+    budgetanalyzer.audit: INFO
+    org.budgetanalyzer: INFO
     org.springframework.web.reactive.function.client: DEBUG
     # Spring Cloud Stream / Integration / AMQP - INFO by default
     org.springframework.cloud.stream: INFO
@@ -15,6 +16,15 @@ logging:
     # Specific DEBUG loggers for key components
     org.springframework.amqp.rabbit.core.RabbitTemplate: DEBUG
     org.springframework.modulith.events.core.DefaultEventPublicationRegistry: DEBUG
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis
 
 spring:
   application:
@@ -153,7 +163,5 @@ budgetanalyzer:
     http-logging:
       enabled: true
       log-level: DEBUG
-      include-request-body: true
-      include-response-body: false
       max-body-size: 10000
       # Default exclude-patterns: /actuator/**, /swagger-ui/**, /v3/api-docs/**

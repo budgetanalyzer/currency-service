@@ -6,6 +6,7 @@ import org.springframework.boot.cache.autoconfigure.RedisCacheManagerBuilderCust
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.cache.BatchStrategies;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -33,6 +34,9 @@ import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
  *       the after-commit phase. A rolled-back import leaves the cache unchanged.
  *   <li><b>Synchronous writes:</b> Writes, evictions, and clears complete before the cache call
  *       returns, overriding Spring Data Redis 4's asynchronous Lettuce default.
+ *   <li><b>Incremental clears:</b> Clearing a cache walks its keys with {@code SCAN} and deletes
+ *       them in batches of {@link #CACHE_CLEAR_BATCH_SIZE}, instead of the default single {@code
+ *       KEYS} pass, so the service's Redis user needs no {@code KEYS} permission.
  *   <li><b>Key structure:</b> {@code currency-service:{cacheName}::{key}}, for example {@code
  *       currency-service:exchangeRates::EUR:2024-01-01:2024-01-31}. The {@code currency-service:}
  *       prefix prevents collisions with other services sharing the Redis instance.
@@ -51,6 +55,15 @@ public class CacheConfig {
 
   /** Time-to-live for exchange rate cache entries, counted from when each entry is written. */
   public static final Duration EXCHANGE_RATES_TTL = Duration.ofHours(1);
+
+  /**
+   * Number of keys requested per {@code SCAN} call and deleted per {@code DEL} call when a cache is
+   * cleared.
+   *
+   * <p>Each call stays short, so commands from other clients of the shared Redis instance, such as
+   * ext-authz session reads, run between batches instead of waiting for one full keyspace pass.
+   */
+  public static final int CACHE_CLEAR_BATCH_SIZE = 1000;
 
   /**
    * Creates the JSON serializer for cached values with allowlisted polymorphic typing.
@@ -90,8 +103,11 @@ public class CacheConfig {
    * Configures the Redis cache manager's writer and transaction handling.
    *
    * <p>The cache writer performs writes, evictions, and clears synchronously via {@code
-   * immediateWrites()}. {@code transactionAware()} defers cache puts and evictions to the
-   * after-commit phase of Spring-managed transactions.
+   * immediateWrites()}. It clears a cache with {@code SCAN} and {@code DEL} in batches of {@link
+   * #CACHE_CLEAR_BATCH_SIZE} rather than with {@code KEYS}. Like {@code KEYS}, this is not a
+   * point-in-time delete: a key written while the scan runs may survive until its TTL expires.
+   * {@code transactionAware()} defers cache puts and evictions to the after-commit phase of
+   * Spring-managed transactions.
    *
    * @param redisConnectionFactory Redis connection factory used by the synchronous cache writer
    * @return customizer for RedisCacheManager
@@ -103,7 +119,11 @@ public class CacheConfig {
         builder
             .cacheWriter(
                 RedisCacheWriter.create(
-                    redisConnectionFactory, configurer -> configurer.immediateWrites()))
+                    redisConnectionFactory,
+                    configurer ->
+                        configurer
+                            .immediateWrites()
+                            .batchStrategy(BatchStrategies.scan(CACHE_CLEAR_BATCH_SIZE))))
             .transactionAware();
   }
 
