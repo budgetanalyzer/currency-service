@@ -97,6 +97,11 @@ HTTP metadata logging stays enabled at `DEBUG`, but `application.yml` sets neith
 service-common's defaults apply and request and response bodies are not logged. Actuator, Swagger
 UI, and OpenAPI paths are excluded by default.
 
+The `org.springframework.web.reactive.function.client` logger also stays at `DEBUG`. Spring builds
+its FRED request line with `WebClientUtils.getRequestDescription`, which drops the query string, so
+the `api_key` query parameter is not logged. Recheck that before raising this logger to `TRACE` or
+after a Spring Framework upgrade.
+
 The opt-in `debug-logging` Spring profile
 ([`application-debug-logging.yml`](../src/main/resources/application-debug-logging.yml)) raises
 application logging to `TRACE` and turns on request and response body capture. Use it only for
