@@ -4,8 +4,8 @@
 
 - JDK 25
 - Docker, for the Testcontainers integration tests and the orchestration Kind cluster
-- The orchestration Tilt environment, for shared PostgreSQL, Redis, and RabbitMQ when running the
-  service locally
+- The orchestration Tilt environment, for PostgreSQL, RabbitMQ, and the `redis-cache` instance
+  when running the service locally
 
 **Ecosystem setup guides:**
 - [getting-started.md](https://github.com/budgetanalyzer/orchestration/blob/main/docs/development/getting-started.md)
@@ -37,7 +37,7 @@ export SPRING_RABBITMQ_SSL_ENABLED=true
 export SPRING_RABBITMQ_SSL_BUNDLE=infra-ca
 export SPRING_DATA_REDIS_PASSWORD=your_currency_service_redis_password
 export SPRING_DATA_REDIS_HOST="${SPRING_DATA_REDIS_HOST:-localhost}"
-export SPRING_DATA_REDIS_PORT="${SPRING_DATA_REDIS_PORT:-6379}"
+export SPRING_DATA_REDIS_PORT="${SPRING_DATA_REDIS_PORT:-6380}"
 export SPRING_DATA_REDIS_SSL_ENABLED=true
 export SPRING_DATA_REDIS_SSL_BUNDLE=infra-ca
 export INFRA_CA_CERT_PATH="file:$(cd ../orchestration && pwd)/nginx/certs/infra/infra-ca.pem"
@@ -49,6 +49,10 @@ If you are reusing values from `../orchestration/.env`, map
 `POSTGRES_CURRENCY_SERVICE_PASSWORD`,
 `RABBITMQ_CURRENCY_SERVICE_PASSWORD`, and
 `REDIS_CURRENCY_SERVICE_PASSWORD` into the Spring environment variables above.
+
+Tilt forwards the `redis-cache` instance to `localhost:6380`; `localhost:6379` is the session
+Redis, which this service must not use. If the cache is unreachable, requests still succeed from
+PostgreSQL, only slower.
 
 Redis and RabbitMQ TLS are off by default; the exports above turn TLS on and select the `infra-ca`
 bundle. See [configuration.md](configuration.md#environment-variables) for every variable and its

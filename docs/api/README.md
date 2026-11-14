@@ -132,8 +132,8 @@ Returns one rate per calendar day, quoted as units of `targetCurrency` per 1 USD
 | Query parameter | Type | Required | Meaning |
 |---|---|---|---|
 | `targetCurrency` | ISO 4217 code | Yes | Currency to quote against USD |
-| `startDate` | ISO date (`yyyy-MM-dd`) | No | First day to return; defaults to the earliest stored rate in range |
-| `endDate` | ISO date (`yyyy-MM-dd`) | No | Last day to return; defaults to the latest stored rate in range |
+| `startDate` | ISO date (`yyyy-MM-dd`) | No | First day to return; defaults to the earliest stored rate |
+| `endDate` | ISO date (`yyyy-MM-dd`) | No | Last day to return; defaults to today (UTC), and a later date is treated as today |
 
 Response behavior:
 
@@ -141,7 +141,14 @@ Response behavior:
   earlier published rate, and `publishedDate` gives the date that rate was published.
 - `baseCurrency` is always `USD`. Rates from "USD per foreign currency" series (`DEXUS*`) are
   inverted and rounded to 4 decimal places.
-- A valid range that contains no stored rates returns `200` with an empty list.
+- The effective end date is `min(endDate, today)`, where today is the current UTC date. After
+  the latest stored rate, that rate and its `publishedDate` are carried forward through the
+  effective end date.
+- A `startDate` after `endDate` returns `400 INVALID_REQUEST`. This check uses the dates as sent,
+  before the end date is clamped, so a reversed range is rejected even when both dates are in the
+  future.
+- A valid range that contains no stored rates, including a range that starts after today and is
+  therefore empty after clamping, returns `200` with an empty list.
 
 ```json
 [
@@ -189,7 +196,7 @@ and return `422 APPLICATION_ERROR` with a `code`.
 | `providerSeriesId` (create) | Must exist at the provider and be unique | `422 INVALID_PROVIDER_SERIES_ID` or `422 DUPLICATE_CURRENCY_CODE` |
 | `enabled` (create and update) | Required boolean; there is no default | `400 INVALID_REQUEST` |
 | `targetCurrency` (query) | Required ISO 4217 code | `400 INVALID_REQUEST` |
-| `startDate`, `endDate` (query) | Optional ISO dates, `startDate` not after `endDate` | `400 INVALID_REQUEST` |
+| `startDate`, `endDate` (query) | Optional ISO dates, `startDate` not after `endDate` (checked before `endDate` is clamped to today) | `400 INVALID_REQUEST` |
 
 **`enabled` is required.** Both request records declare it as a primitive `boolean`, and the
 OpenAPI schema lists it as required. Jackson 3 rejects a missing or `null` value
@@ -218,17 +225,23 @@ types, the exception-to-status mapping, and the standard OpenAPI error responses
 
 ## Caching
 
-Only `GET /v1/exchange-rates` is cached. `ExchangeRateService.getExchangeRates` is `@Cacheable` in
-the Redis cache `exchangeRates`:
+`GET /v1/exchange-rates` reads a cached per-currency series. `ExchangeRateService.getExchangeRates`
+is not cached: on every request it checks that the currency is enabled, then reads the dense
+series of that currency from `ExchangeRateSeriesService.getExchangeRateSeries`, which is
+`@Cacheable` in the Redis cache `exchangeRateSeries`, and slices the requested range from it.
 
-- **Key:** `currency-service:exchangeRates::{targetCurrency}:{startDate}:{endDate}`. An omitted
-  date appears as `null`, for example `currency-service:exchangeRates::EUR:null:null`.
+- **Key:** the currency code, for example `currency-service:exchangeRateSeries::EUR`. Request
+  dates never create cache keys.
+- **Value:** the forward-filled series from the first to the last stored rate of the currency.
+  Clamping to today and forward-filling past the last stored rate happen per request.
 - **TTL:** one hour from when the entry is written. See
   [configuration.md](../configuration.md#caching) for why.
-- **Eviction:** every import method evicts all `exchangeRates` entries with
+- **Eviction:** every import method evicts all `exchangeRateSeries` entries with
   `@CacheEvict(allEntries = true)`. The cache manager is transaction-aware, so eviction runs only
   after the import transaction commits.
-- Requests that end in an error are not cached.
+- **Fail-open:** the cache lives in the dedicated `redis-cache` instance. If it fails or is
+  unreachable, the request is served from PostgreSQL and still returns `200`, only slower.
+- A currency without stored rates is not cached.
 
 The cache is server-side only. The service sets no caching or validation headers of its own (no
 `ETag`); responses carry Spring Security's default no-store cache-control headers. See

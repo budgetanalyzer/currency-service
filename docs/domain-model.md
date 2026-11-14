@@ -102,7 +102,7 @@ Business rule violations raise `BusinessException` with a `CurrencyServiceError`
 | `INVALID_ISO_4217_CODE` | `CurrencyService.create` | `currencyCode` is not an ISO 4217 code |
 | `INVALID_PROVIDER_SERIES_ID` | `CurrencyService.create` | The provider reports that the series does not exist |
 | `CURRENCY_NOT_ENABLED` | `ExchangeRateService.getExchangeRates` | No enabled series exists for the currency |
-| `NO_EXCHANGE_RATE_DATA_AVAILABLE` | `ExchangeRateService.getExchangeRates` | The series has no stored rates |
+| `NO_EXCHANGE_RATE_DATA_AVAILABLE` | `ExchangeRateSeriesService.getExchangeRateSeries`, via `ExchangeRateService.getExchangeRates` | The series has no stored rates |
 | `START_DATE_OUT_OF_RANGE` | `ExchangeRateService.getExchangeRates` | `startDate` is before the earliest stored rate |
 
 ## Domain Events
@@ -160,16 +160,19 @@ messaging configuration.
 
 ## Caching
 
-`ExchangeRateService.getExchangeRates` is the only cached method. It uses the Redis cache
-`exchangeRates`:
+`ExchangeRateSeriesService.getExchangeRateSeries` is the only cached method. It caches one dense,
+forward-filled series per currency, from its first to its last stored rate, in the Redis cache
+`exchangeRateSeries`. `ExchangeRateService.getExchangeRates` is not cached; it checks that the
+currency is enabled on every request and slices the requested range from the cached series.
 
-- **Key:** `currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}`. An omitted date
-  appears as `null`.
+- **Key:** `currency-service:exchangeRateSeries::{currencyCode}`. Request dates never create keys.
 - **TTL:** one hour from when the entry is written. The reasons are in
   [configuration.md](configuration.md#caching).
-- **Eviction:** each `ExchangeRateImportService` import method evicts every `exchangeRates` entry
-  (`@CacheEvict(allEntries = true)`). The cache manager is transaction-aware, so eviction happens
+- **Eviction:** each `ExchangeRateImportService` import method evicts every `exchangeRateSeries`
+  entry (`@CacheEvict(allEntries = true)`). The cache manager is transaction-aware, so eviction happens
   only after the import commits.
+- **Fail-open:** a cache failure is logged and the request or import proceeds without the cache, so
+  rate queries and imports never fail because of Redis.
 
 Currency series reads are not cached. See `CacheConfig` and
 [advanced-patterns-usage.md](advanced-patterns-usage.md#redis-distributed-caching).

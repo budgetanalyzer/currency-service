@@ -28,6 +28,10 @@ import org.budgetanalyzer.service.exception.ServiceException;
  * <p>Handles fetching exchange rates from providers, deduplication, and persisting to the database
  * with cache invalidation.
  *
+ * <p>Each import clears the exchange-rate series cache after its transaction commits. A failed
+ * clear is logged and does not fail the committed import; the previous series then stays cached
+ * until its TTL ({@link CacheConfig#EXCHANGE_RATES_TTL}) expires.
+ *
  * <p><b>FRED Series Naming Convention:</b>
  *
  * <ul>
@@ -71,10 +75,10 @@ public class ExchangeRateImportService {
    *
    * <p><b>Cache Eviction Strategy (allEntries = true):</b> This method evicts the entire cache
    * rather than using targeted eviction for specific currencies. While this approach is more
-   * aggressive than necessary (e.g., importing THB evicts EUR cache entries), it was chosen for:
+   * aggressive than necessary (e.g., importing THB evicts the EUR series), it was chosen for:
    *
    * <ul>
-   *   <li><b>Simplicity:</b> No custom wildcard eviction logic required
+   *   <li><b>Simplicity:</b> One eviction call covers every cached series
    *   <li><b>Consistency:</b> Eviction after commit removes every entry cached before the import. A
    *       read that raced the import can re-cache a stale result; the cache TTL ({@link
    *       CacheConfig#EXCHANGE_RATES_TTL}) bounds how long that entry survives
@@ -89,7 +93,7 @@ public class ExchangeRateImportService {
    * @return list of import results, one per currency series
    */
   @Transactional
-  @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
+  @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATE_SERIES_CACHE, allEntries = true)
   public List<ExchangeRateImportResult> importMissingExchangeRates() {
     log.info("Checking if all enabled currency series have exchange rate data...");
 
@@ -108,7 +112,7 @@ public class ExchangeRateImportService {
    * <ul>
    *   <li><b>Batch operation:</b> Imports ALL enabled currencies simultaneously, so most cache
    *       entries would be evicted anyway
-   *   <li><b>Simplicity:</b> No custom wildcard eviction logic or currency-by-currency tracking
+   *   <li><b>Simplicity:</b> No currency-by-currency eviction tracking
    *   <li><b>Timing:</b> Runs once per day
    *   <li><b>Consistency:</b> Eviction after commit removes every entry cached before the import. A
    *       read that raced the import can re-cache a stale result; the cache TTL ({@link
@@ -122,7 +126,7 @@ public class ExchangeRateImportService {
    * @return list of import results, one per currency series
    */
   @Transactional
-  @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
+  @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATE_SERIES_CACHE, allEntries = true)
   public List<ExchangeRateImportResult> importLatestExchangeRates() {
     var seriesToImport = getAllEnabledSeries();
     return importExchangeRatesForSeries(seriesToImport);
@@ -217,10 +221,10 @@ public class ExchangeRateImportService {
    *
    * <p><b>Cache Eviction Strategy (allEntries = true):</b> This method evicts the entire cache
    * rather than targeting only the newly imported currency. While this is more aggressive than
-   * necessary (importing CAD evicts EUR/JPY cache entries), it was chosen for:
+   * necessary (importing CAD evicts the EUR and JPY series), it was chosen for:
    *
    * <ul>
-   *   <li><b>Simplicity:</b> No custom wildcard eviction logic required
+   *   <li><b>Simplicity:</b> One eviction call covers every cached series
    *   <li><b>Consistency:</b> Eviction after commit removes every entry cached before the import. A
    *       read that raced the import can re-cache a stale result; the cache TTL ({@link
    *       CacheConfig#EXCHANGE_RATES_TTL}) bounds how long that entry survives
@@ -233,16 +237,17 @@ public class ExchangeRateImportService {
    * cache miss (50-200ms) after a new currency is added, then return to normal cached performance
    * (1-3ms). Given the infrequency of adding new currencies, this trade-off is acceptable.
    *
-   * <p><b>Alternative Considered:</b> Targeted eviction for single currency would require custom
-   * Redis SCAN/KEYS logic to match patterns like "CAD:*:*". The complexity isn't justified for an
-   * operation that occurs rarely.
+   * <p><b>Alternative Considered:</b> The cache is keyed by currency code, so evicting only the
+   * imported currency's series would be a single-key eviction. Global eviction is kept so that
+   * every import method shares one strategy; the cache holds at most one entry per currency, so the
+   * extra misses are bounded and rare.
    *
    * @param currencySeriesId The ID of the currency series to import rates for
    * @return Import result with counts of new, updated, and skipped rates
    * @throws ResourceNotFoundException if currency series not found
    */
   @Transactional
-  @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
+  @CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATE_SERIES_CACHE, allEntries = true)
   public ExchangeRateImportResult importExchangeRatesForSeries(Long currencySeriesId) {
     var currencySeries =
         currencySeriesRepository

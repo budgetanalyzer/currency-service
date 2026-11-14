@@ -137,11 +137,11 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
   }
 
   // ===========================================================================================
-  // Query Method Tests - findEarliestDateByForeignCurrency()
+  // Query Method Tests - findByCurrencySeriesCurrencyCodeOrderByDateAsc()
   // ===========================================================================================
 
   @Test
-  void findEarliestDateByForeignCurrencyReturnsEarliestDate() {
+  void findByCurrencyCodeOrderByDateAscStartsAtEarliestDate() {
     // Arrange: Create EUR rates with various dates
     var eurSeries =
         currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
@@ -157,27 +157,30 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     exchangeRateRepository.flush();
 
     // Act
-    var earliestDate =
-        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_EUR);
+    var result =
+        exchangeRateRepository.findByCurrencySeriesCurrencyCodeOrderByDateAsc(
+            TestConstants.VALID_CURRENCY_EUR);
 
-    // Assert: Should return 2024-01-02 (earliest date)
-    assertThat(earliestDate).isPresent().contains(LocalDate.of(2024, 1, 2));
+    // Assert: Every rate, starting at 2024-01-02 (earliest date)
+    assertThat(result).hasSize(9);
+    assertThat(result.getFirst().getDate()).isEqualTo(LocalDate.of(2024, 1, 2));
+    assertThat(result.getLast().getDate()).isEqualTo(LocalDate.of(2024, 1, 10));
   }
 
   @Test
-  void findEarliestDateByForeignCurrencyWithNoDataReturnsEmpty() {
+  void findByCurrencyCodeOrderByDateAscWithNoDataReturnsEmpty() {
     // Act: Query for currency with no exchange rates
     var result =
-        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_ZAR);
+        exchangeRateRepository.findByCurrencySeriesCurrencyCodeOrderByDateAsc(
+            TestConstants.VALID_CURRENCY_ZAR);
 
     // Assert
     assertThat(result).isEmpty();
   }
 
   @Test
-  void findEarliestDateByForeignCurrencyReturnsGlobalEarliestAcrossSeries() {
-    // Arrange: Create two EUR series with different start dates
-    // Note: In reality, there should only be one series per currency, but this tests the query
+  void findByCurrencyCodeOrderByDateAscOrdersRatesSavedOutOfOrder() {
+    // Arrange: Save a later EUR rate before an earlier one
     var eurSeries1 =
         currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
 
@@ -192,19 +195,22 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
             .withRate(new BigDecimal("0.8600"))
             .build();
 
-    exchangeRateRepository.saveAll(List.of(rate1, rate2));
+    exchangeRateRepository.saveAll(List.of(rate2, rate1));
     exchangeRateRepository.flush();
 
     // Act
-    var earliestDate =
-        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_EUR);
+    var result =
+        exchangeRateRepository.findByCurrencySeriesCurrencyCodeOrderByDateAsc(
+            TestConstants.VALID_CURRENCY_EUR);
 
-    // Assert: Should return 2020-01-01 (global earliest)
-    assertThat(earliestDate).isPresent().contains(LocalDate.of(2020, 1, 1));
+    // Assert: Ascending by date, starting at 2020-01-01 (global earliest)
+    assertThat(result)
+        .extracting(ExchangeRate::getDate)
+        .containsExactly(LocalDate.of(2020, 1, 1), LocalDate.of(2024, 1, 1));
   }
 
   @Test
-  void findEarliestDateByForeignCurrencyIsolatesByForeignCurrency() {
+  void findByCurrencyCodeOrderByDateAscIsolatesByForeignCurrency() {
     // Arrange: Create EUR and THB rates with different start dates
     var eurSeries =
         currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
@@ -226,11 +232,14 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     exchangeRateRepository.flush();
 
     // Act: Query for EUR only
-    var eurEarliest =
-        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_EUR);
+    var eurRates =
+        exchangeRateRepository.findByCurrencySeriesCurrencyCodeOrderByDateAsc(
+            TestConstants.VALID_CURRENCY_EUR);
 
-    // Assert: Should return EUR date, not THB (even though THB is earlier)
-    assertThat(eurEarliest).isPresent().contains(LocalDate.of(2024, 1, 15));
+    // Assert: Should return only the EUR rate, not THB (even though THB is earlier)
+    assertThat(eurRates)
+        .extracting(ExchangeRate::getDate)
+        .containsExactly(LocalDate.of(2024, 1, 15));
   }
 
   // ===========================================================================================

@@ -6,6 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import org.budgetanalyzer.currency.config.FixedClockTestConfig;
 import org.budgetanalyzer.currency.config.TestContainersConfig;
 
 /**
@@ -19,6 +20,7 @@ import org.budgetanalyzer.currency.config.TestContainersConfig;
  *   <li>RabbitMQ container for event-driven messaging
  *   <li>Full Spring Boot application context
  *   <li>Claims-header-based authentication via {@code ClaimsHeaderTestBuilder}
+ *   <li>A fixed UTC clock from {@link FixedClockTestConfig}, so "today" is deterministic
  * </ul>
  *
  * <p>All test infrastructure is centralized in {@link TestContainersConfig}, which uses Spring Boot
@@ -69,7 +71,7 @@ import org.budgetanalyzer.currency.config.TestContainersConfig;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
-@Import(TestContainersConfig.class)
+@Import({TestContainersConfig.class, FixedClockTestConfig.class})
 public abstract class AbstractIntegrationTest {
   // All container configuration is in TestContainersConfiguration
   // Authentication is handled per-request via ClaimsHeaderTestBuilder

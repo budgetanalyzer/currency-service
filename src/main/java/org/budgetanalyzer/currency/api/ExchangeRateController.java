@@ -124,7 +124,12 @@ public class ExchangeRateController {
           @RequestParam
           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           Optional<LocalDate> startDate,
-      @Parameter(description = "End date for exchange rates in ISO format", example = "2024-12-31")
+      @Parameter(
+              description =
+                  "End date for exchange rates in ISO format. Defaults to today (UTC). Dates after"
+                      + " today are treated as today. A start date after the end date is rejected"
+                      + " with 400 before this clamping, even when both dates are in the future.",
+              example = "2024-12-31")
           @RequestParam
           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           Optional<LocalDate> endDate,

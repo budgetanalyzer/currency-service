@@ -104,7 +104,7 @@ The comparison handles any already-stored date that does come back. An import th
 observations reports zero counts.
 
 An all-series import runs in one transaction. If any series fails, the whole import rolls back and
-the cache is not evicted. A successful import evicts all cached exchange-rate queries after it
+the cache is not evicted. A successful import evicts all cached exchange-rate series after it
 commits.
 
 ## FRED API Rate Limits

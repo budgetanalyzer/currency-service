@@ -2,12 +2,11 @@ package org.budgetanalyzer.currency.repository;
 
 import java.time.LocalDate;
 import java.util.Currency;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import org.budgetanalyzer.currency.domain.CurrencySeries;
 import org.budgetanalyzer.currency.domain.ExchangeRate;
@@ -22,22 +21,10 @@ public interface ExchangeRateRepository
       Currency baseCurrency, Currency targetCurrency, LocalDate date);
 
   /**
-   * Finds the most recent exchange rate before a given date for a foreign currency.
+   * Finds every exchange rate of a foreign currency in ascending date order.
    *
    * <p>This method works correctly for both FRED series patterns by querying via the currency
-   * series's currency code.
-   *
-   * @param currencyCode The ISO 4217 currency code of the foreign currency
-   * @param date The date to look before
-   * @return Optional containing the most recent rate before the date, or empty if none exists
-   */
-  Optional<ExchangeRate> findTopByCurrencySeriesCurrencyCodeAndDateLessThanOrderByDateDesc(
-      String currencyCode, LocalDate date);
-
-  /**
-   * Finds the earliest date for which exchange rate data exists for a given foreign currency.
-   *
-   * <p>This method works correctly for both FRED series patterns:
+   * series's currency code:
    *
    * <ul>
    *   <li>DEXUS* series (e.g., EUR): stored as base=foreign, target=USD
@@ -45,12 +32,9 @@ public interface ExchangeRateRepository
    * </ul>
    *
    * @param currencyCode The ISO 4217 currency code of the foreign currency
-   * @return Optional containing the earliest date, or empty if no data exists
+   * @return exchange rates of the currency ordered by date, or an empty list if none exist
    */
-  @Query(
-      "SELECT MIN(e.date) FROM ExchangeRate e "
-          + "WHERE e.currencySeries.currencyCode = :currencyCode")
-  Optional<LocalDate> findEarliestDateByForeignCurrency(@Param("currencyCode") String currencyCode);
+  List<ExchangeRate> findByCurrencySeriesCurrencyCodeOrderByDateAsc(String currencyCode);
 
   /**
    * Count the number of exchange rates for a given currency series.

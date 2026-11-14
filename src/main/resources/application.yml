@@ -24,7 +24,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,db,redis
+          include: readinessState,db
 
 spring:
   application:
@@ -70,7 +70,8 @@ spring:
       port: ${SPRING_DATA_REDIS_PORT:${REDIS_PORT:6379}}
       username: ${SPRING_DATA_REDIS_USERNAME:${REDIS_USERNAME:currency-service}}
       password: ${SPRING_DATA_REDIS_PASSWORD:${REDIS_PASSWORD:}}
-      timeout: 2000ms
+      timeout: 1s          # Command timeout; bounds each cache call while Redis is down
+      connect-timeout: 1s  # Fail fast when the cache instance is unreachable
       ssl:
         enabled: ${SPRING_DATA_REDIS_SSL_ENABLED:false}
         bundle: ${SPRING_DATA_REDIS_SSL_BUNDLE:}
