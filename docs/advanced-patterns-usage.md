@@ -255,8 +255,9 @@ cache holds at most one entry per currency.
 ### Cache Configuration
 
 `CacheConfig` builds the cache configuration and the cache manager in code, not from
-`spring.cache.redis.*`. The manager exists only when `spring.cache.type=redis`; otherwise Spring
-Boot configures the manager for the selected type, such as the no-op manager for `none`:
+`spring.cache.redis.*`. The manager exists when `spring.cache.type` is `redis` or unset, so an
+unset property never falls back to Spring Boot's plain Redis manager. Any other type makes Spring
+Boot configure the manager for that type, such as the no-op manager for `none`:
 
 ```java
 @Bean
@@ -277,7 +278,7 @@ public RedisCacheConfiguration cacheConfiguration(JsonMapper jsonMapper) {
 }
 
 @Bean
-@ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis")
+@ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis", matchIfMissing = true)
 public RedisCacheManager cacheManager(
     RedisConnectionFactory redisConnectionFactory,
     RedisCacheConfiguration redisCacheConfiguration) {

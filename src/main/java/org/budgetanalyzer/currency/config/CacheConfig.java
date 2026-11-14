@@ -56,8 +56,8 @@ import org.budgetanalyzer.currency.service.dto.ExchangeRateSeries;
  * </ul>
  *
  * <p>The cache manager is defined here, so no {@code spring.cache.redis.*} property has an effect;
- * {@code spring.cache.type} only selects between this Redis cache manager ({@code redis}) and
- * Spring Boot's cache manager for another type, such as {@code none}.
+ * {@code spring.cache.type} only selects between this Redis cache manager ({@code redis} or unset)
+ * and Spring Boot's cache manager for another type, such as {@code none}.
  */
 @Configuration
 @EnableCaching
@@ -79,11 +79,13 @@ public class CacheConfig {
   public static final int CACHE_CLEAR_BATCH_SIZE = 1000;
 
   /**
-   * Creates the Redis cache manager when {@code spring.cache.type=redis}.
+   * Creates the Redis cache manager when {@code spring.cache.type} is {@code redis} or unset.
    *
-   * <p>With any other cache type, such as {@code none} in most tests, this bean is absent and
-   * Spring Boot configures the cache manager for that type. When present, Spring Boot's cache
-   * manager auto-configuration backs off, so no {@code spring.cache.redis.*} property applies.
+   * <p>Matching the unset property keeps Spring Boot from building its own plain Redis cache
+   * manager, which would be neither fail-open nor transaction-aware. With any other cache type,
+   * such as {@code none} in most tests, this bean is absent and Spring Boot configures the cache
+   * manager for that type. When present, Spring Boot's cache manager auto-configuration backs off,
+   * so no {@code spring.cache.redis.*} property applies.
    *
    * <p>The cache writer performs writes, evictions, and clears synchronously via {@code
    * immediateWrites()}. It clears a cache with {@code SCAN} and {@code DEL} in batches of {@link
@@ -101,7 +103,7 @@ public class CacheConfig {
    * @return fail-open, transaction-aware Redis cache manager
    */
   @Bean
-  @ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis")
+  @ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis", matchIfMissing = true)
   public RedisCacheManager cacheManager(
       RedisConnectionFactory redisConnectionFactory,
       RedisCacheConfiguration redisCacheConfiguration) {

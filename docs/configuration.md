@@ -207,10 +207,13 @@ connection independently. The FRED API is a downstream service and is also exclu
   type ids and reads every value as `ExchangeRateSeries`, so a cache can hold only that type. Null
   values are not cached.
 
-`CacheConfig` creates the `RedisCacheManager` itself when `spring.cache.type` is `redis`, so Spring
-Boot's cache manager auto-configuration backs off and no `spring.cache.redis.*` property has an
-effect; cache statistics are off. With any other `spring.cache.type`, such as `none` in most tests,
-Spring Boot configures the cache manager for that type. See
+`CacheConfig` creates the `RedisCacheManager` itself when `spring.cache.type` is `redis` or unset,
+so Spring Boot's cache manager auto-configuration backs off and no `spring.cache.redis.*` property
+has an effect; cache statistics are off. Matching the unset property stops Spring Boot from
+building its own plain Redis manager, which is not fail-open or transaction-aware, writes
+asynchronously, and clears with `KEYS`, which the service's ACL user may not run. With any other
+`spring.cache.type`, such as `none` in most tests, Spring Boot configures the cache manager for
+that type. See
 [advanced-patterns-usage.md](advanced-patterns-usage.md#redis-distributed-caching) for the code.
 
 ## Scheduled Tasks
