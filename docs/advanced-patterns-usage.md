@@ -224,8 +224,9 @@ public ExchangeRateSeries getExchangeRateSeries(String currencyCode) {
 ```
 
 `ExchangeRateService.getExchangeRates` is not cached. It rejects a disabled currency on every
-request, reads the cached series, clamps the end date to today (UTC, from the injected `Clock`)
-and slices the requested days, forward-filling the last stored rate after the series ends.
+request, reads the cached series, caps the end date at tomorrow (today plus one day, with today
+the UTC date from the injected `Clock`) and slices the requested days, forward-filling the last
+stored rate after the series ends.
 Requests that throw, such as a currency without rates, are not cached.
 
 ### Eviction After Import
@@ -303,9 +304,12 @@ protected Cache decorateCache(Cache cache) {
   entry survives, whether a read that raced an import cached it after the import's eviction or a
   failed after-commit eviction left it in place. See [configuration.md](configuration.md#caching).
 - **Fail-open, then transaction-aware:** each cache is
-  `TransactionAwareCacheDecorator(FailOpenCache(RedisCache))`. `FailOpenCache` logs every Redis
-  failure at `WARN` with the operation, cache name and key (no key for `clear`) and absorbs it: a
-  failed read is a miss served from PostgreSQL, and a failed put, eviction or clear is skipped.
+  `TransactionAwareCacheDecorator(FailOpenCache(RedisCache))`. `FailOpenCache` absorbs only cache
+  failures, a `DataAccessException` or a Redis `SerializationException`, and logs each at `WARN`
+  with the operation, cache name, key (no key for `clear`), and exception class and message,
+  without a stack trace (the stack trace is at `DEBUG`): a failed read is a miss served from
+  PostgreSQL, and a failed put, eviction or clear is skipped. Any other exception propagates. See
+  [configuration.md](configuration.md#caching) for the confirmed exception types.
   Because it sits beneath the transaction-aware layer, puts and clears deferred to after commit
   also fail open, independent of interceptor order. No `CacheErrorHandler` is used, because
   Spring runs deferred operations in `afterCommit`, outside that handler. Value-loader exceptions
@@ -725,8 +729,10 @@ covers eviction for each import method and an unchanged cache after rollback.
 Fail-open behavior is tested without replacing application beans:
 
 - [`FailOpenCacheTest`](../src/test/java/org/budgetanalyzer/currency/config/FailOpenCacheTest.java)
-  wraps a small failing `Cache` implementation and checks that each method returns a miss or does
-  nothing, logs a `WARN`, and still propagates value-loader failures.
+  wraps a small failing `Cache` implementation and checks that each sync and async method returns
+  a miss or does nothing for each cache-failure type, logs a `WARN` without a stack trace, and
+  still propagates other exceptions and value-loader failures, including a loader-thrown
+  `DataAccessException`.
 - [`ExchangeRateCacheFailOpenIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/service/ExchangeRateCacheFailOpenIntegrationTest.java)
   points the cache at a dedicated Redis whose ACL denies writes and runs the real service inside a
   `TransactionTemplate`. It asserts that no put or clear warning exists before commit, that the

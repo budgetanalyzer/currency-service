@@ -174,8 +174,9 @@ connection independently. The FRED API is a downstream service and is also exclu
     after that import's after-commit eviction, and a failed after-commit eviction leaves the
     previous series in place. Without a TTL, either entry would stay until the next import, up to
     24 hours later. The TTL limits it to one hour.
-  - The cached series ends at the last stored rate, and each request forward-fills it to today, so
-    an entry does not change at midnight and needs no date-based expiry of its own.
+  - The cached series ends at the last stored rate, and each request forward-fills it to that
+    request's effective end date, so an entry does not change at midnight and needs no date-based
+    expiry of its own.
 
   Spring Data Redis writes each entry with a single `SET … PX`, which the service's Redis ACL
   (`+set`) allows. The TTL is fixed in code, not a configuration property, and there is no
@@ -193,13 +194,22 @@ connection independently. The FRED API is a downstream service and is also exclu
 - **Writes:** the cache writer uses `immediateWrites`, so puts, evictions, and clears finish before
   the cache call returns.
 - **Fail-open:** each cache is `TransactionAwareCacheDecorator(FailOpenCache(RedisCache))`.
-  `FailOpenCache` logs every cache failure at `WARN` with the operation, the cache name, and the
-  key (no key for `clear`), and does not rethrow it: a failed read is a miss served from
-  PostgreSQL, and a failed put, eviction, or clear is skipped. Because the fail-open layer sits
-  beneath the transaction-aware layer, puts and clears deferred until after commit also fail open,
-  so a committed import or a successful query never fails because of Redis. Value-loader failures
-  still propagate. The service uses no `CacheErrorHandler`, which would not cover after-commit
-  operations. An outage costs up to the [Redis command timeout](#redis-timeouts) per cache call.
+  A cache failure is a Spring `DataAccessException`, which Spring Data Redis throws when Redis is
+  unreachable (`RedisConnectionFailureException`), times out (`QueryTimeoutException`), or rejects
+  a command such as an ACL `NOPERM` (`RedisSystemException`), or a Redis `SerializationException`
+  for a cached value that cannot be read. Asynchronous `retrieve` failures are classified after
+  unwrapping `CompletionException` and `ExecutionException`. `FailOpenCache` logs each cache
+  failure at `WARN` with the operation, the cache name, the key (no key for `clear`), and the
+  exception class and message, without a stack trace, so an outage adds one short line per cache
+  call; enable `DEBUG` for `org.budgetanalyzer.currency.config.FailOpenCache` to log the same
+  message with the stack trace. It does not rethrow the failure: a failed read is a miss served
+  from PostgreSQL, and a failed put, eviction, or clear is skipped. Because the fail-open layer
+  sits beneath the transaction-aware layer, puts and clears deferred until after commit also fail
+  open, so a committed import or a successful query never fails because of Redis. Any other
+  exception from the cache propagates, and value-loader failures, including a database
+  `DataAccessException`, still propagate. The service uses no `CacheErrorHandler`, which would not
+  cover after-commit operations. An outage costs up to the
+  [Redis command timeout](#redis-timeouts) per cache call.
 - **Values:** compact JSON written by a Jackson serializer bound to `ExchangeRateSeries`: the base
   currency, target currency and provider series ID once, the series start date, one USD-based rate
   per day and one published-date offset per day (`0` marks a stored rate on that day). The

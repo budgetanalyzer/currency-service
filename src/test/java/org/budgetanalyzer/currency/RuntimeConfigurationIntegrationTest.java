@@ -140,11 +140,14 @@ class RuntimeConfigurationIntegrationTest {
           .andExpect(jsonPath("$[4].date").value(TestConstants.DATE_2024_JAN_05.toString()));
 
       assertThat(failOpenCacheLogCapture.warnings())
-          .contains(
-              TestConstants.failOpenCacheWarning(
-                  "get",
-                  CacheConfig.EXCHANGE_RATE_SERIES_CACHE,
-                  TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR));
+          .anySatisfy(
+              warning ->
+                  assertThat(warning)
+                      .startsWith(
+                          TestConstants.failOpenCacheWarningPrefix(
+                              "get",
+                              CacheConfig.EXCHANGE_RATE_SERIES_CACHE,
+                              TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR)));
     }
 
     // Redis stays stopped, so only the named db component is asserted.

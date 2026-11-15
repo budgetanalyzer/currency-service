@@ -12,6 +12,7 @@ import org.springframework.boot.data.redis.autoconfigure.DataRedisConnectionDeta
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -19,6 +20,8 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
+
+import ch.qos.logback.classic.Level;
 
 import org.budgetanalyzer.currency.base.AbstractWireMockTest;
 import org.budgetanalyzer.currency.config.CacheConfig;
@@ -36,9 +39,10 @@ import org.budgetanalyzer.currency.service.dto.ExchangeRateData;
  *
  * <p>The application connects to its own Redis container as the {@code currency-service} ACL user,
  * which may read cache entries but not write, delete, or scan them. Cache reads therefore miss, and
- * every put or clear fails in Redis with {@code NOPERM}. Each service call runs inside an explicit
- * enclosing transaction, so its cache operation is deferred to that transaction's commit regardless
- * of the order of the transaction and cache interceptors.
+ * every put or clear fails in Redis with {@code NOPERM}, which Spring Data Redis reports as a
+ * {@link RedisSystemException}. Each service call runs inside an explicit enclosing transaction, so
+ * its cache operation is deferred to that transaction's commit regardless of the order of the
+ * transaction and cache interceptors.
  */
 @TestPropertySource(properties = "spring.cache.type=redis")
 class ExchangeRateCacheFailOpenIntegrationTest extends AbstractWireMockTest {
@@ -109,11 +113,15 @@ class ExchangeRateCacheFailOpenIntegrationTest extends AbstractWireMockTest {
             });
 
     assertThat(failOpenCacheLogCapture.warnings())
-        .containsExactly(
-            TestConstants.failOpenCacheWarning(
-                "put",
-                CacheConfig.EXCHANGE_RATE_SERIES_CACHE,
-                TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR));
+        .singleElement()
+        .asString()
+        .startsWith(
+            TestConstants.failOpenCacheWarningPrefix(
+                    "put",
+                    CacheConfig.EXCHANGE_RATE_SERIES_CACHE,
+                    TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR)
+                + RedisSystemException.class.getName());
+    assertThat(failOpenCacheLogCapture.throwableClassNames(Level.WARN)).isEmpty();
     assertThat(exchangeRates)
         .hasSize(5)
         .extracting(ExchangeRateData::date)
@@ -142,8 +150,13 @@ class ExchangeRateCacheFailOpenIntegrationTest extends AbstractWireMockTest {
             });
 
     assertThat(failOpenCacheLogCapture.warnings())
-        .containsExactly(
-            TestConstants.failOpenCacheWarning("clear", CacheConfig.EXCHANGE_RATE_SERIES_CACHE));
+        .singleElement()
+        .asString()
+        .startsWith(
+            TestConstants.failOpenCacheWarningPrefix(
+                    "clear", CacheConfig.EXCHANGE_RATE_SERIES_CACHE)
+                + RedisSystemException.class.getName());
+    assertThat(failOpenCacheLogCapture.throwableClassNames(Level.WARN)).isEmpty();
     assertThat(importResults)
         .singleElement()
         .satisfies(

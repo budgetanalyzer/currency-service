@@ -20,7 +20,8 @@ import org.budgetanalyzer.currency.config.TestContainersConfig;
  *   <li>RabbitMQ container for event-driven messaging
  *   <li>Full Spring Boot application context
  *   <li>Claims-header-based authentication via {@code ClaimsHeaderTestBuilder}
- *   <li>A fixed UTC clock from {@link FixedClockTestConfig}, so "today" is deterministic
+ *   <li>A running UTC clock from {@link FixedClockTestConfig} that starts on a fixed date, so
+ *       "today" is deterministic
  * </ul>
  *
  * <p>All test infrastructure is centralized in {@link TestContainersConfig}, which uses Spring Boot

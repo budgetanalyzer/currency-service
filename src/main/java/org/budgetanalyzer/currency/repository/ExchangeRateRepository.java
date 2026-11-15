@@ -6,13 +6,11 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import org.budgetanalyzer.currency.domain.CurrencySeries;
 import org.budgetanalyzer.currency.domain.ExchangeRate;
 
-public interface ExchangeRateRepository
-    extends JpaRepository<ExchangeRate, Long>, JpaSpecificationExecutor<ExchangeRate> {
+public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long> {
 
   Optional<ExchangeRate> findTopByBaseCurrencyAndTargetCurrencyOrderByDateDesc(
       Currency baseCurrency, Currency targetCurrency);

@@ -53,8 +53,9 @@ public class ExchangeRateService {
    * <ul>
    *   <li>A null {@code startDate} means the date of the first source rate.
    *   <li>The effective end date is today (UTC, from the injected {@link Clock}) when {@code
-   *       endDate} is null, otherwise the earlier of {@code endDate} and today. After the last
-   *       source rate, the last rate is forward-filled up to the effective end date.
+   *       endDate} is null, otherwise the earlier of {@code endDate} and tomorrow (today plus one
+   *       day). After the last source rate, the last rate is forward-filled up to the effective end
+   *       date.
    *   <li>The result is empty when the effective start date is after the effective end date, or
    *       when no source rate falls within the effective range.
    * </ul>
@@ -77,7 +78,7 @@ public class ExchangeRateService {
    */
   public List<ExchangeRateData> getExchangeRates(
       Currency targetCurrency, LocalDate startDate, LocalDate endDate) {
-    // Defensive programming: validate the original date range before any clamping
+    // Defensive programming: validate the original date range before the end-date cap
     if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
       throw new IllegalArgumentException("Start date must be before or equal to end date");
     }
@@ -101,7 +102,16 @@ public class ExchangeRateService {
     }
 
     var today = LocalDate.now(clock);
-    var effectiveEndDate = endDate == null || endDate.isAfter(today) ? today : endDate;
+    // transaction-service accepts transaction dates through tomorrow
+    var latestEndDate = today.plusDays(1);
+    LocalDate effectiveEndDate;
+    if (endDate == null) {
+      effectiveEndDate = today;
+    } else if (endDate.isAfter(latestEndDate)) {
+      effectiveEndDate = latestEndDate;
+    } else {
+      effectiveEndDate = endDate;
+    }
     var effectiveStartDate = startDate != null ? startDate : exchangeRateSeries.startDate();
 
     // nothing available for the date range isn't the same as NO_EXCHANGE_RATE_DATA_AVAILABLE

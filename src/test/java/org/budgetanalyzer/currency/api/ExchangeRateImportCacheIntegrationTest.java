@@ -88,6 +88,8 @@ class ExchangeRateImportCacheIntegrationTest extends AbstractControllerTest {
     assertThat(
             cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, ExchangeRateSeries.class))
         .isEqualTo(TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isTrue();
 
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
@@ -95,7 +97,8 @@ class ExchangeRateImportCacheIntegrationTest extends AbstractControllerTest {
 
     performPost("/v1/exchange-rates/import", "").andExpect(status().isOk());
 
-    assertThat(cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR)).isNull();
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isFalse();
   }
 
   @Test

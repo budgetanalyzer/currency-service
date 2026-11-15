@@ -2,28 +2,38 @@ package org.budgetanalyzer.currency.config;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.serializer.SerializationException;
 
 /**
- * Cache decorator that turns cache failures into misses and no-ops.
+ * Cache decorator that turns cache-infrastructure failures into misses and no-ops.
  *
- * <p>Every method delegates to the wrapped cache. When the wrapped cache throws, for example
- * because Redis is unreachable, slow, or rejects a command, the failure is logged at {@code WARN}
- * with the operation, the cache name, and the key (no key for {@code clear} and {@code
- * invalidate}), and is not rethrown:
+ * <p>Every method delegates to the wrapped cache. A cache failure is a {@link DataAccessException},
+ * which Spring Data Redis throws when Redis is unreachable, times out, or rejects a command, or a
+ * {@link SerializationException}, thrown for a cached value that cannot be read. An asynchronous
+ * failure counts when it is one of these types after unwrapping {@link CompletionException} and
+ * {@link ExecutionException}. A cache failure is logged at {@code WARN} with the operation, the
+ * cache name, the key (no key for {@code clear} and {@code invalidate}), and the exception class
+ * and message, without a stack trace; the same message is logged with the stack trace at {@code
+ * DEBUG}. The failure is not rethrown:
  *
  * <ul>
  *   <li>A failed read returns a miss, so the caller loads the value from its source.
  *   <li>A failed write, eviction, or clear does nothing.
  * </ul>
  *
- * <p>Exceptions thrown by a value loader passed to {@link #get(Object, Callable)} or {@link
- * #retrieve(Object, Supplier)} still propagate; only the cache's own failures are absorbed.
+ * <p>Any other exception from the wrapped cache propagates. Exceptions thrown by a value loader
+ * passed to {@link #get(Object, Callable)} or {@link #retrieve(Object, Supplier)} also propagate,
+ * including a {@link DataAccessException} from the database; only the cache's own failures are
+ * absorbed.
  *
  * <p>The cache manager wraps this decorator in a {@code TransactionAwareCacheDecorator}, so the
  * writes and evictions that run after a transaction commits also pass through it.
@@ -57,8 +67,8 @@ public class FailOpenCache implements Cache {
   public ValueWrapper get(Object key) {
     try {
       return targetCache.get(key);
-    } catch (RuntimeException runtimeException) {
-      logFailure("get", key, runtimeException);
+    } catch (DataAccessException | SerializationException cacheException) {
+      logFailure("get", key, cacheException);
       return null;
     }
   }
@@ -67,8 +77,8 @@ public class FailOpenCache implements Cache {
   public <T> T get(Object key, Class<T> type) {
     try {
       return targetCache.get(key, type);
-    } catch (RuntimeException runtimeException) {
-      logFailure("get", key, runtimeException);
+    } catch (DataAccessException | SerializationException cacheException) {
+      logFailure("get", key, cacheException);
       return null;
     }
   }
@@ -76,9 +86,9 @@ public class FailOpenCache implements Cache {
   /**
    * Returns the cached value, or loads and caches it.
    *
-   * <p>If the lookup fails, the value is loaded without the cache. If only storing the loaded value
-   * fails, the loaded value is returned. A failure of the value loader propagates as a {@link
-   * Cache.ValueRetrievalException}, as the wrapped cache reports it.
+   * <p>If the lookup fails in the cache, the value is loaded without the cache. If only storing the
+   * loaded value fails, the loaded value is returned. A failure of the value loader propagates as a
+   * {@link Cache.ValueRetrievalException}, as the wrapped cache reports it.
    *
    * @param key the key whose associated value is to be returned
    * @param valueLoader the loader that computes the value on a miss
@@ -90,27 +100,27 @@ public class FailOpenCache implements Cache {
     var recordingValueLoader = new RecordingValueLoader<>(valueLoader);
     try {
       return targetCache.get(key, recordingValueLoader);
-    } catch (RuntimeException runtimeException) {
+    } catch (DataAccessException | SerializationException cacheException) {
       if (recordingValueLoader.loaderFailed) {
-        throw runtimeException;
+        throw cacheException;
       }
 
       if (recordingValueLoader.loaderSucceeded) {
-        logFailure("put", key, runtimeException);
+        logFailure("put", key, cacheException);
         return recordingValueLoader.loadedValue;
       }
 
-      logFailure("get", key, runtimeException);
+      logFailure("get", key, cacheException);
       return loadValue(key, valueLoader);
     }
   }
 
   /**
-   * Returns the cached value asynchronously; a failed lookup completes as a miss.
+   * Returns the cached value asynchronously; a lookup that fails in the cache completes as a miss.
    *
    * @param key the key whose associated value is to be returned
-   * @return a future of the cached value, completed with {@code null} on a miss or failure, or
-   *     {@code null} if the wrapped cache immediately reports a miss
+   * @return a future of the cached value, completed with {@code null} on a miss or cache failure,
+   *     or {@code null} if the wrapped cache immediately reports a miss
    */
   @Override
   public CompletableFuture<?> retrieve(Object key) {
@@ -120,13 +130,9 @@ public class FailOpenCache implements Cache {
         return null;
       }
 
-      return cachedValueFuture.exceptionally(
-          throwable -> {
-            logFailure("retrieve", key, throwable);
-            return null;
-          });
-    } catch (RuntimeException runtimeException) {
-      logFailure("retrieve", key, runtimeException);
+      return completeAsMissOnCacheFailure(key, cachedValueFuture);
+    } catch (DataAccessException | SerializationException cacheException) {
+      logFailure("retrieve", key, cacheException);
       return CompletableFuture.completedFuture(null);
     }
   }
@@ -134,9 +140,9 @@ public class FailOpenCache implements Cache {
   /**
    * Returns the cached value asynchronously, or loads and caches it.
    *
-   * <p>If the lookup fails, the value is loaded without the cache. If only storing the loaded value
-   * fails, the loaded value is returned. A failure of the value loader completes the returned
-   * future exceptionally.
+   * <p>If the lookup fails in the cache, the value is loaded without the cache. If only storing the
+   * loaded value fails, the loaded value is returned. A failure of the value loader completes the
+   * returned future exceptionally.
    *
    * @param key the key whose associated value is to be returned
    * @param valueLoader the loader that computes the value on a miss
@@ -161,22 +167,28 @@ public class FailOpenCache implements Cache {
     CompletableFuture<T> cachedValueFuture;
     try {
       cachedValueFuture = targetCache.retrieve(key, recordingValueLoader);
-    } catch (RuntimeException runtimeException) {
-      cachedValueFuture = CompletableFuture.failedFuture(runtimeException);
+    } catch (DataAccessException | SerializationException cacheException) {
+      cachedValueFuture = CompletableFuture.failedFuture(cacheException);
     }
 
     return cachedValueFuture.exceptionallyCompose(
         throwable -> {
           var valueFuture = loadedValueFuture.get();
+          if (valueFuture != null && valueFuture.isCompletedExceptionally()) {
+            return valueFuture;
+          }
+
+          var failure = unwrapAsyncFailure(throwable);
+          if (!isCacheFailure(failure)) {
+            return CompletableFuture.failedFuture(throwable);
+          }
+
           if (valueFuture == null) {
-            logFailure("retrieve", key, throwable);
+            logFailure("retrieve", key, failure);
             return recordingValueLoader.get();
           }
 
-          if (!valueFuture.isCompletedExceptionally()) {
-            logFailure("put", key, throwable);
-          }
-
+          logFailure("put", key, failure);
           return valueFuture;
         });
   }
@@ -185,8 +197,8 @@ public class FailOpenCache implements Cache {
   public void put(Object key, Object value) {
     try {
       targetCache.put(key, value);
-    } catch (RuntimeException runtimeException) {
-      logFailure("put", key, runtimeException);
+    } catch (DataAccessException | SerializationException cacheException) {
+      logFailure("put", key, cacheException);
     }
   }
 
@@ -194,8 +206,8 @@ public class FailOpenCache implements Cache {
   public ValueWrapper putIfAbsent(Object key, Object value) {
     try {
       return targetCache.putIfAbsent(key, value);
-    } catch (RuntimeException runtimeException) {
-      logFailure("putIfAbsent", key, runtimeException);
+    } catch (DataAccessException | SerializationException cacheException) {
+      logFailure("putIfAbsent", key, cacheException);
       return null;
     }
   }
@@ -204,8 +216,8 @@ public class FailOpenCache implements Cache {
   public void evict(Object key) {
     try {
       targetCache.evict(key);
-    } catch (RuntimeException runtimeException) {
-      logFailure("evict", key, runtimeException);
+    } catch (DataAccessException | SerializationException cacheException) {
+      logFailure("evict", key, cacheException);
     }
   }
 
@@ -213,8 +225,8 @@ public class FailOpenCache implements Cache {
   public boolean evictIfPresent(Object key) {
     try {
       return targetCache.evictIfPresent(key);
-    } catch (RuntimeException runtimeException) {
-      logFailure("evictIfPresent", key, runtimeException);
+    } catch (DataAccessException | SerializationException cacheException) {
+      logFailure("evictIfPresent", key, cacheException);
       return false;
     }
   }
@@ -223,8 +235,8 @@ public class FailOpenCache implements Cache {
   public void clear() {
     try {
       targetCache.clear();
-    } catch (RuntimeException runtimeException) {
-      logFailure("clear", runtimeException);
+    } catch (DataAccessException | SerializationException cacheException) {
+      logFailure("clear", cacheException);
     }
   }
 
@@ -232,8 +244,8 @@ public class FailOpenCache implements Cache {
   public boolean invalidate() {
     try {
       return targetCache.invalidate();
-    } catch (RuntimeException runtimeException) {
-      logFailure("invalidate", runtimeException);
+    } catch (DataAccessException | SerializationException cacheException) {
+      logFailure("invalidate", cacheException);
       return false;
     }
   }
@@ -246,21 +258,46 @@ public class FailOpenCache implements Cache {
     }
   }
 
-  private void logFailure(String operation, Object key, Throwable throwable) {
-    log.warn(
-        "Cache {} failed for cache '{}' and key '{}'; continuing without the cache",
-        operation,
-        getName(),
-        key,
-        throwable);
+  private <T> CompletableFuture<T> completeAsMissOnCacheFailure(
+      Object key, CompletableFuture<T> cachedValueFuture) {
+    return cachedValueFuture.exceptionallyCompose(
+        throwable -> {
+          var failure = unwrapAsyncFailure(throwable);
+          if (!isCacheFailure(failure)) {
+            return CompletableFuture.failedFuture(throwable);
+          }
+
+          logFailure("retrieve", key, failure);
+          return CompletableFuture.completedFuture(null);
+        });
   }
 
-  private void logFailure(String operation, Throwable throwable) {
-    log.warn(
-        "Cache {} failed for cache '{}'; continuing without the cache",
-        operation,
-        getName(),
-        throwable);
+  private static Throwable unwrapAsyncFailure(Throwable throwable) {
+    var failure = throwable;
+    while ((failure instanceof CompletionException || failure instanceof ExecutionException)
+        && failure.getCause() != null) {
+      failure = failure.getCause();
+    }
+    return failure;
+  }
+
+  private static boolean isCacheFailure(Throwable failure) {
+    return failure instanceof DataAccessException || failure instanceof SerializationException;
+  }
+
+  private void logFailure(String operation, Object key, Throwable failure) {
+    var message =
+        "Cache {} failed for cache '{}' and key '{}'; continuing without the cache: {}: {}";
+    var failureType = failure.getClass().getName();
+    log.warn(message, operation, getName(), key, failureType, failure.getMessage());
+    log.debug(message, operation, getName(), key, failureType, failure.getMessage(), failure);
+  }
+
+  private void logFailure(String operation, Throwable failure) {
+    var message = "Cache {} failed for cache '{}'; continuing without the cache: {}: {}";
+    var failureType = failure.getClass().getName();
+    log.warn(message, operation, getName(), failureType, failure.getMessage());
+    log.debug(message, operation, getName(), failureType, failure.getMessage(), failure);
   }
 
   /** Value loader that records whether the wrapped cache invoked it and how it finished. */

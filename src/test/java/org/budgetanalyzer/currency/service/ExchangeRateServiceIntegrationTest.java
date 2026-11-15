@@ -145,7 +145,7 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
             startDate,
             lastRateDate,
             TestConstants.RATE_EUR_USD,
-            new BigDecimal("0.0100")));
+            TestConstants.RATE_DAILY_INCREMENT));
 
     // Act
     var result = exchangeRateService.getExchangeRates(TestConstants.CURRENCY_EUR, null, null);
@@ -167,22 +167,50 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  void queryWithFarFutureEndDateIsClampedToToday() {
+  void queryWithFarFutureEndDateIsCappedAtTomorrow() {
     // Arrange - Create EUR rates for Jan 1-10, 2024
     var startDate = TestConstants.DATE_2024_JAN_01;
     exchangeRateRepository.saveAll(
         ExchangeRateTestBuilder.buildDateRange(
             eurSeries, startDate, startDate.plusDays(9), TestConstants.RATE_EUR_USD));
 
-    // Act - End date years after today
+    // Act - End date years after tomorrow
     var result =
         exchangeRateService.getExchangeRates(
             TestConstants.CURRENCY_EUR, startDate, TestConstants.DATE_2030_JAN_01);
 
-    // Assert - The response stops at today instead of growing to 2030
-    assertThat(result)
-        .hasSize((int) ChronoUnit.DAYS.between(startDate, TestConstants.FIXED_TODAY) + 1);
-    assertThat(result.getLast().date()).isEqualTo(TestConstants.FIXED_TODAY);
+    // Assert - The dense response stops at tomorrow instead of growing to 2030
+    var tomorrow = TestConstants.FIXED_TODAY.plusDays(1);
+    assertThat(result).hasSize((int) ChronoUnit.DAYS.between(startDate, tomorrow) + 1);
+    assertThat(result.getFirst().date()).isEqualTo(startDate);
+    assertThat(result.getLast().date()).isEqualTo(tomorrow);
+  }
+
+  @Test
+  void queryWithTomorrowEndDateForwardFillsLastRateToTomorrow() {
+    // Arrange - EUR rates for Jan 1-10, 2024 with a different rate every day
+    var startDate = TestConstants.DATE_2024_JAN_01;
+    var lastRateDate = TestConstants.DATE_2024_JAN_01.plusDays(9);
+    exchangeRateRepository.saveAll(
+        ExchangeRateTestBuilder.buildDateRangeWithIncrement(
+            eurSeries,
+            startDate,
+            lastRateDate,
+            TestConstants.RATE_EUR_USD,
+            TestConstants.RATE_DAILY_INCREMENT));
+    var tomorrow = TestConstants.FIXED_TODAY.plusDays(1);
+
+    // Act
+    var result =
+        exchangeRateService.getExchangeRates(TestConstants.CURRENCY_EUR, startDate, tomorrow);
+
+    // Assert - Tomorrow is returned and carries the last source rate and its published date
+    var lastRate =
+        result.stream().filter(r -> r.date().equals(lastRateDate)).findFirst().orElseThrow();
+    assertThat(result).hasSize((int) ChronoUnit.DAYS.between(startDate, tomorrow) + 1);
+    assertThat(result.getLast().date()).isEqualTo(tomorrow);
+    assertThat(result.getLast().publishedDate()).isEqualTo(lastRateDate);
+    assertThat(result.getLast().rate()).isEqualByComparingTo(lastRate.rate());
   }
 
   @Test
@@ -600,7 +628,7 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  void queryWithFutureStartAfterFutureEndThrowsExceptionBeforeClamping() {
+  void queryWithFutureStartAfterFutureEndThrowsExceptionBeforeCap() {
     // Arrange - Create some EUR data
     exchangeRateRepository.saveAll(
         ExchangeRateTestBuilder.buildDateRange(
@@ -609,8 +637,8 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
             TestConstants.DATE_2024_JAN_15,
             TestConstants.RATE_EUR_USD));
 
-    // Act & Assert - Both dates are after today; the reversed input is rejected, not clamped into
-    // an empty result
+    // Act & Assert - Both dates are after tomorrow; the reversed input is rejected, not capped
+    // into an empty result
     assertThatThrownBy(
             () ->
                 exchangeRateService.getExchangeRates(
@@ -772,7 +800,7 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
   }
 
   @Test
-  void queryForRangeStartingAfterTodayReturnsEmptyList() {
+  void queryForRangeStartingAfterTomorrowReturnsEmptyList() {
     // Arrange - Create EUR data for past dates
     exchangeRateRepository.saveAll(
         ExchangeRateTestBuilder.buildDateRange(
@@ -781,12 +809,12 @@ class ExchangeRateServiceIntegrationTest extends AbstractIntegrationTest {
             TestConstants.DATE_2024_JAN_15,
             TestConstants.RATE_EUR_USD));
 
-    // Act - Correctly ordered range that starts the day after today; clamping its end date to
-    // today leaves an effective end before the start
+    // Act - Correctly ordered range that starts the day after tomorrow; capping its end date at
+    // tomorrow leaves an effective end before the start
     var result =
         exchangeRateService.getExchangeRates(
             TestConstants.CURRENCY_EUR,
-            TestConstants.FIXED_TODAY.plusDays(1),
+            TestConstants.FIXED_TODAY.plusDays(2),
             TestConstants.FIXED_TODAY.plusDays(30));
 
     // Assert - Empty list, not an exception

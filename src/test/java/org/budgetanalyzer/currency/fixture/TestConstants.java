@@ -180,8 +180,8 @@ public final class TestConstants {
   /**
    * Fixed "today" (UTC) of the integration-test {@link Clock}, after every stored test rate.
    *
-   * <p>Exchange-rate queries clamp their end date to this date and forward-fill to it when no end
-   * date is supplied.
+   * <p>Exchange-rate queries forward-fill to this date when no end date is supplied and cap a later
+   * end date at the day after it.
    */
   public static final LocalDate FIXED_TODAY = LocalDate.of(2025, 1, 15);
 
@@ -216,6 +216,9 @@ public final class TestConstants {
 
   /** Sample exchange rate: Parity (1:1 ratio). */
   public static final BigDecimal RATE_PARITY = new BigDecimal("1.0000");
+
+  /** Daily rate increment that gives each day of a test range a different rate. */
+  public static final BigDecimal RATE_DAILY_INCREMENT = new BigDecimal("0.0100");
 
   // ===========================================================================================
   // FRED API Configuration
@@ -403,22 +406,56 @@ public final class TestConstants {
   /** Message of the simulated value loader failure in fail-open cache unit tests. */
   public static final String SIMULATED_LOADER_FAILURE_MESSAGE = "Simulated loader failure";
 
+  /** Message of the simulated non-cache failure in fail-open cache unit tests. */
+  public static final String SIMULATED_UNEXPECTED_FAILURE_MESSAGE = "Simulated unexpected failure";
+
   /**
-   * Returns the warning that the fail-open cache logs when a keyed cache operation fails.
+   * Returns the start of the warning that the fail-open cache logs when a keyed cache operation
+   * fails, up to the exception class.
    *
    * @param operation the failed cache operation, such as {@code get} or {@code put}
    * @param cacheName the name of the cache
    * @param key the cache key
-   * @return the formatted warning message
+   * @return the start of the formatted warning message
    */
-  public static String failOpenCacheWarning(String operation, String cacheName, Object key) {
+  public static String failOpenCacheWarningPrefix(String operation, String cacheName, Object key) {
     return "Cache "
         + operation
         + " failed for cache '"
         + cacheName
         + "' and key '"
         + key
-        + "'; continuing without the cache";
+        + "'; continuing without the cache: ";
+  }
+
+  /**
+   * Returns the start of the warning that the fail-open cache logs when a cache-wide operation
+   * fails, up to the exception class.
+   *
+   * @param operation the failed cache operation, such as {@code clear}
+   * @param cacheName the name of the cache
+   * @return the start of the formatted warning message
+   */
+  public static String failOpenCacheWarningPrefix(String operation, String cacheName) {
+    return "Cache "
+        + operation
+        + " failed for cache '"
+        + cacheName
+        + "'; continuing without the cache: ";
+  }
+
+  /**
+   * Returns the warning that the fail-open cache logs when a keyed cache operation fails.
+   *
+   * @param operation the failed cache operation, such as {@code get} or {@code put}
+   * @param cacheName the name of the cache
+   * @param key the cache key
+   * @param failure the absorbed cache failure, whose class and message end the warning
+   * @return the formatted warning message
+   */
+  public static String failOpenCacheWarning(
+      String operation, String cacheName, Object key, Throwable failure) {
+    return failOpenCacheWarningPrefix(operation, cacheName, key) + failureSummary(failure);
   }
 
   /**
@@ -426,17 +463,18 @@ public final class TestConstants {
    *
    * @param operation the failed cache operation, such as {@code clear}
    * @param cacheName the name of the cache
+   * @param failure the absorbed cache failure, whose class and message end the warning
    * @return the formatted warning message
    */
-  public static String failOpenCacheWarning(String operation, String cacheName) {
-    return "Cache "
-        + operation
-        + " failed for cache '"
-        + cacheName
-        + "'; continuing without the cache";
+  public static String failOpenCacheWarning(String operation, String cacheName, Throwable failure) {
+    return failOpenCacheWarningPrefix(operation, cacheName) + failureSummary(failure);
   }
 
   private TestConstants() {
     throw new UnsupportedOperationException("Utility class - do not instantiate");
+  }
+
+  private static String failureSummary(Throwable failure) {
+    return failure.getClass().getName() + ": " + failure.getMessage();
   }
 }

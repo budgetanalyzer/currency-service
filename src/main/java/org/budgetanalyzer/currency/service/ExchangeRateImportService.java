@@ -85,10 +85,10 @@ public class ExchangeRateImportService {
    *   <li><b>Acceptable trade-off:</b> This runs at startup when cache is already empty
    * </ul>
    *
-   * <p><b>Performance Impact:</b> First queries after startup will experience cache misses
-   * (50-200ms vs 1-3ms), but subsequent queries benefit from cached results. This trade-off is
-   * acceptable since startup is infrequent and users don't typically query immediately after
-   * deployment.
+   * <p><b>Performance Impact:</b> After the eviction, the first request for each currency reloads
+   * that currency's full exchange-rate series from PostgreSQL and caches it; later requests for the
+   * currency are served from the cache. Startup imports are infrequent, so the extra loads are
+   * rare.
    *
    * @return list of import results, one per currency series
    */
@@ -119,9 +119,10 @@ public class ExchangeRateImportService {
    *       CacheConfig#EXCHANGE_RATES_TTL}) bounds how long that entry survives
    * </ul>
    *
-   * <p><b>Performance Impact:</b> First queries after the scheduled import will experience cache
-   * misses (50-200ms vs 1-3ms), but this is acceptable since the job runs once per day and the
-   * cache quickly warms up with morning traffic.
+   * <p><b>Performance Impact:</b> After the eviction, the first request for each currency reloads
+   * that currency's full exchange-rate series from PostgreSQL and caches it; later requests for the
+   * currency are served from the cache. The job runs once per day, so this is one reload per
+   * requested currency per day.
    *
    * @return list of import results, one per currency series
    */
@@ -233,9 +234,10 @@ public class ExchangeRateImportService {
    *   <li><b>Code maintainability:</b> Single eviction strategy across all import methods
    * </ul>
    *
-   * <p><b>Performance Impact:</b> Existing cached queries for other currencies will experience one
-   * cache miss (50-200ms) after a new currency is added, then return to normal cached performance
-   * (1-3ms). Given the infrequency of adding new currencies, this trade-off is acceptable.
+   * <p><b>Performance Impact:</b> After the eviction, the first request for each currency,
+   * including currencies other than the imported one, reloads that currency's full exchange-rate
+   * series from PostgreSQL and caches it; later requests for the currency are served from the
+   * cache. New currencies are added rarely, so the extra loads are rare.
    *
    * <p><b>Alternative Considered:</b> The cache is keyed by currency code, so evicting only the
    * imported currency's series would be a single-key eviction. Global eviction is kept so that

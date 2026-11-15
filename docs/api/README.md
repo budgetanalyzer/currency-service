@@ -133,7 +133,7 @@ Returns one rate per calendar day, quoted as units of `targetCurrency` per 1 USD
 |---|---|---|---|
 | `targetCurrency` | ISO 4217 code | Yes | Currency to quote against USD |
 | `startDate` | ISO date (`yyyy-MM-dd`) | No | First day to return; defaults to the earliest stored rate |
-| `endDate` | ISO date (`yyyy-MM-dd`) | No | Last day to return; defaults to today (UTC), and a later date is treated as today |
+| `endDate` | ISO date (`yyyy-MM-dd`) | No | Last day to return; defaults to today (UTC), and a date after tomorrow (UTC) is treated as tomorrow |
 
 Response behavior:
 
@@ -141,14 +141,16 @@ Response behavior:
   earlier published rate, and `publishedDate` gives the date that rate was published.
 - `baseCurrency` is always `USD`. Rates from "USD per foreign currency" series (`DEXUS*`) are
   inverted and rounded to 4 decimal places.
-- The effective end date is `min(endDate, today)`, where today is the current UTC date. After
-  the latest stored rate, that rate and its `publishedDate` are carried forward through the
+- The effective end date is today when `endDate` is omitted, and otherwise
+  `min(endDate, tomorrow)`. Today is the current UTC date, and tomorrow is today plus one day.
+  The cap is tomorrow because transaction-service accepts transaction dates through tomorrow.
+  After the latest stored rate, that rate and its `publishedDate` are carried forward through the
   effective end date.
 - A `startDate` after `endDate` returns `400 INVALID_REQUEST`. This check uses the dates as sent,
-  before the end date is clamped, so a reversed range is rejected even when both dates are in the
+  before the end date is capped, so a reversed range is rejected even when both dates are in the
   future.
-- A valid range that contains no stored rates, including a range that starts after today and is
-  therefore empty after clamping, returns `200` with an empty list.
+- A valid range that contains no stored rates, including a range that starts after tomorrow and
+  is therefore empty after the cap, returns `200` with an empty list.
 
 ```json
 [
@@ -196,7 +198,7 @@ and return `422 APPLICATION_ERROR` with a `code`.
 | `providerSeriesId` (create) | Must exist at the provider and be unique | `422 INVALID_PROVIDER_SERIES_ID` or `422 DUPLICATE_CURRENCY_CODE` |
 | `enabled` (create and update) | Required boolean; there is no default | `400 INVALID_REQUEST` |
 | `targetCurrency` (query) | Required ISO 4217 code | `400 INVALID_REQUEST` |
-| `startDate`, `endDate` (query) | Optional ISO dates, `startDate` not after `endDate` (checked before `endDate` is clamped to today) | `400 INVALID_REQUEST` |
+| `startDate`, `endDate` (query) | Optional ISO dates, `startDate` not after `endDate` (checked before `endDate` is capped at tomorrow) | `400 INVALID_REQUEST` |
 
 **`enabled` is required.** Both request records declare it as a primitive `boolean`, and the
 OpenAPI schema lists it as required. Jackson 3 rejects a missing or `null` value
@@ -233,7 +235,8 @@ series of that currency from `ExchangeRateSeriesService.getExchangeRateSeries`, 
 - **Key:** the currency code, for example `currency-service:exchangeRateSeries::EUR`. Request
   dates never create cache keys.
 - **Value:** the forward-filled series from the first to the last stored rate of the currency.
-  Clamping to today and forward-filling past the last stored rate happen per request.
+  Capping the end date at tomorrow and forward-filling past the last stored rate happen per
+  request.
 - **TTL:** one hour from when the entry is written. See
   [configuration.md](../configuration.md#caching) for why.
 - **Eviction:** every import method evicts all `exchangeRateSeries` entries with
