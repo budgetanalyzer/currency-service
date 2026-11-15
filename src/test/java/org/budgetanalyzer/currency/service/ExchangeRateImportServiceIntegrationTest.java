@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 
@@ -25,6 +26,7 @@ import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
 import org.budgetanalyzer.currency.repository.ExchangeRateRepository;
+import org.budgetanalyzer.currency.service.dto.ExchangeRateSeries;
 import org.budgetanalyzer.service.exception.ClientException;
 import org.budgetanalyzer.service.exception.ResourceNotFoundException;
 import org.budgetanalyzer.service.exception.ServiceException;
@@ -62,6 +64,8 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
 
   @Autowired private CacheManager cacheManager;
 
+  @Autowired private StringRedisTemplate stringRedisTemplate;
+
   @Autowired private WireMockServer wireMockServer;
 
   @Autowired private JdbcTemplate jdbcTemplate;
@@ -75,7 +79,7 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     super.resetDatabaseAndWireMock();
 
     // Clear cache for test isolation
-    cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE).clear();
+    cacheManager.getCache(CacheConfig.EXCHANGE_RATE_SERIES_CACHE).clear();
   }
 
   // ===========================================================================================
@@ -699,9 +703,15 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     currencySeriesRepository.save(eurSeries);
 
     // Populate cache with unrelated query results (simulate existing cache)
-    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
+    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATE_SERIES_CACHE);
     assertThat(cache).isNotNull();
-    cache.put("test-key", "test-value");
+    cache.put(
+        TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(
+            cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, ExchangeRateSeries.class))
+        .isEqualTo(TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isTrue();
 
     // Stub FRED API response
     FredApiStubs.stubSuccessWithObservations(
@@ -712,7 +722,8 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     exchangeRateImportService.importMissingExchangeRates();
 
     // Assert - Cache cleared
-    assertThat(cache.get("test-key")).isNull();
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isFalse();
   }
 
   /**
@@ -734,9 +745,15 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
             TestConstants.RATE_EUR_USD));
 
     // Populate cache
-    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
+    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATE_SERIES_CACHE);
     assertThat(cache).isNotNull();
-    cache.put("test-key", "test-value");
+    cache.put(
+        TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(
+            cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, ExchangeRateSeries.class))
+        .isEqualTo(TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isTrue();
 
     // Stub FRED API response
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
@@ -748,7 +765,8 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     exchangeRateImportService.importLatestExchangeRates();
 
     // Assert - Cache cleared
-    assertThat(cache.get("test-key")).isNull();
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isFalse();
   }
 
   /**
@@ -770,9 +788,15 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
             TestConstants.RATE_EUR_USD));
 
     // Populate cache
-    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
+    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATE_SERIES_CACHE);
     assertThat(cache).isNotNull();
-    cache.put("test-key", "test-value");
+    cache.put(
+        TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(
+            cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, ExchangeRateSeries.class))
+        .isEqualTo(TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isTrue();
 
     // Stub FRED API response
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
@@ -784,7 +808,8 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     exchangeRateImportService.importExchangeRatesForSeries(eurSeries.getId());
 
     // Assert - Cache cleared
-    assertThat(cache.get("test-key")).isNull();
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isFalse();
   }
 
   /**
@@ -805,9 +830,15 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
             .build());
 
     // Populate cache
-    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
+    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATE_SERIES_CACHE);
     assertThat(cache).isNotNull();
-    cache.put("test-key", "test-value");
+    cache.put(
+        TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(
+            cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, ExchangeRateSeries.class))
+        .isEqualTo(TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isTrue();
 
     // Stub FRED API response with empty data (no new data)
     FredApiStubs.stubSuccessEmpty(TestConstants.FRED_SERIES_EUR);
@@ -819,7 +850,8 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     assertThat(result.newRecords()).isEqualTo(0);
     assertThat(result.updatedRecords()).isEqualTo(0);
     assertThat(result.skippedRecords()).isEqualTo(0);
-    assertThat(cache.get("test-key")).isNull();
+    assertThat(stringRedisTemplate.hasKey(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_EUR))
+        .isFalse();
   }
 
   /**
@@ -852,9 +884,13 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
             TestConstants.RATE_EUR_USD));
 
     // Populate cache
-    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
+    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATE_SERIES_CACHE);
     assertThat(cache).isNotNull();
-    cache.put("test-key", "test-value");
+    cache.put(
+        TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(
+            cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, ExchangeRateSeries.class))
+        .isEqualTo(TestConstants.EXCHANGE_RATE_SERIES_EUR);
 
     // Stub FRED API to return server error
     var jan16 = TestConstants.DATE_2024_JAN_15.plusDays(1);
@@ -869,8 +905,9 @@ class ExchangeRateImportServiceIntegrationTest extends AbstractWireMockTest {
     // With transaction-aware caching, cache eviction is deferred to after-commit phase.
     // Since the transaction rolled back, the after-commit phase never executes,
     // so the cache remains unchanged (consistent with the unchanged database).
-    assertThat(cache.get("test-key")).isNotNull();
-    assertThat(cache.get("test-key").get()).isEqualTo("test-value");
+    assertThat(
+            cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, ExchangeRateSeries.class))
+        .isEqualTo(TestConstants.EXCHANGE_RATE_SERIES_EUR);
   }
 
   // ===========================================================================================

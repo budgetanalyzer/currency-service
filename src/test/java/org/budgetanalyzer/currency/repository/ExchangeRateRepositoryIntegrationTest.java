@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.NonTransientDataAccessException;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.budgetanalyzer.currency.base.AbstractIntegrationTest;
@@ -28,7 +27,6 @@ import org.budgetanalyzer.currency.fixture.TestConstants;
  *   <li>Query methods (derived and custom queries)
  *   <li>Database constraints (unique, not-null, foreign keys)
  *   <li>Foreign key relationships and cascade behavior
- *   <li>JpaSpecificationExecutor with complex filters
  * </ul>
  *
  * <p>Tests run against real PostgreSQL via TestContainers with automatic transaction rollback for
@@ -137,11 +135,11 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
   }
 
   // ===========================================================================================
-  // Query Method Tests - findEarliestDateByForeignCurrency()
+  // Query Method Tests - findByCurrencySeriesCurrencyCodeOrderByDateAsc()
   // ===========================================================================================
 
   @Test
-  void findEarliestDateByForeignCurrencyReturnsEarliestDate() {
+  void findByCurrencyCodeOrderByDateAscStartsAtEarliestDate() {
     // Arrange: Create EUR rates with various dates
     var eurSeries =
         currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
@@ -157,27 +155,30 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     exchangeRateRepository.flush();
 
     // Act
-    var earliestDate =
-        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_EUR);
+    var result =
+        exchangeRateRepository.findByCurrencySeriesCurrencyCodeOrderByDateAsc(
+            TestConstants.VALID_CURRENCY_EUR);
 
-    // Assert: Should return 2024-01-02 (earliest date)
-    assertThat(earliestDate).isPresent().contains(LocalDate.of(2024, 1, 2));
+    // Assert: Every rate, starting at 2024-01-02 (earliest date)
+    assertThat(result).hasSize(9);
+    assertThat(result.getFirst().getDate()).isEqualTo(LocalDate.of(2024, 1, 2));
+    assertThat(result.getLast().getDate()).isEqualTo(LocalDate.of(2024, 1, 10));
   }
 
   @Test
-  void findEarliestDateByForeignCurrencyWithNoDataReturnsEmpty() {
+  void findByCurrencyCodeOrderByDateAscWithNoDataReturnsEmpty() {
     // Act: Query for currency with no exchange rates
     var result =
-        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_ZAR);
+        exchangeRateRepository.findByCurrencySeriesCurrencyCodeOrderByDateAsc(
+            TestConstants.VALID_CURRENCY_ZAR);
 
     // Assert
     assertThat(result).isEmpty();
   }
 
   @Test
-  void findEarliestDateByForeignCurrencyReturnsGlobalEarliestAcrossSeries() {
-    // Arrange: Create two EUR series with different start dates
-    // Note: In reality, there should only be one series per currency, but this tests the query
+  void findByCurrencyCodeOrderByDateAscOrdersRatesSavedOutOfOrder() {
+    // Arrange: Save a later EUR rate before an earlier one
     var eurSeries1 =
         currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
 
@@ -192,19 +193,22 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
             .withRate(new BigDecimal("0.8600"))
             .build();
 
-    exchangeRateRepository.saveAll(List.of(rate1, rate2));
+    exchangeRateRepository.saveAll(List.of(rate2, rate1));
     exchangeRateRepository.flush();
 
     // Act
-    var earliestDate =
-        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_EUR);
+    var result =
+        exchangeRateRepository.findByCurrencySeriesCurrencyCodeOrderByDateAsc(
+            TestConstants.VALID_CURRENCY_EUR);
 
-    // Assert: Should return 2020-01-01 (global earliest)
-    assertThat(earliestDate).isPresent().contains(LocalDate.of(2020, 1, 1));
+    // Assert: Ascending by date, starting at 2020-01-01 (global earliest)
+    assertThat(result)
+        .extracting(ExchangeRate::getDate)
+        .containsExactly(LocalDate.of(2020, 1, 1), LocalDate.of(2024, 1, 1));
   }
 
   @Test
-  void findEarliestDateByForeignCurrencyIsolatesByForeignCurrency() {
+  void findByCurrencyCodeOrderByDateAscIsolatesByForeignCurrency() {
     // Arrange: Create EUR and THB rates with different start dates
     var eurSeries =
         currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
@@ -226,11 +230,14 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     exchangeRateRepository.flush();
 
     // Act: Query for EUR only
-    var eurEarliest =
-        exchangeRateRepository.findEarliestDateByForeignCurrency(TestConstants.VALID_CURRENCY_EUR);
+    var eurRates =
+        exchangeRateRepository.findByCurrencySeriesCurrencyCodeOrderByDateAsc(
+            TestConstants.VALID_CURRENCY_EUR);
 
-    // Assert: Should return EUR date, not THB (even though THB is earlier)
-    assertThat(eurEarliest).isPresent().contains(LocalDate.of(2024, 1, 15));
+    // Assert: Should return only the EUR rate, not THB (even though THB is earlier)
+    assertThat(eurRates)
+        .extracting(ExchangeRate::getDate)
+        .containsExactly(LocalDate.of(2024, 1, 15));
   }
 
   // ===========================================================================================
@@ -322,182 +329,6 @@ class ExchangeRateRepositoryIntegrationTest extends AbstractIntegrationTest {
     // Assert: EUR has 4 rates, THB has 9 rates
     assertThat(eurCount).isEqualTo(4);
     assertThat(thbCount).isEqualTo(9);
-  }
-
-  // ===========================================================================================
-  // JpaSpecificationExecutor Tests - Complex Filters
-  // ===========================================================================================
-
-  @Test
-  void specificationFiltersByDateRange() {
-    // Arrange: Create EUR rates across a wide date range
-    var eurSeries =
-        currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
-
-    var rates =
-        ExchangeRateTestBuilder.buildDateRange(
-            eurSeries,
-            LocalDate.of(2024, 1, 1),
-            LocalDate.of(2024, 1, 31),
-            new BigDecimal("0.8500"));
-
-    exchangeRateRepository.saveAll(rates);
-    exchangeRateRepository.flush();
-
-    // Act: Filter for Jan 10-15 only
-    Specification<ExchangeRate> spec =
-        (root, query, cb) ->
-            cb.between(root.get("date"), LocalDate.of(2024, 1, 10), LocalDate.of(2024, 1, 15));
-
-    var filtered = exchangeRateRepository.findAll(spec);
-
-    // Assert: Should return 6 rates (Jan 10-15 inclusive)
-    assertThat(filtered)
-        .hasSize(6)
-        .allSatisfy(
-            rate -> {
-              assertThat(rate.getDate())
-                  .isBetween(LocalDate.of(2024, 1, 10), LocalDate.of(2024, 1, 15));
-            });
-  }
-
-  @Test
-  void specificationFiltersByMultipleCurrencies() {
-    // Arrange: Create EUR, THB, and GBP rates
-    var eurSeries =
-        currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
-    var thbSeries =
-        currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_THB).orElseThrow();
-    var gbpSeries =
-        currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_GBP).orElseThrow();
-
-    var eurRate =
-        ExchangeRateTestBuilder.forSeries(eurSeries)
-            .withDate(LocalDate.of(2024, 1, 2))
-            .withRate(new BigDecimal("0.85"))
-            .build();
-    var thbRate =
-        ExchangeRateTestBuilder.forSeries(thbSeries)
-            .withDate(LocalDate.of(2024, 1, 2))
-            .withRate(new BigDecimal("32.50"))
-            .build();
-    var gbpRate =
-        ExchangeRateTestBuilder.forSeries(gbpSeries)
-            .withDate(LocalDate.of(2024, 1, 2))
-            .withRate(new BigDecimal("0.75"))
-            .build();
-
-    exchangeRateRepository.saveAll(List.of(eurRate, thbRate, gbpRate));
-    exchangeRateRepository.flush();
-
-    // Act: Filter for EUR and THB only - use currencySeries.currencyCode for foreign currency
-    Specification<ExchangeRate> spec =
-        (root, query, cb) ->
-            root.get("currencySeries")
-                .get("currencyCode")
-                .in(TestConstants.VALID_CURRENCY_EUR, TestConstants.VALID_CURRENCY_THB);
-
-    var filtered = exchangeRateRepository.findAll(spec);
-
-    // Assert: Should return EUR and THB rates, not GBP
-    assertThat(filtered)
-        .hasSize(2)
-        .extracting(r -> r.getCurrencySeries().getCurrencyCode())
-        .containsExactlyInAnyOrder(
-            TestConstants.VALID_CURRENCY_EUR, TestConstants.VALID_CURRENCY_THB);
-  }
-
-  @Test
-  void specificationFiltersByRateThreshold() {
-    // Arrange: Create EUR rates with varying values
-    var eurSeries =
-        currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
-
-    var rate1 =
-        ExchangeRateTestBuilder.forSeries(eurSeries)
-            .withDate(LocalDate.of(2024, 1, 1))
-            .withRate(new BigDecimal("0.8000"))
-            .build();
-    var rate2 =
-        ExchangeRateTestBuilder.forSeries(eurSeries)
-            .withDate(LocalDate.of(2024, 1, 2))
-            .withRate(new BigDecimal("0.8500"))
-            .build();
-    var rate3 =
-        ExchangeRateTestBuilder.forSeries(eurSeries)
-            .withDate(LocalDate.of(2024, 1, 3))
-            .withRate(new BigDecimal("0.9000"))
-            .build();
-
-    exchangeRateRepository.saveAll(List.of(rate1, rate2, rate3));
-    exchangeRateRepository.flush();
-
-    // Act: Filter for rates >= 0.85
-    Specification<ExchangeRate> spec =
-        (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("rate"), new BigDecimal("0.8500"));
-
-    var filtered = exchangeRateRepository.findAll(spec);
-
-    // Assert: Should return 2 rates (0.85 and 0.90)
-    assertThat(filtered)
-        .hasSize(2)
-        .allSatisfy(
-            rate -> {
-              assertThat(rate.getRate()).isGreaterThanOrEqualTo(new BigDecimal("0.8500"));
-            });
-  }
-
-  @Test
-  void specificationCombinesMultipleFilters() {
-    // Arrange: Create multiple currencies and dates
-    var eurSeries =
-        currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_EUR).orElseThrow();
-    var thbSeries =
-        currencySeriesRepository.findByCurrencyCode(TestConstants.VALID_CURRENCY_THB).orElseThrow();
-
-    var eurRates =
-        ExchangeRateTestBuilder.buildDateRangeWithIncrement(
-            eurSeries,
-            LocalDate.of(2024, 1, 1),
-            LocalDate.of(2024, 1, 10),
-            new BigDecimal("0.8000"),
-            new BigDecimal("0.01"));
-    var thbRates =
-        ExchangeRateTestBuilder.buildDateRange(
-            thbSeries,
-            LocalDate.of(2024, 1, 1),
-            LocalDate.of(2024, 1, 10),
-            new BigDecimal("32.50"));
-
-    exchangeRateRepository.saveAll(eurRates);
-    exchangeRateRepository.saveAll(thbRates);
-    exchangeRateRepository.flush();
-
-    // Act: Filter for EUR rates between Jan 5-10 with rate >= 0.84 - use
-    // currencySeries.currencyCode
-    Specification<ExchangeRate> spec =
-        (root, query, cb) ->
-            cb.and(
-                cb.equal(
-                    root.get("currencySeries").get("currencyCode"),
-                    TestConstants.VALID_CURRENCY_EUR),
-                cb.between(root.get("date"), LocalDate.of(2024, 1, 5), LocalDate.of(2024, 1, 10)),
-                cb.greaterThanOrEqualTo(root.get("rate"), new BigDecimal("0.8400")));
-
-    var filtered = exchangeRateRepository.findAll(spec);
-
-    // Assert: EUR rates on Jan 5-10 with rate >= 0.84 (Jan 5: 0.84, Jan 6: 0.85, ..., Jan 10:
-    // 0.89)
-    assertThat(filtered)
-        .hasSize(6)
-        .allSatisfy(
-            rate -> {
-              assertThat(rate.getCurrencySeries().getCurrencyCode())
-                  .isEqualTo(TestConstants.VALID_CURRENCY_EUR);
-              assertThat(rate.getDate())
-                  .isBetween(LocalDate.of(2024, 1, 5), LocalDate.of(2024, 1, 10));
-              assertThat(rate.getRate()).isGreaterThanOrEqualTo(new BigDecimal("0.8400"));
-            });
   }
 
   // ===========================================================================================

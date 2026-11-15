@@ -12,7 +12,7 @@ Spring Boot microservice that automates exchange rate imports from the [Federal 
 
 - **Automated FRED imports** - Daily scheduled imports with provider abstraction ([details](docs/fred-integration.md))
 - **Currency series management** - Create, read, and update exchange rate time series ([API docs](docs/api/README.md))
-- **Historical rate queries** - Date range filtering with gap-filled daily rates and Redis caching
+- **Historical rate queries** - Date range filtering with gap-filled daily rates, cached per currency in a dedicated, fail-open Redis cache
 - **Distributed coordination** - Multi-pod safe scheduling with ShedLock
 - **Event-driven architecture** - Import requests via Spring Modulith transactional outbox + RabbitMQ, reconciled by the startup and daily imports ([details](docs/configuration.md#outbox-recovery))
 
@@ -30,6 +30,7 @@ export FRED_API_KEY=your_api_key_here
 export SPRING_DATASOURCE_PASSWORD=your_db_password
 export SPRING_RABBITMQ_PASSWORD=your_rabbitmq_password
 export SPRING_DATA_REDIS_PASSWORD=your_redis_password
+export SPRING_DATA_REDIS_PORT=6380  # Tilt forward of the redis-cache instance
 # See docs/local-development.md for the TLS and host settings
 ./gradlew bootRun
 ```

@@ -202,28 +202,32 @@ psql -d currency -c "SELECT * FROM shedlock;"
 
 ### Overview
 
-`GET /v1/exchange-rates` is the only cached read. Entries expire one hour after they are written,
-and every import evicts all of them after it commits. The full cache rules and the reasons for the
-TTL are in [configuration.md](configuration.md#caching).
+`GET /v1/exchange-rates` is the only read served from the cache. The cache holds one dense,
+forward-filled series per currency, keyed by currency code. Entries expire one hour after they are
+written, and every import evicts all of them after it commits. The full cache rules and the reasons
+for the TTL are in [configuration.md](configuration.md#caching).
 
 ### Cached Read
 
+`ExchangeRateSeriesService` is a separate bean, so calls from `ExchangeRateService` pass through
+the caching proxy:
+
 ```java
 @Transactional(readOnly = true)
-@Cacheable(
-    cacheNames = CacheConfig.EXCHANGE_RATES_CACHE,
-    key = "#targetCurrency.currencyCode + ':' + #startDate + ':' + #endDate")
-public List<ExchangeRateData> getExchangeRates(
-    Currency targetCurrency, LocalDate startDate, LocalDate endDate) {
-  // ...business validation, query...
-  if (definedRates.isEmpty()) {
-    return Collections.emptyList();
-  }
-  // ...builds and returns an ArrayList with one rate per day
+@Cacheable(cacheNames = CacheConfig.EXCHANGE_RATE_SERIES_CACHE, key = "#currencyCode")
+public ExchangeRateSeries getExchangeRateSeries(String currencyCode) {
+  // ...loads every rate of the currency in date order; throws
+  // NO_EXCHANGE_RATE_DATA_AVAILABLE when there are none...
+  // ...builds one USD-based rate and one published-date offset per day, from the first to the
+  // last stored rate
 }
 ```
 
-Requests that throw, such as a disabled currency, are not cached.
+`ExchangeRateService.getExchangeRates` is not cached. It rejects a disabled currency on every
+request, reads the cached series, caps the end date at tomorrow (today plus one day, with today
+the UTC date from the injected `Clock`) and slices the requested days, forward-filling the last
+stored rate after the series ends.
+Requests that throw, such as a currency without rates, are not cached.
 
 ### Eviction After Import
 
@@ -231,7 +235,7 @@ Each import method in `ExchangeRateImportService` evicts all entries:
 
 ```java
 @Transactional
-@CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATES_CACHE, allEntries = true)
+@CacheEvict(cacheNames = CacheConfig.EXCHANGE_RATE_SERIES_CACHE, allEntries = true)
 public List<ExchangeRateImportResult> importLatestExchangeRates() {
   var seriesToImport = getAllEnabledSeries();
   return importExchangeRatesForSeries(seriesToImport);
@@ -240,72 +244,86 @@ public List<ExchangeRateImportResult> importLatestExchangeRates() {
 
 Evicting everything keeps the code simple: an import can change rates for any currency, and imports
 are rare. Because the cache manager is transaction-aware, the eviction runs after the import
-commits; a rolled-back import leaves the cache unchanged.
+commits; a rolled-back import leaves the cache unchanged. The cache is filled again lazily on the
+next miss; imports do not reseed it.
 
 ### Cache Key Strategy
 
-**Format:** `{currencyCode}:{startDate}:{endDate}`, stored as
-`currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}`.
-
-**Examples:**
-- `currency-service:exchangeRates::EUR:2024-01-01:2024-01-31`
-- `currency-service:exchangeRates::THB:2024-06-01:null` (no end date)
-- `currency-service:exchangeRates::JPY:null:null` (all available data)
+**Format:** `{currencyCode}`, stored as `currency-service:exchangeRateSeries::{currencyCode}`, for
+example `currency-service:exchangeRateSeries::EUR`. Request date ranges never create keys, so the
+cache holds at most one entry per currency.
 
 ### Cache Configuration
 
-`CacheConfig` builds the cache configuration in code, not from `spring.cache.redis.*`:
+`CacheConfig` builds the cache configuration and the cache manager in code, not from
+`spring.cache.redis.*`. The manager exists when `spring.cache.type` is `redis` or unset, so an
+unset property never falls back to Spring Boot's plain Redis manager. Any other type makes Spring
+Boot configure the manager for that type, such as the no-op manager for `none`:
 
 ```java
 @Bean
-public RedisCacheConfiguration cacheConfiguration(
-    GenericJacksonJsonRedisSerializer redisSerializer) {
+public RedisCacheConfiguration cacheConfiguration(JsonMapper jsonMapper) {
+  var cacheJsonMapper = jsonMapper.rebuild().disable(SerializationFeature.INDENT_OUTPUT).build();
+  var exchangeRateSeriesSerializer =
+      new JacksonJsonRedisSerializer<>(cacheJsonMapper, ExchangeRateSeries.class);
+
   return RedisCacheConfiguration.defaultCacheConfig()
       .entryTtl(EXCHANGE_RATES_TTL)
       .disableCachingNullValues()
       .serializeKeysWith(
           RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
       .serializeValuesWith(
-          RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer))
+          RedisSerializationContext.SerializationPair.fromSerializer(
+              exchangeRateSeriesSerializer))
       .prefixCacheNameWith("currency-service:");
 }
 
 @Bean
-public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
-    RedisConnectionFactory redisConnectionFactory) {
-  return builder ->
-      builder
-          .cacheWriter(
-              RedisCacheWriter.create(
-                  redisConnectionFactory,
-                  configurer ->
-                      configurer
-                          .immediateWrites()
-                          .batchStrategy(BatchStrategies.scan(CACHE_CLEAR_BATCH_SIZE))))
-          .transactionAware();
+@ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis", matchIfMissing = true)
+public RedisCacheManager cacheManager(
+    RedisConnectionFactory redisConnectionFactory,
+    RedisCacheConfiguration redisCacheConfiguration) {
+  var redisCacheWriter =
+      RedisCacheWriter.create(
+          redisConnectionFactory,
+          configurer ->
+              configurer
+                  .immediateWrites()
+                  .batchStrategy(BatchStrategies.scan(CACHE_CLEAR_BATCH_SIZE)));
+  return new FailOpenRedisCacheManager(redisCacheWriter, redisCacheConfiguration);
+}
+
+// FailOpenRedisCacheManager extends RedisCacheManager:
+@Override
+protected Cache decorateCache(Cache cache) {
+  return new TransactionAwareCacheDecorator(new FailOpenCache(cache));
 }
 ```
 
 - **One-hour TTL:** `EXCHANGE_RATES_TTL` is `Duration.ofHours(1)`. It bounds how long a stale
-  entry, cached by a read that raced an import, survives the import's eviction. See
-  [configuration.md](configuration.md#caching).
+  entry survives, whether a read that raced an import cached it after the import's eviction or a
+  failed after-commit eviction left it in place. See [configuration.md](configuration.md#caching).
+- **Fail-open, then transaction-aware:** each cache is
+  `TransactionAwareCacheDecorator(FailOpenCache(RedisCache))`. `FailOpenCache` absorbs only cache
+  failures, a `DataAccessException` or a Redis `SerializationException`, and logs each at `WARN`
+  with the operation, cache name, key (no key for `clear`), and exception class and message,
+  without a stack trace (the stack trace is at `DEBUG`): a failed read is a miss served from
+  PostgreSQL, and a failed put, eviction or clear is skipped. Any other exception propagates. See
+  [configuration.md](configuration.md#caching) for the confirmed exception types.
+  Because it sits beneath the transaction-aware layer, puts and clears deferred to after commit
+  also fail open, independent of interceptor order. No `CacheErrorHandler` is used, because
+  Spring runs deferred operations in `afterCommit`, outside that handler. Value-loader exceptions
+  still propagate.
 - **Synchronous writer:** `immediateWrites()` makes puts, evictions, and clears finish before the
   cache call returns, instead of the asynchronous Lettuce default in Spring Data Redis 4.
 - **`SCAN` clears:** `BatchStrategies.scan(CACHE_CLEAR_BATCH_SIZE)` makes `allEntries` evictions
   walk the cache's keys with `SCAN` and delete them with `DEL`, 1000 keys at a time, instead of the
   default `KEYS` strategy. The service's Redis user needs no `+keys` grant. See
   [configuration.md](configuration.md#caching).
-- **Typed JSON values:** the value serializer is a copy of the application `JsonMapper` with
-  `DefaultTyping.NON_FINAL`, restricted by a `BasicPolymorphicTypeValidator` that accepts only
-  subtypes from `org.budgetanalyzer`, `java.util`, `java.time`, and `java.math`.
-
-### Immutable Collections Must Not Be Cached
-
-Values of final classes are written without a type id. Jackson reads most of them back as their
-natural JSON type, but a JDK immutable collection, such as the result of `List.of()` or
-`Stream.toList()`, is written as a bare JSON array and fails to deserialize on the next cache read.
-Return `ArrayList` or `Collections.emptyList()` from `@Cacheable` methods. This is why
-`getExchangeRates` returns `Collections.emptyList()` for a range with no rates.
+- **Type-bound JSON values:** the value serializer is bound to `ExchangeRateSeries` and built from
+  a copy of the application `JsonMapper` with pretty printing (`INDENT_OUTPUT`) disabled. It writes
+  no type ids and reads every value as `ExchangeRateSeries`, so a cache configured with it can hold
+  only that type. The application mapper is unchanged.
 
 ### When to Cache
 
@@ -321,8 +339,9 @@ large results, and anything used for authorization decisions.
 # Cached methods and eviction points
 rg -n '^\s*@(Cacheable|CacheEvict)\b' src/main/java
 
-# Cache manager, serializer, and type allowlist
+# Cache manager, fail-open decorator, and serializer
 cat src/main/java/org/budgetanalyzer/currency/config/CacheConfig.java
+cat src/main/java/org/budgetanalyzer/currency/config/FailOpenCache.java
 
 # Redis connection and cache type
 rg -n 'redis:|cache:' src/main/resources/application.yml
@@ -682,25 +701,46 @@ class ExchangeRateImportCacheIntegrationTest extends AbstractControllerTest {
   @Test
   void shouldEvictCacheAfterImport() throws Exception {
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().build());
-    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
-    cache.put("EUR:2024-01-01:2024-01-05", "some cached data");
+    var cache = cacheManager.getCache(CacheConfig.EXCHANGE_RATE_SERIES_CACHE);
+    cache.put(
+        TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, TestConstants.EXCHANGE_RATE_SERIES_EUR);
+    assertThat(
+            cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR, ExchangeRateSeries.class))
+        .isEqualTo(TestConstants.EXCHANGE_RATE_SERIES_EUR);
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
         List.of(new FredApiStubs.Observation("2024-01-01", "0.8500")));
 
     performPost("/v1/exchange-rates/import", "").andExpect(status().isOk());
 
-    assertThat(cache.get("EUR:2024-01-01:2024-01-05")).isNull();
+    assertThat(cache.get(TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR)).isNull();
   }
 }
 ```
 
 See
 [`ExchangeRateImportCacheIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/api/ExchangeRateImportCacheIntegrationTest.java)
-for eviction, cached empty and non-empty results read back from Redis, the `currency-service:` key
-namespace, and an entry expiry that is positive and at most `CacheConfig.EXCHANGE_RATES_TTL`.
+for the manager's decoration, eviction, empty and non-empty ranges served from the cached series,
+one key per currency across ranges, the `currency-service:` key namespace, serializer round trips,
+and an entry expiry that is positive and at most `CacheConfig.EXCHANGE_RATES_TTL`.
 [`ExchangeRateImportServiceIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/service/ExchangeRateImportServiceIntegrationTest.java)
 covers eviction for each import method and an unchanged cache after rollback.
+
+Fail-open behavior is tested without replacing application beans:
+
+- [`FailOpenCacheTest`](../src/test/java/org/budgetanalyzer/currency/config/FailOpenCacheTest.java)
+  wraps a small failing `Cache` implementation and checks that each sync and async method returns
+  a miss or does nothing for each cache-failure type, logs a `WARN` without a stack trace, and
+  still propagates other exceptions and value-loader failures, including a loader-thrown
+  `DataAccessException`.
+- [`ExchangeRateCacheFailOpenIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/service/ExchangeRateCacheFailOpenIntegrationTest.java)
+  points the cache at a dedicated Redis whose ACL denies writes and runs the real service inside a
+  `TransactionTemplate`. It asserts that no put or clear warning exists before commit, that the
+  operation-specific warning appears after commit, and that the query result and imported rows are
+  intact.
+- [`RuntimeConfigurationIntegrationTest`](../src/test/java/org/budgetanalyzer/currency/RuntimeConfigurationIntegrationTest.java)
+  loads the shipped configuration, stops its dedicated Redis container, and checks that readiness
+  stays `UP` and `GET /v1/exchange-rates` returns `200` from PostgreSQL.
 
 ### Event-Driven Messaging Testing
 
@@ -780,10 +820,12 @@ for broker-driven consumption, concurrency, and imported-rate outcomes.
 **Do:**
 - Cache repeated reads that change only on a known write path.
 - Evict on every write path that changes cached data.
-- Return mutable `ArrayList` or `Collections.emptyList()` from cacheable methods.
+- Key entries by a bounded identifier, such as the currency code, and slice per request.
+- Bind the value serializer to the cached type.
 
 **Don't:**
-- Return `List.of()` or `Stream.toList()` results from cacheable methods.
+- Put request date ranges or other unbounded input in cache keys.
+- Use default typing or type ids in cached values.
 - Use the cache for security decisions.
 
 ### Messaging

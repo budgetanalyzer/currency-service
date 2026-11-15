@@ -63,8 +63,8 @@ public class TestContainersConfig {
   /**
    * Redis container for distributed caching.
    *
-   * <p>Used by {@code ExchangeRateService} for caching exchange rate queries. Cache keys follow
-   * format: {@code {targetCurrency}:{startDate}:{endDate}}.
+   * <p>Used by {@code ExchangeRateSeriesService} for caching per-currency exchange-rate series.
+   * Cache keys are currency codes.
    */
   static GenericContainer<?> redisContainer =
       new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))

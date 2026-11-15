@@ -28,6 +28,7 @@ import org.budgetanalyzer.currency.fixture.CurrencySeriesTestBuilder;
 import org.budgetanalyzer.currency.fixture.FredApiStubs;
 import org.budgetanalyzer.currency.fixture.TestConstants;
 import org.budgetanalyzer.currency.repository.CurrencySeriesRepository;
+import org.budgetanalyzer.currency.service.dto.ExchangeRateSeries;
 import org.budgetanalyzer.service.security.test.ClaimsHeaderTestBuilder;
 
 /**
@@ -42,8 +43,6 @@ import org.budgetanalyzer.service.security.test.ClaimsHeaderTestBuilder;
 class ExchangeRateCacheEvictionAclIntegrationTest extends AbstractControllerTest {
 
   private static final String ACL_FILE_PATH = "/etc/redis/users.acl";
-
-  private static final String EXCHANGE_RATES_KEY_PATTERN = "currency-service:exchangeRates::*";
 
   private static final String UNRELATED_SERVICE_KEY = "currency-service:unrelated";
 
@@ -78,13 +77,14 @@ class ExchangeRateCacheEvictionAclIntegrationTest extends AbstractControllerTest
     setTestClaims(
         ClaimsHeaderTestBuilder.user(TestConstants.WRITER_USER_ID)
             .withPermissions(TestConstants.PERMISSION_CURRENCIES_WRITE));
-    cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE).clear();
+    cacheManager.getCache(CacheConfig.EXCHANGE_RATE_SERIES_CACHE).clear();
     stringRedisTemplate.delete(UNRELATED_SERVICE_KEY);
   }
 
   @Test
   void shouldDenyKeysCommandToServiceUser() {
-    assertThatThrownBy(() -> stringRedisTemplate.keys(EXCHANGE_RATES_KEY_PATTERN))
+    assertThatThrownBy(
+            () -> stringRedisTemplate.keys(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_PATTERN))
         .rootCause()
         .hasMessageContaining("NOPERM");
   }
@@ -92,12 +92,18 @@ class ExchangeRateCacheEvictionAclIntegrationTest extends AbstractControllerTest
   @Test
   void shouldEvictEveryCachedEntryAfterImportCommits() throws Exception {
     currencySeriesRepository.save(CurrencySeriesTestBuilder.defaultEur().build());
-    var exchangeRatesCache = cacheManager.getCache(CacheConfig.EXCHANGE_RATES_CACHE);
+    var exchangeRateSeriesCache = cacheManager.getCache(CacheConfig.EXCHANGE_RATE_SERIES_CACHE);
     for (var entryIndex = 0; entryIndex < CACHED_ENTRY_COUNT; entryIndex++) {
-      exchangeRatesCache.put(TestConstants.VALID_CURRENCY_EUR + ":" + entryIndex, entryIndex);
+      exchangeRateSeriesCache.put(
+          TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR + entryIndex,
+          TestConstants.EXCHANGE_RATE_SERIES_EUR);
     }
     stringRedisTemplate.opsForValue().set(UNRELATED_SERVICE_KEY, UNRELATED_SERVICE_KEY);
-    assertThat(countExchangeRatesKeys()).isEqualTo(CACHED_ENTRY_COUNT);
+    assertThat(countExchangeRateSeriesKeys()).isEqualTo(CACHED_ENTRY_COUNT);
+    assertThat(
+            exchangeRateSeriesCache.get(
+                TestConstants.EXCHANGE_RATE_SERIES_CACHE_KEY_EUR + 0, ExchangeRateSeries.class))
+        .isEqualTo(TestConstants.EXCHANGE_RATE_SERIES_EUR);
 
     FredApiStubs.stubSuccessWithObservations(
         TestConstants.FRED_SERIES_EUR,
@@ -105,14 +111,14 @@ class ExchangeRateCacheEvictionAclIntegrationTest extends AbstractControllerTest
 
     performPost("/v1/exchange-rates/import", "").andExpect(status().isOk());
 
-    assertThat(countExchangeRatesKeys()).isZero();
+    assertThat(countExchangeRateSeriesKeys()).isZero();
     assertThat(stringRedisTemplate.hasKey(UNRELATED_SERVICE_KEY)).isTrue();
   }
 
-  private long countExchangeRatesKeys() {
+  private long countExchangeRateSeriesKeys() {
     var scanOptions =
         ScanOptions.scanOptions()
-            .match(EXCHANGE_RATES_KEY_PATTERN)
+            .match(TestConstants.EXCHANGE_RATE_SERIES_REDIS_KEY_PATTERN)
             .count(CacheConfig.CACHE_CLEAR_BATCH_SIZE)
             .build();
     try (var cursor = stringRedisTemplate.scan(scanOptions)) {

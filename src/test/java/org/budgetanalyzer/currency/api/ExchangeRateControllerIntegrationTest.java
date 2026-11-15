@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -145,13 +146,19 @@ class ExchangeRateControllerIntegrationTest extends AbstractControllerTest {
         LocalDate.of(2024, 1, 31),
         TestConstants.RATE_EUR_USD);
 
-    performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-01-22")
+    // Behavior change: a missing endDate means today (the fixed test clock date), so the last
+    // stored rate (Jan 31) is forward-filled through today instead of ending the response
+    var startDate = LocalDate.of(2024, 1, 22);
+    var expectedDayCount = ChronoUnit.DAYS.between(startDate, TestConstants.FIXED_TODAY) + 1;
+    performGet("/v1/exchange-rates?targetCurrency=EUR&startDate={startDate}", startDate)
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$").isArray())
-        .andExpect(jsonPath("$.length()").value(10))
+        .andExpect(jsonPath("$.length()").value(expectedDayCount))
         .andExpect(jsonPath("$[0].date").value("2024-01-22"))
-        .andExpect(jsonPath("$[9].date").value("2024-01-31"));
+        .andExpect(jsonPath("$[9].date").value("2024-01-31"))
+        .andExpect(jsonPath("$[-1:].date").value(TestConstants.FIXED_TODAY.toString()))
+        .andExpect(jsonPath("$[-1:].publishedDate").value("2024-01-31"));
   }
 
   @Test
@@ -162,12 +169,17 @@ class ExchangeRateControllerIntegrationTest extends AbstractControllerTest {
         LocalDate.of(2024, 1, 10),
         TestConstants.RATE_EUR_USD);
 
+    // Behavior change: without dates the response runs from the first stored rate through today
+    // (the fixed test clock date), not only to the last stored rate.
     // API always returns USD as base
+    var expectedDayCount =
+        ChronoUnit.DAYS.between(LocalDate.of(2024, 1, 1), TestConstants.FIXED_TODAY) + 1;
     performGet("/v1/exchange-rates?targetCurrency=EUR")
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$").isArray())
-        .andExpect(jsonPath("$.length()").value(10))
+        .andExpect(jsonPath("$.length()").value(expectedDayCount))
+        .andExpect(jsonPath("$[-1:].date").value(TestConstants.FIXED_TODAY.toString()))
         .andExpect(jsonPath("$[*].baseCurrency").value(everyItem(is("USD"))))
         .andExpect(jsonPath("$[*].targetCurrency").value(everyItem(is("EUR"))));
   }
@@ -215,6 +227,23 @@ class ExchangeRateControllerIntegrationTest extends AbstractControllerTest {
   @Test
   void shouldReturn400WhenStartDateIsAfterEndDate() throws Exception {
     performGet("/v1/exchange-rates?targetCurrency=EUR&startDate=2024-12-31&endDate=2024-01-01")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("INVALID_REQUEST"));
+  }
+
+  @Test
+  void shouldReturn400WhenFutureStartDateIsAfterFutureEndDate() throws Exception {
+    saveExchangeRatesForSeries(
+        TestConstants.VALID_CURRENCY_EUR,
+        LocalDate.of(2024, 1, 1),
+        LocalDate.of(2024, 1, 10),
+        TestConstants.RATE_EUR_USD);
+
+    // Both dates are after tomorrow; the reversed input is rejected before the end-date cap
+    performGet(
+            "/v1/exchange-rates?targetCurrency=EUR&startDate={startDate}&endDate={endDate}",
+            TestConstants.DATE_2030_JAN_01.plusDays(10),
+            TestConstants.DATE_2030_JAN_01)
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.type").value("INVALID_REQUEST"));
   }
@@ -276,6 +305,61 @@ class ExchangeRateControllerIntegrationTest extends AbstractControllerTest {
         .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.type").value("APPLICATION_ERROR"))
         .andExpect(jsonPath("$.code").value("START_DATE_OUT_OF_RANGE"));
+  }
+
+  @Test
+  void shouldCapFarFutureEndDateAtTomorrow() throws Exception {
+    saveExchangeRatesForSeries(
+        TestConstants.VALID_CURRENCY_EUR,
+        LocalDate.of(2024, 1, 1),
+        LocalDate.of(2024, 1, 10),
+        TestConstants.RATE_EUR_USD);
+
+    var startDate = LocalDate.of(2024, 1, 1);
+    var tomorrow = TestConstants.FIXED_TODAY.plusDays(1);
+    var expectedDayCount = ChronoUnit.DAYS.between(startDate, tomorrow) + 1;
+    performGet(
+            "/v1/exchange-rates?targetCurrency=EUR&startDate={startDate}&endDate=9999-12-31",
+            startDate)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(expectedDayCount))
+        .andExpect(jsonPath("$[-1:].date").value(tomorrow.toString()));
+  }
+
+  @Test
+  void shouldForwardFillLastRateThroughTomorrowWhenEndDateIsTomorrow() throws Exception {
+    var startDate = LocalDate.of(2024, 1, 1);
+    var lastRateDate = LocalDate.of(2024, 1, 10);
+    saveExchangeRatesForSeries(
+        TestConstants.VALID_CURRENCY_EUR, startDate, lastRateDate, TestConstants.RATE_EUR_USD);
+
+    var tomorrow = TestConstants.FIXED_TODAY.plusDays(1);
+    var expectedDayCount = ChronoUnit.DAYS.between(startDate, tomorrow) + 1;
+    performGet(
+            "/v1/exchange-rates?targetCurrency=EUR&startDate={startDate}&endDate={endDate}",
+            startDate,
+            tomorrow)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(expectedDayCount))
+        .andExpect(jsonPath("$[-1:].date").value(tomorrow.toString()))
+        .andExpect(jsonPath("$[-1:].publishedDate").value(lastRateDate.toString()));
+  }
+
+  @Test
+  void shouldReturnEmptyArrayWhenValidFutureRangeIsEmptyAfterCap() throws Exception {
+    saveExchangeRatesForSeries(
+        TestConstants.VALID_CURRENCY_EUR,
+        LocalDate.of(2024, 1, 1),
+        LocalDate.of(2024, 1, 10),
+        TestConstants.RATE_EUR_USD);
+
+    // Correctly ordered range starting after tomorrow: capping the end at tomorrow leaves it empty
+    performGet(
+            "/v1/exchange-rates?targetCurrency=EUR&startDate={startDate}&endDate={endDate}",
+            TestConstants.FIXED_TODAY.plusDays(2),
+            TestConstants.FIXED_TODAY.plusDays(30))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
   }
 
   @Test

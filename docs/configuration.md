@@ -19,12 +19,20 @@ Every direct URL therefore starts with `http://localhost:8084/currency-service`.
 | Component | Purpose | Default connection |
 |---|---|---|
 | PostgreSQL | Data, Flyway migrations, ShedLock locks, Spring Modulith `event_publication` | `jdbc:postgresql://localhost:5432/currency`, user `currency_service` |
-| Redis | Exchange-rate query cache | `localhost:6379`, user `currency-service`, TLS off |
+| Redis (`redis-cache`) | Exchange-rate series cache | `localhost:6379`, user `currency-service`, TLS off |
 | RabbitMQ | Exchange-rate import request messages | `localhost:5671`, user `currency-service`, TLS off |
 | FRED API | Exchange-rate data source | `https://api.stlouisfed.org/fred` |
 
 The datasource URL is not a placeholder. Spring Boot's relaxed binding still lets
 `SPRING_DATASOURCE_URL` override it.
+
+Redis is the dedicated, disposable `redis-cache` instance, shared by every currency-service replica
+and used by no other service. Sessions live in a separate Redis instance that this service never
+connects to. The local cache endpoint is `localhost:6380`, the VM-loopback forward of
+`redis-cache` in the orchestration Tilt environment; the `bootRun` workflow in
+[local-development.md](local-development.md#running-locally) sets `SPRING_DATA_REDIS_PORT=6380`.
+The `6379` default in `application.yml` stays the Kubernetes Service port, and the deployment sets
+the host and port explicitly.
 
 Port `5671` is the AMQPS port, but RabbitMQ and Redis TLS default to off and their SSL bundles
 default to empty. The local run in [local-development.md](local-development.md#running-locally)
@@ -66,6 +74,19 @@ Redis, and RabbitMQ require them.
 | `SPRING_RABBITMQ_SSL_VALIDATE_SERVER_CERTIFICATE` | `true` | Validate the broker certificate when TLS is on |
 | `SPRING_RABBITMQ_SSL_VERIFY_HOSTNAME` | `true` | Check the broker hostname against its certificate when TLS is on |
 | `INFRA_CA_CERT_PATH` | empty | Location of the infrastructure CA PEM for the `infra-ca` bundle (`spring.ssl.bundle.pem.infra-ca.truststore.certificate`) |
+
+### Redis Timeouts
+
+| Property | Value | Description |
+|---|---|---|
+| `spring.data.redis.timeout` | `1s` | Command timeout for every Redis call |
+| `spring.data.redis.connect-timeout` | `1s` | Timeout for opening a Redis connection |
+
+Both are short because Redis only holds the cache, and the cache [fails open](#caching): when
+Redis is unreachable or stalled, each cache call costs at most about one second before the request
+falls back to PostgreSQL. A healthy in-cluster Redis answers in milliseconds, so one second leaves
+ample headroom for a large series value or a TLS handshake while keeping an outage from adding
+much more than a second or two to a request.
 
 ## Application Properties
 
@@ -124,14 +145,13 @@ in every environment, not only in Kubernetes.
 
 - `/actuator/health/liveness` contains only Spring's `livenessState`. It never includes a
   dependency, so an infrastructure outage does not restart the pod.
-- `/actuator/health/readiness` contains `readinessState`, `db`, and `redis`, and reports
-  unavailable when PostgreSQL or Redis cannot be reached.
+- `/actuator/health/readiness` contains `readinessState` and `db`, and reports unavailable when
+  PostgreSQL cannot be reached.
 
 PostgreSQL holds every currency series and exchange rate, so no request can be served without it.
-Redis is in readiness because the exchange-rate cache has no fallback: no `CacheErrorHandler` is
-configured, so Spring's default rethrows Redis errors, and `GET /v1/exchange-rates` fails instead of
-reading the database. If the cache is changed to fall back to the database on Redis errors, remove `redis` from
-the readiness group.
+Redis is not a readiness dependency: the cache [fails open](#caching), so a Redis outage makes
+`GET /v1/exchange-rates` slower, not failed. The `redis` health contributor still reports in the
+overall `/actuator/health` result, outside both probe groups.
 
 RabbitMQ is not a readiness dependency. Request handlers only write Spring Modulith publications to
 PostgreSQL; the outbox listener delivers them asynchronously, and the consumer recovers its broker
@@ -139,44 +159,71 @@ connection independently. The FRED API is a downstream service and is also exclu
 
 ## Caching
 
-- **Store:** Redis (`spring.cache.type: redis`), cache-aside on `GET /v1/exchange-rates` only.
-  `ExchangeRateService.getExchangeRates` is the only `@Cacheable` method, in the cache
-  `exchangeRates`. Currency series reads are not cached.
-- **Key:** `currency-service:exchangeRates::{currencyCode}:{startDate}:{endDate}`. An omitted date
-  appears as `null`. The `currency-service:` prefix keeps the service's keys apart from other
-  services that share the Redis instance.
+- **Store:** Redis (`spring.cache.type: redis`), cache-aside behind `GET /v1/exchange-rates` only.
+  `ExchangeRateSeriesService.getExchangeRateSeries` is the only `@Cacheable` method, in the cache
+  `exchangeRateSeries`. It caches one dense, forward-filled series per currency, from its first to
+  its last stored rate. `ExchangeRateService.getExchangeRates` is not cached: it checks that the
+  currency is enabled, reads the cached series and slices the requested range in Java. Currency
+  series reads are not cached.
+- **Key:** `currency-service:exchangeRateSeries::{currencyCode}`. Request date ranges never create
+  keys, so the number of entries is bounded by the number of currencies. The service's Redis ACL
+  user may only access keys with the `currency-service:` prefix.
 - **TTL:** one hour (`CacheConfig.EXCHANGE_RATES_TTL`), counted from when each entry is written.
   The TTL exists for two reasons:
-  - A cache-aside read whose query started before an import committed can write its stale result
-    after that import's after-commit eviction. Without a TTL, that entry would stay until the next
-    import, up to 24 hours later. The TTL limits it to one hour.
-  - Keys include arbitrary date ranges, so the TTL also bounds the Redis memory the cache uses.
+  - A cache-aside read whose query started before an import committed can write its stale series
+    after that import's after-commit eviction, and a failed after-commit eviction leaves the
+    previous series in place. Without a TTL, either entry would stay until the next import, up to
+    24 hours later. The TTL limits it to one hour.
+  - The cached series ends at the last stored rate, and each request forward-fills it to that
+    request's effective end date, so an entry does not change at midnight and needs no date-based
+    expiry of its own.
 
   Spring Data Redis writes each entry with a single `SET … PX`, which the service's Redis ACL
   (`+set`) allows. The TTL is fixed in code, not a configuration property, and there is no
   time-to-idle: refreshing expiry on read needs `GETEX`, which the ACL does not grant.
-- **Eviction:** every `ExchangeRateImportService` import method evicts all `exchangeRates` entries
-  (`@CacheEvict(allEntries = true)`), regardless of the TTL. The cache manager is
-  `transactionAware`, so the eviction runs only after the import transaction commits. A rolled-back
-  import leaves the cache unchanged.
-- **Clearing:** the cache writer clears a cache with `SCAN MATCH currency-service:exchangeRates::*`
-  and `DEL`, in batches of `CacheConfig.CACHE_CLEAR_BATCH_SIZE` (1000), instead of Spring Data
-  Redis's default single `KEYS` pass. ext-authz reads sessions from the same Redis instance on
-  every request, and each short `SCAN` or `DEL` call lets those reads run between batches. Clearing
-  needs `+scan` and `+del`, not `+keys`. Like `KEYS`, a clear is not a point-in-time delete: an
-  entry written by a read that races the scan can survive, bounded by the one-hour TTL.
+- **Eviction:** every `ExchangeRateImportService` import method evicts all `exchangeRateSeries`
+  entries (`@CacheEvict(allEntries = true)`), regardless of the TTL. Every cache is transaction-aware, so
+  the eviction runs only after the import transaction commits. A rolled-back import leaves the
+  cache unchanged.
+- **Clearing:** the cache writer clears a cache with
+  `SCAN MATCH currency-service:exchangeRateSeries::*` and `DEL`, in batches of
+  `CacheConfig.CACHE_CLEAR_BATCH_SIZE` (1000), instead of Spring Data Redis's default single `KEYS`
+  pass. Each short `SCAN` or `DEL` call lets cache reads from other replicas run between batches.
+  Clearing needs `+scan` and `+del`, not `+keys`. Like `KEYS`, a clear is not a point-in-time
+  delete: an entry written by a read that races the scan can survive, bounded by the one-hour TTL.
 - **Writes:** the cache writer uses `immediateWrites`, so puts, evictions, and clears finish before
   the cache call returns.
-- **Values:** JSON with Jackson default typing for non-final types. On read, type ids are accepted
-  only from `org.budgetanalyzer`, `java.util`, `java.time`, and `java.math`; any other type is
-  rejected. Null values are not cached.
-- **Collection rule:** cached values must not be JDK immutable collections, such as the results of
-  `List.of()` or `Stream.toList()`. Their classes are final, so they are written without a type id
-  and cannot be read back. Return `ArrayList` or `Collections.emptyList()` from cacheable methods.
+- **Fail-open:** each cache is `TransactionAwareCacheDecorator(FailOpenCache(RedisCache))`.
+  A cache failure is a Spring `DataAccessException`, which Spring Data Redis throws when Redis is
+  unreachable (`RedisConnectionFailureException`), times out (`QueryTimeoutException`), or rejects
+  a command such as an ACL `NOPERM` (`RedisSystemException`), or a Redis `SerializationException`
+  for a cached value that cannot be read. Asynchronous `retrieve` failures are classified after
+  unwrapping `CompletionException` and `ExecutionException`. `FailOpenCache` logs each cache
+  failure at `WARN` with the operation, the cache name, the key (no key for `clear`), and the
+  exception class and message, without a stack trace, so an outage adds one short line per cache
+  call; enable `DEBUG` for `org.budgetanalyzer.currency.config.FailOpenCache` to log the same
+  message with the stack trace. It does not rethrow the failure: a failed read is a miss served
+  from PostgreSQL, and a failed put, eviction, or clear is skipped. Because the fail-open layer
+  sits beneath the transaction-aware layer, puts and clears deferred until after commit also fail
+  open, so a committed import or a successful query never fails because of Redis. Any other
+  exception from the cache propagates, and value-loader failures, including a database
+  `DataAccessException`, still propagate. The service uses no `CacheErrorHandler`, which would not
+  cover after-commit operations. An outage costs up to the
+  [Redis command timeout](#redis-timeouts) per cache call.
+- **Values:** compact JSON written by a Jackson serializer bound to `ExchangeRateSeries`: the base
+  currency, target currency and provider series ID once, the series start date, one USD-based rate
+  per day and one published-date offset per day (`0` marks a stored rate on that day). The
+  serializer uses a copy of the application `JsonMapper` with `INDENT_OUTPUT` disabled, writes no
+  type ids and reads every value as `ExchangeRateSeries`, so a cache can hold only that type. Null
+  values are not cached.
 
-`CacheConfig` defines the only `RedisCacheConfiguration`, so `spring.cache.redis.*` properties
-other than `cache-names` and `enable-statistics` have no effect. Neither is set, so cache statistics
-are off. See
+`CacheConfig` creates the `RedisCacheManager` itself when `spring.cache.type` is `redis` or unset,
+so Spring Boot's cache manager auto-configuration backs off and no `spring.cache.redis.*` property
+has an effect; cache statistics are off. Matching the unset property stops Spring Boot from
+building its own plain Redis manager, which is not fail-open or transaction-aware, writes
+asynchronously, and clears with `KEYS`, which the service's ACL user may not run. With any other
+`spring.cache.type`, such as `none` in most tests, Spring Boot configures the cache manager for
+that type. See
 [advanced-patterns-usage.md](advanced-patterns-usage.md#redis-distributed-caching) for the code.
 
 ## Scheduled Tasks

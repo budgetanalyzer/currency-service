@@ -1,9 +1,14 @@
 package org.budgetanalyzer.currency.fixture;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Currency;
+import java.util.List;
+
+import org.budgetanalyzer.currency.service.dto.ExchangeRateSeries;
 
 /**
  * Test constants for integration tests.
@@ -172,6 +177,18 @@ public final class TestConstants {
   /** Test date: Future date (January 1, 2030). */
   public static final LocalDate DATE_2030_JAN_01 = LocalDate.of(2030, 1, 1);
 
+  /**
+   * Fixed "today" (UTC) of the integration-test {@link Clock}, after every stored test rate.
+   *
+   * <p>Exchange-rate queries forward-fill to this date when no end date is supplied and cap a later
+   * end date at the day after it.
+   */
+  public static final LocalDate FIXED_TODAY = LocalDate.of(2025, 1, 15);
+
+  /** Fixed UTC clock whose current date is {@link #FIXED_TODAY}. */
+  public static final Clock FIXED_CLOCK =
+      Clock.fixed(FIXED_TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
+
   // ===========================================================================================
   // Sample Exchange Rates
   // ===========================================================================================
@@ -199,6 +216,9 @@ public final class TestConstants {
 
   /** Sample exchange rate: Parity (1:1 ratio). */
   public static final BigDecimal RATE_PARITY = new BigDecimal("1.0000");
+
+  /** Daily rate increment that gives each day of a test range a different rate. */
+  public static final BigDecimal RATE_DAILY_INCREMENT = new BigDecimal("0.0100");
 
   // ===========================================================================================
   // FRED API Configuration
@@ -305,6 +325,12 @@ public final class TestConstants {
   /** Permission required to change currencies. */
   public static final String PERMISSION_CURRENCIES_WRITE = "currencies:write";
 
+  /** Internal user ID of a test caller allowed to read currencies and exchange rates. */
+  public static final String READER_USER_ID = "usr_reader";
+
+  /** Permission required to read currencies and exchange rates. */
+  public static final String PERMISSION_CURRENCIES_READ = "currencies:read";
+
   /** FRED API key for tests that load the main application configuration. */
   public static final String FRED_TEST_API_KEY = "test-key";
 
@@ -325,7 +351,130 @@ public final class TestConstants {
       "~currency-service:* +get +set +del +scan +ping +auth +hello +info +ttl +pttl +expire"
           + " +exists +type +object";
 
+  /**
+   * Redis ACL rules for a service user that may read cache entries but not write, delete, or scan
+   * them, so cache puts and clears fail with {@code NOPERM}.
+   */
+  public static final String REDIS_CURRENCY_SERVICE_READ_ONLY_RULES =
+      "~currency-service:* +get +ping +auth +hello +info";
+
+  // ===========================================================================================
+  // Exchange-Rate Series Cache
+  // ===========================================================================================
+
+  /** Cache key of the EUR exchange-rate series (the currency code). */
+  public static final String EXCHANGE_RATE_SERIES_CACHE_KEY_EUR = VALID_CURRENCY_EUR;
+
+  /** Full Redis key of the cached EUR exchange-rate series. */
+  public static final String EXCHANGE_RATE_SERIES_REDIS_KEY_EUR =
+      "currency-service:exchangeRateSeries::" + EXCHANGE_RATE_SERIES_CACHE_KEY_EUR;
+
+  /** Redis key pattern matching every cached exchange-rate series. */
+  public static final String EXCHANGE_RATE_SERIES_REDIS_KEY_PATTERN =
+      "currency-service:exchangeRateSeries::*";
+
+  /**
+   * Valid cached EUR series: source rates on Friday Jan 5 and Monday Jan 8, 2024, with the weekend
+   * forward-filled from Friday.
+   */
+  public static final ExchangeRateSeries EXCHANGE_RATE_SERIES_EUR =
+      new ExchangeRateSeries(
+          Currency.getInstance(VALID_CURRENCY_USD),
+          CURRENCY_EUR,
+          FRED_SERIES_EUR,
+          DATE_2024_JAN_05,
+          List.of(
+              new BigDecimal("1.1765"),
+              new BigDecimal("1.1765"),
+              new BigDecimal("1.1765"),
+              new BigDecimal("1.1628")),
+          List.of(0, 1, 2, 0));
+
+  // ===========================================================================================
+  // Fail-Open Cache
+  // ===========================================================================================
+
+  /** Name of the cache used by fail-open cache unit tests. */
+  public static final String FAIL_OPEN_TEST_CACHE_NAME = "failOpenTestCache";
+
+  /** Value stored or loaded by fail-open cache unit tests. */
+  public static final String FAIL_OPEN_TEST_VALUE = "cached-value";
+
+  /** Message of the simulated Redis failure in fail-open cache unit tests. */
+  public static final String SIMULATED_REDIS_FAILURE_MESSAGE = "Simulated Redis failure";
+
+  /** Message of the simulated value loader failure in fail-open cache unit tests. */
+  public static final String SIMULATED_LOADER_FAILURE_MESSAGE = "Simulated loader failure";
+
+  /** Message of the simulated non-cache failure in fail-open cache unit tests. */
+  public static final String SIMULATED_UNEXPECTED_FAILURE_MESSAGE = "Simulated unexpected failure";
+
+  /**
+   * Returns the start of the warning that the fail-open cache logs when a keyed cache operation
+   * fails, up to the exception class.
+   *
+   * @param operation the failed cache operation, such as {@code get} or {@code put}
+   * @param cacheName the name of the cache
+   * @param key the cache key
+   * @return the start of the formatted warning message
+   */
+  public static String failOpenCacheWarningPrefix(String operation, String cacheName, Object key) {
+    return "Cache "
+        + operation
+        + " failed for cache '"
+        + cacheName
+        + "' and key '"
+        + key
+        + "'; continuing without the cache: ";
+  }
+
+  /**
+   * Returns the start of the warning that the fail-open cache logs when a cache-wide operation
+   * fails, up to the exception class.
+   *
+   * @param operation the failed cache operation, such as {@code clear}
+   * @param cacheName the name of the cache
+   * @return the start of the formatted warning message
+   */
+  public static String failOpenCacheWarningPrefix(String operation, String cacheName) {
+    return "Cache "
+        + operation
+        + " failed for cache '"
+        + cacheName
+        + "'; continuing without the cache: ";
+  }
+
+  /**
+   * Returns the warning that the fail-open cache logs when a keyed cache operation fails.
+   *
+   * @param operation the failed cache operation, such as {@code get} or {@code put}
+   * @param cacheName the name of the cache
+   * @param key the cache key
+   * @param failure the absorbed cache failure, whose class and message end the warning
+   * @return the formatted warning message
+   */
+  public static String failOpenCacheWarning(
+      String operation, String cacheName, Object key, Throwable failure) {
+    return failOpenCacheWarningPrefix(operation, cacheName, key) + failureSummary(failure);
+  }
+
+  /**
+   * Returns the warning that the fail-open cache logs when a cache-wide operation fails.
+   *
+   * @param operation the failed cache operation, such as {@code clear}
+   * @param cacheName the name of the cache
+   * @param failure the absorbed cache failure, whose class and message end the warning
+   * @return the formatted warning message
+   */
+  public static String failOpenCacheWarning(String operation, String cacheName, Throwable failure) {
+    return failOpenCacheWarningPrefix(operation, cacheName) + failureSummary(failure);
+  }
+
   private TestConstants() {
     throw new UnsupportedOperationException("Utility class - do not instantiate");
+  }
+
+  private static String failureSummary(Throwable failure) {
+    return failure.getClass().getName() + ": " + failure.getMessage();
   }
 }
